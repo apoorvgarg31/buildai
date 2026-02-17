@@ -11,9 +11,9 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   { name: "Chat", icon: "💬", href: "/", active: true },
-  { name: "Projects", icon: "🏗️", href: "/projects" },
   { name: "Connections", icon: "🔗", href: "/connections" },
-  { name: "Documents", icon: "📄", href: "/documents" },
+  { name: "Usage", icon: "📊", href: "/usage" },
+  { name: "Marketplace", icon: "🛍️", href: "/marketplace" },
   { name: "Settings", icon: "⚙️", href: "/settings" },
 ];
 
