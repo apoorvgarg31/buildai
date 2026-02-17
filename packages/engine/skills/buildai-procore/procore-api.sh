@@ -11,7 +11,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TOKEN_FILE="${SCRIPT_DIR}/../../.procore-tokens.json"
+TOKEN_FILE="${SCRIPT_DIR}/../../../../.procore-tokens.json"
 API_BASE="https://api.procore.com"
 LOGIN_BASE="https://login.procore.com"
 
@@ -102,8 +102,10 @@ print('yes' if time.time() >= expires - 60 else 'no')
         \"refresh_token\": \"$REFRESH_TOKEN\"
       }")
     
-    if echo "$REFRESH_RESULT" | jq -e '.error' >/dev/null 2>&1; then
-      echo "{\"error\": \"Token refresh failed: $(echo "$REFRESH_RESULT" | jq -r '.error_description // .error')\"}" >&2
+    if python3 -c "import json,sys; d=json.loads(sys.argv[1]); sys.exit(0 if 'error' in d else 1)" "$REFRESH_RESULT" 2>/dev/null; then
+      local ERR_MSG
+      ERR_MSG=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); print(d.get('error_description', d.get('error','unknown')))" "$REFRESH_RESULT")
+      echo "{\"error\": \"Token refresh failed: $ERR_MSG\"}" >&2
       exit 1
     fi
     
@@ -130,13 +132,20 @@ HTTP_CODE=$(echo "$RESULT" | tail -1)
 BODY=$(echo "$RESULT" | sed '$d')
 
 if [ "$HTTP_CODE" -ge 400 ]; then
-  echo "{\"error\": \"Procore API returned HTTP $HTTP_CODE\", \"body\": $(echo "$BODY" | jq . 2>/dev/null || echo "\"$BODY\"")}" >&2
+  echo "{\"error\": \"Procore API returned HTTP $HTTP_CODE\", \"body\": $(python3 -c "import json,sys; print(json.dumps(json.loads(sys.argv[1])))" "$BODY" 2>/dev/null || echo "\"$BODY\"")}" >&2
   exit 1
 fi
 
-if echo "$BODY" | jq -e 'type == "array"' >/dev/null 2>&1; then
-  COUNT=$(echo "$BODY" | jq 'length')
-  echo "{\"endpoint\": \"$ENDPOINT\", \"count\": $COUNT, \"data\": $BODY}"
-else
-  echo "{\"endpoint\": \"$ENDPOINT\", \"data\": $BODY}"
-fi
+python3 -c "
+import json, sys
+body = sys.argv[1]
+endpoint = sys.argv[2]
+try:
+    data = json.loads(body)
+    if isinstance(data, list):
+        print(json.dumps({'endpoint': endpoint, 'count': len(data), 'data': data}))
+    else:
+        print(json.dumps({'endpoint': endpoint, 'data': data}))
+except:
+    print(json.dumps({'endpoint': endpoint, 'raw': body}))
+" "$BODY" "$ENDPOINT"

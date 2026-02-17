@@ -14,6 +14,10 @@ export CLAWDBOT_SKIP_CHANNELS=1
 # Source additional env vars if present
 [ -f .env.buildai ] && set -a && source .env.buildai && set +a
 
+# Source Procore secrets (production OAuth creds)
+PROCORE_SECRETS="$(cd ../.. && pwd)/.secrets/procore.env"
+[ -f "$PROCORE_SECRETS" ] && set -a && source "$PROCORE_SECRETS" && set +a
+
 mkdir -p "$CLAWDBOT_STATE_DIR"
 
 exec clawdbot gateway --port 18790

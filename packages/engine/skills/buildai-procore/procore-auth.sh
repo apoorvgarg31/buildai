@@ -11,7 +11,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TOKEN_FILE="${SCRIPT_DIR}/../../.procore-tokens.json"
+TOKEN_FILE="${SCRIPT_DIR}/../../../../.procore-tokens.json"
 SANDBOX_BASE="https://sandbox.procore.com"
 
 PROCORE_REDIRECT_URI="${PROCORE_REDIRECT_URI:-http://localhost:3000/api/procore/callback}"
