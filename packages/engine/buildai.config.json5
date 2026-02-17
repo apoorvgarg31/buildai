@@ -13,7 +13,21 @@
       "subagents": {
         "maxConcurrent": 8
       }
-    }
+    },
+    "list": [
+      {
+        "id": "sarah-pm-agent",
+        "name": "Sarah PM Agent",
+        "workspace": "../../workspaces/sarah-pm-agent",
+        "model": {
+          "primary": "anthropic/claude-sonnet-4-20250514"
+        },
+        "identity": {
+          "name": "BuildAI",
+          "emoji": "🏗️"
+        }
+      }
+    ]
   },
   "commands": {
     "native": "auto",

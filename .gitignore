@@ -40,3 +40,5 @@ coverage/
 
 # Procore tokens (OAuth)
 .procore-tokens.json
+packages/engine/skills/*/.env
+workspaces/*/skills/*/.env
