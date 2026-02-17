@@ -17,7 +17,7 @@ interface Stats {
 
 const statusColors: Record<string, string> = {
   connected: "text-emerald-400 bg-emerald-500/10",
-  pending: "text-amber-400 bg-amber-500/10",
+  pending: "text-[#171717] bg-[#171717]/10",
   error: "text-red-400 bg-red-500/10",
   active: "text-emerald-400 bg-emerald-500/10",
 };
@@ -42,11 +42,11 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   ];
 
   return (
-    <div className="flex flex-col h-full bg-[#0a0a0a] overflow-y-auto">
-      <header className="flex items-center justify-between pl-14 pr-6 lg:px-6 h-14 border-b border-white/5 shrink-0">
+    <div className="flex flex-col h-full bg-white overflow-y-auto">
+      <header className="flex items-center justify-between pl-14 pr-6 lg:px-6 h-14 border-b border-black/5 shrink-0">
         <div>
-          <h2 className="text-sm font-semibold text-white">Dashboard</h2>
-          <p className="text-[11px] text-gray-500">Welcome back, {user.name}</p>
+          <h2 className="text-sm font-semibold text-[#171717]">Dashboard</h2>
+          <p className="text-[11px] text-[#8e8e8e]">Welcome back, {user.name}</p>
         </div>
       </header>
 
@@ -56,26 +56,26 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
           {statCards.map((s) => (
             <div key={s.label} className={`rounded-xl border bg-gradient-to-br ${s.color} p-4`}>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-medium text-gray-400">{s.label}</span>
+                <span className="text-[11px] font-medium text-[#8e8e8e]">{s.label}</span>
                 <span className="text-lg">{s.icon}</span>
               </div>
-              <p className="text-2xl font-bold text-white">{loading ? "…" : s.value}</p>
-              <p className="text-[11px] text-gray-500 mt-1">{s.sub}</p>
+              <p className="text-2xl font-bold text-[#171717]">{loading ? "…" : s.value}</p>
+              <p className="text-[11px] text-[#8e8e8e] mt-1">{s.sub}</p>
             </div>
           ))}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Users Table */}
-          <div className="rounded-xl border border-white/5 bg-[#171717]">
-            <div className="px-5 py-3 border-b border-white/5">
-              <h3 className="text-[13px] font-semibold text-white">Team Members</h3>
+          <div className="rounded-xl border border-black/5 bg-[#f9f9f9]">
+            <div className="px-5 py-3 border-b border-black/5">
+              <h3 className="text-[13px] font-semibold text-[#171717]">Team Members</h3>
             </div>
             <div className="divide-y divide-white/5">
               {loading ? (
-                <div className="px-5 py-8 text-center text-gray-500 text-[12px]">Loading...</div>
+                <div className="px-5 py-8 text-center text-[#8e8e8e] text-[12px]">Loading...</div>
               ) : (stats?.recentUsers ?? []).length === 0 ? (
-                <div className="px-5 py-8 text-center text-gray-500 text-[12px]">No users yet — add users in the Users tab</div>
+                <div className="px-5 py-8 text-center text-[#8e8e8e] text-[12px]">No users yet — add users in the Users tab</div>
               ) : (
                 (stats?.recentUsers ?? []).map((u) => (
                   <div key={u.id} className="flex items-center justify-between px-5 py-2.5">
@@ -84,8 +84,8 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                         {u.name.split(" ").map((n: string) => n[0]).join("").substring(0, 2)}
                       </div>
                       <div>
-                        <p className="text-[12px] font-medium text-white">{u.name}</p>
-                        <p className="text-[10px] text-gray-500">{u.email}</p>
+                        <p className="text-[12px] font-medium text-[#171717]">{u.name}</p>
+                        <p className="text-[10px] text-[#8e8e8e]">{u.email}</p>
                       </div>
                     </div>
                     <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
@@ -98,23 +98,23 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
           </div>
 
           {/* Connections Overview */}
-          <div className="rounded-xl border border-white/5 bg-[#171717]">
-            <div className="px-5 py-3 border-b border-white/5">
-              <h3 className="text-[13px] font-semibold text-white">Connections</h3>
+          <div className="rounded-xl border border-black/5 bg-[#f9f9f9]">
+            <div className="px-5 py-3 border-b border-black/5">
+              <h3 className="text-[13px] font-semibold text-[#171717]">Connections</h3>
             </div>
             <div className="divide-y divide-white/5">
               {loading ? (
-                <div className="px-5 py-8 text-center text-gray-500 text-[12px]">Loading...</div>
+                <div className="px-5 py-8 text-center text-[#8e8e8e] text-[12px]">Loading...</div>
               ) : (stats?.recentConnections ?? []).length === 0 ? (
-                <div className="px-5 py-8 text-center text-gray-500 text-[12px]">No connections yet — add connections in the Connections tab</div>
+                <div className="px-5 py-8 text-center text-[#8e8e8e] text-[12px]">No connections yet — add connections in the Connections tab</div>
               ) : (
                 (stats?.recentConnections ?? []).map((c) => (
                   <div key={c.id} className="flex items-center justify-between px-5 py-2.5">
                     <div>
-                      <p className="text-[12px] font-medium text-white">{c.name}</p>
-                      <p className="text-[10px] text-gray-500">{c.type}</p>
+                      <p className="text-[12px] font-medium text-[#171717]">{c.name}</p>
+                      <p className="text-[10px] text-[#8e8e8e]">{c.type}</p>
                     </div>
-                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${statusColors[c.status] || "text-gray-400 bg-gray-500/10"}`}>
+                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${statusColors[c.status] || "text-[#8e8e8e] bg-gray-500/10"}`}>
                       {c.status}
                     </span>
                   </div>
