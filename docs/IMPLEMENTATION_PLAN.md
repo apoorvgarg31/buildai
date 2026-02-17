@@ -94,12 +94,24 @@ See CONTRIBUTING.md for details.
 - [x] Role badge, user profile, logout
 - [x] Fully responsive (mobile hamburger + overlays)
 
-### Task 1.7: LLM + Database Wiring 🔵 IN PROGRESS
-- [ ] Gemini 2.0 Flash integration (via @google/generative-ai)
-- [ ] Agent generates SQL from natural language
-- [ ] Queries real PostgreSQL database
-- [ ] Returns natural language answers
-- [ ] Uses env vars only (GEMINI_API_KEY)
+### Task 1.7: LLM + Database Wiring ✅
+- [x] Gemini 2.0 Flash integration (via @google/generative-ai)
+- [x] Agent generates SQL from natural language, executes against real DB
+- [x] Two-step loop: user question → SQL generation → DB query → natural language response
+- [x] Safety: only SELECT/WITH allowed, dangerous keywords blocked
+- [x] In-memory conversation history (20-turn window)
+- [x] Full database schema embedded in system prompt
+- [x] Uses env vars only (GEMINI_API_KEY) — throws error if missing
+- [x] Tested: "How many projects?" → 5 ✅, "Overdue critical RFIs" → 4 results ✅
+- Files: lib/llm.ts, lib/db.ts, api/chat/route.ts
+
+### Task 1.8: ChatGPT-Style UI Polish ✅
+- [x] react-markdown + @tailwindcss/typography for proper markdown rendering
+- [x] Dark theme (#0a0a0a, #171717) throughout
+- [x] Gradient avatars, refined spacing, sleeker sidebar (260px)
+- [x] ChatGPT-style messages (no bubbles, clean prose, timestamp on hover)
+- [x] "BuildAI can make mistakes" disclaimer
+- [x] Status badge shows Connected/Preview correctly
 
 ---
 
