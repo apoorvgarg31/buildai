@@ -23,17 +23,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     await client.connect();
     const result = await client.chatHistory(sessionKey, 100);
 
-    // The gateway returns messages in the session log format
-    // Extract user and assistant messages
-    const history = result as Array<{
-      type?: string;
-      message?: {
+    // Gateway returns { sessionKey, sessionId, messages: [...] }
+    const data = result as {
+      sessionKey?: string;
+      sessionId?: string;
+      messages?: Array<{
         role?: string;
         content?: unknown;
         timestamp?: number;
-      };
-      timestamp?: string;
-    }>;
+      }>;
+    };
+
+    const rawMessages = data?.messages || (Array.isArray(result) ? result : []);
 
     const messages: Array<{
       id: string;
@@ -42,40 +43,39 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       timestamp: string;
     }> = [];
 
-    if (Array.isArray(history)) {
-      for (const entry of history) {
-        const msg = entry.message || entry;
-        const role = (msg as { role?: string }).role;
-        if (role !== 'user' && role !== 'assistant') continue;
+    for (const msg of rawMessages) {
+      const role = msg.role;
+      if (role !== 'user' && role !== 'assistant') continue;
 
-        const content = (msg as { content?: unknown }).content;
-        let text = '';
+      const content = msg.content;
+      let text = '';
 
-        if (typeof content === 'string') {
-          text = content;
-        } else if (Array.isArray(content)) {
-          text = content
-            .map((block: unknown) => {
-              if (typeof block === 'string') return block;
-              if ((block as { type?: string; text?: string })?.type === 'text') {
-                return (block as { text: string }).text;
-              }
-              return '';
-            })
-            .join('');
-        }
+      if (typeof content === 'string') {
+        text = content;
+      } else if (Array.isArray(content)) {
+        text = content
+          .map((block: unknown) => {
+            if (typeof block === 'string') return block;
+            if ((block as { type?: string; text?: string })?.type === 'text') {
+              return (block as { text: string }).text;
+            }
+            return '';
+          })
+          .join('');
+      }
 
-        // Strip [message_id: ...] tags from user messages
-        text = text.replace(/\n?\[message_id:.*?\]/g, '').trim();
+      // Strip [message_id: ...] tags from user messages
+      text = text.replace(/\n?\[message_id:.*?\]/g, '').trim();
 
-        if (text) {
-          messages.push({
-            id: (entry as { id?: string }).id || crypto.randomUUID(),
-            role: role as 'user' | 'assistant',
-            content: text,
-            timestamp: (entry.timestamp || new Date().toISOString()) as string,
-          });
-        }
+      if (text) {
+        messages.push({
+          id: crypto.randomUUID(),
+          role: role as 'user' | 'assistant',
+          content: text,
+          timestamp: msg.timestamp
+            ? new Date(msg.timestamp).toISOString()
+            : new Date().toISOString(),
+        });
       }
     }
 
