@@ -5,23 +5,8 @@ import ChatMessage, { Message } from "./ChatMessage";
 import ChatInput from "./ChatInput";
 import DocumentPanel, { UploadedDoc } from "./DocumentPanel";
 
-const WELCOME_MESSAGE: Message = {
-  id: "welcome",
-  role: "assistant",
-  content: `Hey! I'm your **BuildAI assistant** — your personal construction PM copilot. 🏗️
-
-I can help you with:
-- **RFIs & Submittals** — track, create, follow up
-- **Budget & Costs** — real-time cost code analysis
-- **Schedule** — critical path, milestones, delays
-- **Documents** — search contracts, specs, drawings
-- **Daily Logs** — review and create entries
-
-I'll also proactively alert you about overdue items, expiring certs, and budget issues.
-
-What are you working on today?`,
-  timestamp: new Date(),
-};
+// Dynamic onboarding — agent scans projects on first load
+const ONBOARDING_TRIGGER = "I just logged in. Run a full project health scan: query the database for all active projects, check for overdue RFIs, expiring insurance, and budget overruns. Show me a complete health dashboard.";
 
 async function sendChatMessage(
   message: string,
@@ -42,12 +27,13 @@ async function sendChatMessage(
 }
 
 export default function ChatArea() {
-  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [engineStatus, setEngineStatus] = useState<"mock" | "connected" | "checking">("checking");
   const [documents, setDocuments] = useState<UploadedDoc[]>([]);
   const [showDocPanel, setShowDocPanel] = useState(false);
+  const [hasOnboarded, setHasOnboarded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback(() => {
@@ -68,6 +54,33 @@ export default function ChatArea() {
         setEngineStatus("mock");
       });
   }, []);
+
+  // Auto-onboard: trigger a real project health scan on first load
+  useEffect(() => {
+    if (hasOnboarded) return;
+    setHasOnboarded(true);
+    setIsLoading(true);
+
+    sendChatMessage(ONBOARDING_TRIGGER, null)
+      .then((data) => {
+        if (data.sessionId) setSessionId(data.sessionId);
+        setMessages([{
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: data.response,
+          timestamp: new Date(),
+        }]);
+      })
+      .catch(() => {
+        setMessages([{
+          id: "welcome-fallback",
+          role: "assistant",
+          content: `Hey! I'm your **BuildAI assistant** — your personal construction PM copilot. 🏗️\n\nI can help you with RFIs, budgets, schedules, documents, and more. What are you working on today?`,
+          timestamp: new Date(),
+        }]);
+      })
+      .finally(() => setIsLoading(false));
+  }, [hasOnboarded]);
 
   const addDocuments = useCallback((files: FileList) => {
     const newDocs: UploadedDoc[] = Array.from(files).map((file) => ({

@@ -13,6 +13,7 @@ import AdminConnectionsPage from "@/components/AdminConnectionsPage";
 import AdminSettingsPage from "@/components/AdminSettingsPage";
 import MarketplacePage from "@/components/MarketplacePage";
 import UsagePage from "@/components/UsagePage";
+import SettingsPage from "@/components/SettingsPage";
 
 export default function Home() {
   const [user, setUser] = useState<DemoUser | null>(null);
@@ -48,6 +49,8 @@ export default function Home() {
         return <MarketplacePage />;
       case "usage":
         return <UsagePage />;
+      case "settings":
+        return <SettingsPage />;
       case "chat":
       default:
         return <ChatArea />;
