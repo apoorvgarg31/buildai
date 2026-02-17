@@ -8,7 +8,7 @@
         "primary": "google/gemini-2.0-flash"
       },
       "workspace": "../../workspaces/buildai-agent",
-      "thinkingDefault": "low",
+      "thinkingDefault": "off",
       "maxConcurrent": 4,
       "subagents": {
         "maxConcurrent": 8
