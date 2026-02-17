@@ -26,10 +26,17 @@ async function sendChatMessage(
   return res.json();
 }
 
-export default function ChatArea() {
+interface ChatAreaProps {
+  agentId?: string;
+}
+
+export default function ChatArea({ agentId }: ChatAreaProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  // Session key routes to the assigned agent
+  const [sessionId, setSessionId] = useState<string | null>(
+    agentId ? `agent:${agentId}:webchat:default` : null
+  );
   const [engineStatus, setEngineStatus] = useState<"mock" | "connected" | "checking">("checking");
   const [documents, setDocuments] = useState<UploadedDoc[]>([]);
   const [showDocPanel, setShowDocPanel] = useState(false);

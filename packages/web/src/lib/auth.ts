@@ -8,6 +8,7 @@ export interface DemoUser {
   name: string;
   title: string;
   avatar: string; // initials
+  agentId?: string; // assigned agent (for chat routing)
 }
 
 export const DEMO_USERS: DemoUser[] = [
@@ -26,6 +27,7 @@ export const DEMO_USERS: DemoUser[] = [
     name: "Mike Torres",
     title: "Senior Project Manager",
     avatar: "MT",
+    agentId: "sarah-pm-agent", // default demo agent
   },
 ];
 

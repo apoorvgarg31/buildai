@@ -53,7 +53,7 @@ export default function Home() {
         return <SettingsPage />;
       case "chat":
       default:
-        return <ChatArea />;
+        return <ChatArea agentId={user.agentId} />;
     }
   };
 
