@@ -16,6 +16,11 @@ interface AgentEntry {
   workspace: string;
   model?: { primary: string };
   identity?: { name: string; emoji: string };
+  heartbeat?: {
+    every: string;
+    activeHours?: { start: string; end: string; timezone?: string };
+    prompt?: string;
+  };
 }
 
 interface EngineConfig {
@@ -70,6 +75,11 @@ export async function addAgentToConfig(
       workspace: opts.workspace,
       model: { primary: opts.model || 'anthropic/claude-sonnet-4-20250514' },
       identity: { name: 'BuildAI', emoji: '🏗️' },
+      heartbeat: {
+        every: '30m',
+        activeHours: { start: '07:00', end: '19:00' },
+        prompt: 'Read HEARTBEAT.md. Run the monitoring checks using available skills. If any issues found, write alerts to ACTIVE.md. If nothing needs attention, reply HEARTBEAT_OK.',
+      },
     };
     config.agents.list.push(entry);
   }
