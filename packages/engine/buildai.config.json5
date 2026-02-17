@@ -26,6 +26,26 @@
           "name": "BuildAI",
           "emoji": "🏗️"
         }
+      },
+      {
+        "id": "jarvis2",
+        "name": "Jarvis2",
+        "workspace": "../../workspaces/jarvis2",
+        "model": {
+          "primary": "anthropic/claude-sonnet-4-20250514"
+        },
+        "identity": {
+          "name": "BuildAI",
+          "emoji": "🏗️"
+        },
+        "heartbeat": {
+          "every": "30m",
+          "activeHours": {
+            "start": "07:00",
+            "end": "19:00"
+          },
+          "prompt": "Read HEARTBEAT.md. Run the monitoring checks using available skills. If any issues found, write alerts to ACTIVE.md. If nothing needs attention, reply HEARTBEAT_OK."
+        }
       }
     ]
   },
@@ -55,7 +75,19 @@
     }
   },
   "skills": {
-    "allowBundled": ["buildai-database", "buildai-procore", "buildai-monitor", "buildai-marketplace", "buildai-pdf-extract", "buildai-doc-generator", "buildai-invoice-parser", "buildai-contract-parser", "buildai-schedule-import", "buildai-safety-checker", "buildai-photo-log"]
+    "allowBundled": [
+      "buildai-database",
+      "buildai-procore",
+      "buildai-monitor",
+      "buildai-marketplace",
+      "buildai-pdf-extract",
+      "buildai-doc-generator",
+      "buildai-invoice-parser",
+      "buildai-contract-parser",
+      "buildai-schedule-import",
+      "buildai-safety-checker",
+      "buildai-photo-log"
+    ]
   },
   "plugins": {
     "entries": {

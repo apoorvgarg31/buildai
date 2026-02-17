@@ -1,6 +1,7 @@
 'use client';
 
 import { useUser } from '@clerk/nextjs';
+import { useState, useEffect } from 'react';
 
 export type Role = 'admin' | 'user';
 
@@ -29,8 +30,25 @@ function defaultTitle(role: Role): string {
 
 export function useCurrentUser(): { user: BuildAIUser | null; isLoaded: boolean } {
   const { user, isLoaded } = useUser();
+  const [agentId, setAgentId] = useState<string | undefined>(undefined);
+  const [agentLoaded, setAgentLoaded] = useState(false);
 
-  if (!isLoaded) {
+  useEffect(() => {
+    if (!user) {
+      setAgentLoaded(true);
+      return;
+    }
+    // Fetch agent assignment from admin DB (source of truth)
+    fetch('/api/me')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.agentId) setAgentId(data.agentId);
+        setAgentLoaded(true);
+      })
+      .catch(() => setAgentLoaded(true));
+  }, [user]);
+
+  if (!isLoaded || !agentLoaded) {
     return { user: null, isLoaded: false };
   }
 
@@ -41,7 +59,8 @@ export function useCurrentUser(): { user: BuildAIUser | null; isLoaded: boolean 
   const metadata = user.publicMetadata as Record<string, unknown> | undefined;
   const role: Role = (metadata?.role === 'admin' ? 'admin' : 'user');
   const title = (typeof metadata?.title === 'string' ? metadata.title : defaultTitle(role));
-  const agentId = typeof metadata?.agentId === 'string' ? metadata.agentId : undefined;
+  // Use admin DB agentId first, fall back to Clerk metadata
+  const resolvedAgentId = agentId || (typeof metadata?.agentId === 'string' ? metadata.agentId : undefined);
   const fullName = user.fullName || user.firstName || 'User';
   const email = user.primaryEmailAddress?.emailAddress || '';
 
@@ -53,7 +72,7 @@ export function useCurrentUser(): { user: BuildAIUser | null; isLoaded: boolean 
       role,
       title,
       avatar: getInitials(fullName),
-      agentId,
+      agentId: resolvedAgentId,
     },
     isLoaded: true,
   };
