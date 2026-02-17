@@ -62,6 +62,11 @@ const SECRET_ENV_MAP: Record<string, Record<string, string>> = {
 /**
  * Provision skills for an agent based on assigned connections.
  * Clears existing skills and re-provisions from scratch.
+ *
+ * Multiple connections of the same type get separate skill instances:
+ *   - First database connection → buildai-database
+ *   - Second database connection → buildai-database-<slug>
+ * Each instance gets its own .env and a customized SKILL.md with the connection name.
  */
 export async function provisionSkills(agentId: string, connectionIds: string[]): Promise<void> {
   const skillsDir = path.join(WORKSPACES_BASE, agentId, 'skills');
@@ -72,6 +77,9 @@ export async function provisionSkills(agentId: string, connectionIds: string[]):
   }
   fs.mkdirSync(skillsDir, { recursive: true });
 
+  // Track how many of each type we've provisioned (for unique naming)
+  const typeCount: Record<string, number> = {};
+
   for (const connId of connectionIds) {
     const conn = getConnection(connId);
     if (!conn) {
@@ -79,20 +87,33 @@ export async function provisionSkills(agentId: string, connectionIds: string[]):
       continue;
     }
 
-    const skillName = SKILL_MAP[conn.type];
-    if (!skillName) {
+    const baseSkillName = SKILL_MAP[conn.type];
+    if (!baseSkillName) {
       console.warn(`[skill-provisioner] No skill mapping for connection type "${conn.type}", skipping`);
       continue;
     }
 
-    const sourceSkillDir = path.join(SKILLS_SOURCE, skillName);
+    const sourceSkillDir = path.join(SKILLS_SOURCE, baseSkillName);
     if (!fs.existsSync(sourceSkillDir)) {
       console.warn(`[skill-provisioner] Skill source not found: ${sourceSkillDir}, skipping`);
       continue;
     }
 
+    // Generate unique skill instance name for multiple connections of same type
+    const count = typeCount[conn.type] || 0;
+    typeCount[conn.type] = count + 1;
+
+    let instanceName: string;
+    if (count === 0) {
+      instanceName = baseSkillName;
+    } else {
+      // Slug the connection name for the folder
+      const slug = conn.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      instanceName = `${baseSkillName}-${slug}`;
+    }
+
     // Copy skill directory
-    const destSkillDir = path.join(skillsDir, skillName);
+    const destSkillDir = path.join(skillsDir, instanceName);
     copyDirSync(sourceSkillDir, destSkillDir);
 
     // Build .env file from connection config + secrets
@@ -124,8 +145,85 @@ export async function provisionSkills(agentId: string, connectionIds: string[]):
       fs.writeFileSync(path.join(destSkillDir, '.env'), envLines.join('\n') + '\n');
     }
 
-    console.log(`[skill-provisioner] Provisioned ${skillName} for agent ${agentId} (${envLines.length} env vars)`);
+    // Customize SKILL.md with connection name so agent knows which DB is which
+    if (count > 0 || typeCount[conn.type]! > 1) {
+      customizeSkillMd(destSkillDir, instanceName, conn.name, conn.type, config);
+    }
+
+    console.log(`[skill-provisioner] Provisioned ${instanceName} for agent ${agentId} (${envLines.length} env vars, connection: "${conn.name}")`);
   }
+
+  // If any type had multiple connections, also customize the first instance's SKILL.md
+  // (We need a second pass since we didn't know there'd be duplicates on the first one)
+  for (const connId of connectionIds) {
+    const conn = getConnection(connId);
+    if (!conn) continue;
+    const total = typeCount[conn.type] || 0;
+    if (total <= 1) continue;
+
+    const baseSkillName = SKILL_MAP[conn.type];
+    if (!baseSkillName) continue;
+
+    const destSkillDir = path.join(skillsDir, baseSkillName);
+    if (!fs.existsSync(destSkillDir)) continue;
+
+    // Only customize the first instance (it kept the base name)
+    const config = JSON.parse(conn.config);
+    customizeSkillMd(destSkillDir, baseSkillName, conn.name, conn.type, config);
+    break; // Only the first of this type
+  }
+}
+
+/**
+ * Customize a skill's SKILL.md to include the connection name and details.
+ * This helps the agent distinguish between multiple connections of the same type.
+ */
+function customizeSkillMd(
+  skillDir: string,
+  instanceName: string,
+  connectionName: string,
+  connectionType: string,
+  config: Record<string, unknown>
+): void {
+  const skillMdPath = path.join(skillDir, 'SKILL.md');
+  if (!fs.existsSync(skillMdPath)) return;
+
+  let content = fs.readFileSync(skillMdPath, 'utf-8');
+
+  // Add connection identity block after the first heading
+  const connInfo = [`\n> **Connection:** ${connectionName}`];
+  if (connectionType === 'database') {
+    if (config.dbName || config.DB_NAME) connInfo.push(`> **Database:** ${config.dbName || config.DB_NAME}`);
+    if (config.host || config.DB_HOST) connInfo.push(`> **Host:** ${config.host || config.DB_HOST}`);
+  }
+  connInfo.push(`> **Skill Instance:** ${instanceName}\n`);
+
+  // Update the skill name in frontmatter if present
+  content = content.replace(
+    /^name:\s*.*$/m,
+    `name: ${instanceName}`
+  );
+
+  // Update description to include connection name
+  content = content.replace(
+    /^description:\s*.*$/m,
+    (match) => `${match} (Connection: ${connectionName})`
+  );
+
+  // Insert connection info after first heading
+  const firstHeadingMatch = content.match(/^#\s+.+$/m);
+  if (firstHeadingMatch && firstHeadingMatch.index !== undefined) {
+    const insertAt = firstHeadingMatch.index + firstHeadingMatch[0].length;
+    content = content.slice(0, insertAt) + '\n' + connInfo.join('\n') + content.slice(insertAt);
+  }
+
+  // Update script paths to use the instance name
+  content = content.replace(
+    new RegExp(`skills/${instanceName.split('-').slice(0, 2).join('-')}-?[a-z]*/`, 'g'),
+    `skills/${instanceName}/`
+  );
+
+  fs.writeFileSync(skillMdPath, content, 'utf-8');
 }
 
 /**
