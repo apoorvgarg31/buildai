@@ -10,6 +10,7 @@ interface NavItem {
 }
 
 const adminNav: NavItem[] = [
+  { name: "Dashboard", icon: "📊", page: "dashboard" },
   { name: "Users", icon: "👥", page: "users" },
   { name: "Agents", icon: "🤖", page: "agents" },
   { name: "Connections", icon: "🔗", page: "connections" },
@@ -24,7 +25,7 @@ const userNav: NavItem[] = [
 ];
 
 export type UserPage = "chat" | "marketplace" | "usage" | "settings";
-export type AdminPage = "users" | "agents" | "connections" | "settings";
+export type AdminPage = "dashboard" | "users" | "agents" | "connections" | "settings";
 export type Page = UserPage | AdminPage;
 
 interface SidebarProps {
@@ -37,7 +38,7 @@ interface SidebarProps {
 export default function Sidebar({ user, onLogout, activePage, onNavigate }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigation = user.role === "admin" ? adminNav : userNav;
-  const defaultPage: Page = user.role === "admin" ? "users" : "chat";
+  const defaultPage: Page = user.role === "admin" ? "dashboard" : "chat";
   const currentPage = activePage ?? defaultPage;
 
   const sidebarContent = (

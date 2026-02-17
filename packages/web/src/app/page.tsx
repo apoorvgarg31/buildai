@@ -7,24 +7,43 @@ import Sidebar from "@/components/Sidebar";
 import type { Page } from "@/components/Sidebar";
 import ChatArea from "@/components/ChatArea";
 import AdminDashboard from "@/components/AdminDashboard";
+import AdminUsersPage from "@/components/AdminUsersPage";
+import AdminAgentsPage from "@/components/AdminAgentsPage";
+import AdminConnectionsPage from "@/components/AdminConnectionsPage";
+import AdminSettingsPage from "@/components/AdminSettingsPage";
 import MarketplacePage from "@/components/MarketplacePage";
 import UsagePage from "@/components/UsagePage";
 
 export default function Home() {
   const [user, setUser] = useState<DemoUser | null>(null);
-  const [page, setPage] = useState<Page>("chat");
+  const [activePage, setActivePage] = useState<Page>("dashboard");
 
   if (!user) {
-    return <LoginScreen onLogin={(u) => { setUser(u); setPage(u.role === "admin" ? "users" : "chat"); }} />;
+    return <LoginScreen onLogin={(u) => {
+      setUser(u);
+      setActivePage(u.role === "admin" ? "dashboard" : "chat");
+    }} />;
   }
 
   const renderPage = () => {
     if (user.role === "admin") {
-      // Admin pages — currently only dashboard
-      return <AdminDashboard user={user} />;
+      switch (activePage) {
+        case "dashboard":
+          return <AdminDashboard user={user} />;
+        case "users":
+          return <AdminUsersPage />;
+        case "agents":
+          return <AdminAgentsPage />;
+        case "connections":
+          return <AdminConnectionsPage />;
+        case "settings":
+          return <AdminSettingsPage />;
+        default:
+          return <AdminDashboard user={user} />;
+      }
     }
     // User pages
-    switch (page) {
+    switch (activePage) {
       case "marketplace":
         return <MarketplacePage />;
       case "usage":
@@ -40,8 +59,8 @@ export default function Home() {
       <Sidebar
         user={user}
         onLogout={() => setUser(null)}
-        activePage={page}
-        onNavigate={setPage}
+        activePage={activePage}
+        onNavigate={setActivePage}
       />
       <main className="flex-1 min-w-0">
         {renderPage()}
