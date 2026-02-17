@@ -277,17 +277,34 @@ The app has two distinct views controlled by role:
 - [ ] Message history, real-time streaming
 - **Acceptance:** PM chats with agent via web browser, full functionality.
 
-### Task 6.3: Marketplace Page
-- [ ] Browse available skills/integrations
-- [ ] Install/enable skills for user's agent
-- [ ] Skill cards with descriptions, ratings
-- **Acceptance:** User browses marketplace and installs a skill.
+### Task 6.3: Marketplace Page ✅
+- [x] Grid of skill cards (10 skills across 6 categories)
+- [x] Search + category filter
+- [x] Install/Installed toggle buttons
+- [x] Responsive grid layout
+- **Done:** MarketplacePage.tsx with demo data
 
-### Task 6.4: Usage Page
-- [ ] Token usage charts
-- [ ] Query history
-- [ ] Cost breakdown
-- **Acceptance:** User sees their usage stats.
+### Task 6.4: Usage Page ✅
+- [x] Stats row (queries, tokens, cost, response time)
+- [x] 7-day usage bar chart (CSS only, no chart library)
+- [x] Usage breakdown by category
+- [x] Recent queries list
+- **Done:** UsagePage.tsx with demo data
+
+### Task 6.5: Dynamic Onboarding ✅
+- [x] Auto project health scan on login (Gemini queries DB)
+- [x] Shows active projects, overdue RFIs, expiring certs, budget flags
+- [x] Proactive alerts in system prompt
+- [x] Fallback to static welcome if API unavailable
+- **Critical:** This IS the killer feature — investors see real data from moment 1
+
+### Task 6.6: Admin Sub-Pages ✅
+- [x] AdminUsersPage — user list with search, status, add user button
+- [x] AdminAgentsPage — agent cards with skills, status, create agent button
+- [x] AdminConnectionsPage — connections with test/add buttons, status badges
+- [x] AdminSettingsPage — company settings form
+- [x] SettingsPage (user) — personal prefs
+- [x] Client-side routing via state (no URL navigation)
 
 ---
 
