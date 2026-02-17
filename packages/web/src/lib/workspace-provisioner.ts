@@ -28,7 +28,7 @@ export async function provisionWorkspace(agentId: string): Promise<string> {
   fs.mkdirSync(path.join(workspaceDir, 'files'), { recursive: true });
 
   // Copy template files
-  const templateFiles = ['SOUL.md', 'AGENTS.md', 'TOOLS.md', 'HEARTBEAT.md'];
+  const templateFiles = ['SOUL.md', 'AGENTS.md', 'TOOLS.md', 'HEARTBEAT.md', 'USER.md', 'IDENTITY.md'];
   for (const file of templateFiles) {
     const src = path.join(TEMPLATES_DIR, file);
     const dest = path.join(workspaceDir, file);
