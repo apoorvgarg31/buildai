@@ -62,7 +62,7 @@ export default function ChatArea() {
     fetch("/api/chat")
       .then((res) => res.json())
       .then((data) => {
-        setEngineStatus(data.engine === "connected" ? "connected" : "mock");
+        setEngineStatus(data.engine ? "connected" : "mock");
       })
       .catch(() => {
         setEngineStatus("mock");
