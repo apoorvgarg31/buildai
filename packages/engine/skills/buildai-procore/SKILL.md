@@ -1,41 +1,55 @@
 ---
 name: buildai-procore
-description: Access Procore construction project management API (sandbox). Query live project data — projects, RFIs, submittals, budgets, daily logs, change orders, punch items, vendors, schedules, documents.
-metadata: {"clawdbot":{"emoji":"🏗️","requires":{"anyBins":["curl","jq"]}}}
+description: Access Procore construction project management API (production). Query live project data — projects, RFIs, submittals, budgets, daily logs, change orders, punch items, vendors, schedules, documents.
+metadata: {"clawdbot":{"emoji":"🏗️","requires":{"anyBins":["curl","python3"]}}}
 ---
 
 # BuildAI Procore Integration
 
-Access Procore's construction management API for live project data.
+Query Procore's production API for live construction project data.
 
-## Usage
+## How to Use
 
-### Query an endpoint
+Run queries using the procore-api.sh script in this skill directory:
+
 ```bash
-bash command:"cd /home/apoorvgarg/buildai/packages/engine/skills/buildai-procore && bash procore-api.sh projects"
+bash skills/buildai-procore/procore-api.sh projects
 ```
 
-### Query with project scope
+That's it. The script handles authentication, token refresh, and returns JSON.
+
+## Examples
+
 ```bash
-bash command:"cd /home/apoorvgarg/buildai/packages/engine/skills/buildai-procore && bash procore-api.sh rfis 12345"
+# List all projects
+bash skills/buildai-procore/procore-api.sh projects
+
+# Get RFIs for a project
+bash skills/buildai-procore/procore-api.sh rfis 562949954991755
+
+# Check Procore connection status
+bash skills/buildai-procore/procore-api.sh status
+
+# Get submittals for a project
+bash skills/buildai-procore/procore-api.sh submittals 562949954991755
+
+# Get daily logs
+bash skills/buildai-procore/procore-api.sh daily_logs 562949954991755
+
+# Get change orders
+bash skills/buildai-procore/procore-api.sh change_orders 562949954991755
 ```
 
-### Check connection status
-```bash
-bash command:"cd /home/apoorvgarg/buildai/packages/engine/skills/buildai-procore && bash procore-api.sh status"
-```
+## Workflow
 
-## Parameters
-
-| Argument | Required | Description |
-|----------|----------|-------------|
-| `$1` | Yes | Endpoint name (see below) or "status" |
-| `$2` | Sometimes | Project ID (required for project-scoped endpoints) |
+1. Call `status` to verify Procore is connected
+2. Call `projects` to get project IDs and names
+3. Use a project ID for project-scoped queries (rfis, submittals, etc.)
 
 ## Available Endpoints
 
-| Endpoint | Project-scoped | Description |
-|----------|---------------|-------------|
+| Endpoint | Needs Project ID | Description |
+|----------|-----------------|-------------|
 | `projects` | No | List all projects |
 | `rfis` | Yes | RFIs for a project |
 | `submittals` | Yes | Submittals for a project |
@@ -47,35 +61,7 @@ bash command:"cd /home/apoorvgarg/buildai/packages/engine/skills/buildai-procore
 | `schedule` | Yes | Schedule tasks |
 | `documents` | Yes | Project documents |
 
-## Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `PROCORE_CLIENT_ID` | Yes | OAuth2 client ID |
-| `PROCORE_CLIENT_SECRET` | Yes | OAuth2 client secret |
-| `PROCORE_REDIRECT_URI` | No | OAuth redirect URI (default: http://localhost:3000/api/procore/callback) |
-| `PROCORE_COMPANY_ID` | No | Procore company ID for API header |
-
-## Token Management
-
-OAuth tokens are stored in `.procore-tokens.json` in the workspace root.
-The script auto-refreshes expired tokens.
-
-To initiate OAuth:
-```bash
-bash command:"cd /home/apoorvgarg/buildai/packages/engine/skills/buildai-procore && bash procore-auth.sh authorize"
-```
-This outputs a URL the user must visit to authorize. After callback, tokens are saved automatically.
-
-## Examples
-
-```bash
-# List all projects
-bash command:"... && bash procore-api.sh projects"
-
-# Get RFIs for project 12345
-bash command:"... && bash procore-api.sh rfis 12345"
-
-# Check if Procore is connected
-bash command:"... && bash procore-api.sh status"
-```
+## Rules
+- Returns JSON with `endpoint`, `count`, and `data` fields
+- Token auto-refreshes when expired
+- Environment variables loaded from process (set in engine start.sh)
