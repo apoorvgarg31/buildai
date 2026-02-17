@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { DemoUser } from "@/lib/auth";
+import { BuildAIUser } from "@/lib/user";
 
 interface AdminDashboardProps {
-  user: DemoUser;
+  user: BuildAIUser;
 }
 
 interface Stats {

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { DemoUser } from "@/lib/auth";
+import { useClerk } from "@clerk/nextjs";
+import { BuildAIUser } from "@/lib/user";
 
 interface NavItem {
   name: string;
@@ -29,13 +30,13 @@ export type AdminPage = "dashboard" | "users" | "agents" | "connections" | "sett
 export type Page = UserPage | AdminPage;
 
 interface SidebarProps {
-  user: DemoUser;
-  onLogout: () => void;
+  user: BuildAIUser;
   activePage?: Page;
   onNavigate?: (page: Page) => void;
 }
 
-export default function Sidebar({ user, onLogout, activePage, onNavigate }: SidebarProps) {
+export default function Sidebar({ user, activePage, onNavigate }: SidebarProps) {
+  const { signOut } = useClerk();
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigation = user.role === "admin" ? adminNav : userNav;
   const defaultPage: Page = user.role === "admin" ? "dashboard" : "chat";
@@ -92,7 +93,7 @@ export default function Sidebar({ user, onLogout, activePage, onNavigate }: Side
             <p className="text-[11px] text-[#8e8e8e] truncate">{user.title}</p>
           </div>
           <button
-            onClick={onLogout}
+            onClick={() => signOut({ redirectUrl: '/sign-in' })}
             className="p-1.5 text-[#8e8e8e] hover:text-[#171717] transition-colors rounded-md hover:bg-black/[0.04]"
             title="Sign out"
           >

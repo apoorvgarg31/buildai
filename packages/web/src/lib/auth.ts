@@ -1,3 +1,4 @@
+// DEPRECATED: Use Clerk auth instead. Kept for reference only.
 // Fake auth for investor demo — no real authentication
 export type Role = "admin" | "user";
 

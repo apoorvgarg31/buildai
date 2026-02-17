@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { DemoUser } from "@/lib/auth";
-import LoginScreen from "@/components/LoginScreen";
+import { useCurrentUser } from "@/lib/user";
 import Sidebar from "@/components/Sidebar";
 import type { Page } from "@/components/Sidebar";
 import ChatArea from "@/components/ChatArea";
@@ -16,14 +15,25 @@ import UsagePage from "@/components/UsagePage";
 import SettingsPage from "@/components/SettingsPage";
 
 export default function Home() {
-  const [user, setUser] = useState<DemoUser | null>(null);
+  const { user, isLoaded } = useCurrentUser();
   const [activePage, setActivePage] = useState<Page>("dashboard");
 
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center h-full bg-white">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 rounded-full bg-[#171717] flex items-center justify-center text-white text-sm font-bold mx-auto animate-pulse">
+            B
+          </div>
+          <p className="text-sm text-[#8e8e8e]">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
-    return <LoginScreen onLogin={(u) => {
-      setUser(u);
-      setActivePage(u.role === "admin" ? "dashboard" : "chat");
-    }} />;
+    // Clerk middleware should redirect to /sign-in, but just in case:
+    return null;
   }
 
   const renderPage = () => {
@@ -61,7 +71,6 @@ export default function Home() {
     <div className="flex h-full overflow-hidden">
       <Sidebar
         user={user}
-        onLogout={() => setUser(null)}
         activePage={activePage}
         onNavigate={setActivePage}
       />
