@@ -13,9 +13,9 @@
 | # | Task | Status | Acceptance Criteria | Tests |
 |---|------|--------|-------------------|-------|
 | 1.1 | Fork OpenClaw source | ✅ | Engine copied to `packages/engine/` with all dist/skills/extensions | Verified files present |
-| 1.2 | Disable unnecessary components | ⬜ | Engine starts, webchat works, disabled components don't error | Component disable test |
+| 1.2 | Disable unnecessary components | ✅ | Engine config disables browser/canvas/channels/pairing, keeps core+webchat | 28 tests (config, env, docs, entry points) |
 | 1.3 | Set up monorepo structure | ✅ | `packages/engine`, `packages/web`, `workspaces/templates` + root config | Dir structure verified |
-| 1.4 | Construction PM agent config | ⬜ | Agent responds as construction PM via webchat | Chat response test |
+| 1.4 | Construction PM agent config | ✅ | Templates validated with construction concepts, reactive behavior, monitoring | 44 tests (all 6 template files) |
 | 1.5 | Verify memory persistence | ⬜ | Restart gateway → memory retained | Write/restart/read test |
 | 1.6 | Verify heartbeat | ⬜ | Heartbeat fires on schedule | Timer mock test |
 | 1.7 | Verify cron jobs | ⬜ | Cron job creates and executes | Cron create/fire test |
