@@ -52,3 +52,4 @@ data/*.db-wal
 workspaces/*/
 !workspaces/templates/
 !workspaces/buildai-agent/
+.secrets/
