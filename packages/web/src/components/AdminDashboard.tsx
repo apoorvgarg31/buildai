@@ -74,7 +74,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                       </div>
                       <div>
                         <p className="text-[13px] font-medium text-gray-200">{u.name}</p>
-                        <p className="text-[11px] text-gray-500">{u.role} · {u.projects} projects</p>
+                        <p className="text-[11px] text-gray-500">{u.role} · {u.projects} {u.projects === 1 ? 'project' : 'projects'}</p>
                       </div>
                     </div>
                     <div className="text-right">
