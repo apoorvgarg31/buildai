@@ -59,8 +59,9 @@ export async function POST(request: NextRequest): Promise<Response> {
                 controller.enqueue(encoder.encode(`data: ${data}\n\n`));
               },
             );
-            // If no deltas fired (fast response), send the final text as a delta
-            if (!deltaSent && result.response) {
+            // Always send the final full text as the last delta
+            // (gateway throttles deltas to 150ms, so the last delta may be truncated)
+            if (result.response) {
               const finalDelta = JSON.stringify({ type: 'delta', text: result.response });
               controller.enqueue(encoder.encode(`data: ${finalDelta}\n\n`));
             }
