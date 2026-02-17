@@ -4,12 +4,14 @@ import { useState, useRef, useCallback } from "react";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
+  onFilesAttached: (files: FileList) => void;
   disabled?: boolean;
 }
 
-export default function ChatInput({ onSend, disabled }: ChatInputProps) {
+export default function ChatInput({ onSend, onFilesAttached, disabled }: ChatInputProps) {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = useCallback(() => {
     const trimmed = input.trim();
@@ -30,19 +32,33 @@ export default function ChatInput({ onSend, disabled }: ChatInputProps) {
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
-    // Auto-resize
     const textarea = e.target;
     textarea.style.height = "auto";
     textarea.style.height = Math.min(textarea.scrollHeight, 160) + "px";
   };
+
+  const handleFileClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files.length > 0) {
+        onFilesAttached(e.target.files);
+        e.target.value = "";
+      }
+    },
+    [onFilesAttached]
+  );
 
   return (
     <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3">
       <div className="flex items-end gap-3 max-w-4xl mx-auto">
         {/* File upload button */}
         <button
-          className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-          title="Upload file"
+          onClick={handleFileClick}
+          className="p-2 text-gray-400 hover:text-amber-500 dark:hover:text-amber-400 transition-colors"
+          title="Attach documents"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -59,6 +75,16 @@ export default function ChatInput({ onSend, disabled }: ChatInputProps) {
             />
           </svg>
         </button>
+
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          multiple
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.pptx,.csv,.txt,.png,.jpg,.jpeg,.gif,.webp"
+          onChange={handleFileChange}
+        />
 
         {/* Text input */}
         <textarea
