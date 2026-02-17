@@ -7,14 +7,23 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=packages/web",
+    "dev": "concurrently --names web,engine --prefix-colors cyan,yellow \"npm run dev:web\" \"npm run dev:engine\"",
+    "dev:web": "npm run dev --workspace=packages/web",
+    "dev:engine": "cd packages/engine && bash start-buildai.sh",
     "build": "npm run build --workspace=packages/web",
-    "test": "npm run test --workspaces --if-present",
+    "test": "npx vitest run --config packages/web/vitest.config.ts && npx vitest run --config packages/engine/vitest.buildai.config.ts",
+    "test:web": "npx vitest run --config packages/web/vitest.config.ts",
+    "test:engine": "npx vitest run --config packages/engine/vitest.buildai.config.ts",
+    "test:watch": "npx vitest --config packages/web/vitest.config.ts",
     "lint": "npm run lint --workspaces --if-present"
   },
   "engines": {
     "node": ">=20"
   },
   "author": "Apoorv Garg",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "vitest": "^4.0.18"
+  }
 }
