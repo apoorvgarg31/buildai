@@ -87,6 +87,7 @@ interface ChatAreaProps {
 export default function ChatArea({ agentId }: ChatAreaProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   // Session key routes to the assigned agent
   const [sessionId, setSessionId] = useState<string | null>(
     agentId ? `agent:${agentId}:webchat:default` : null
@@ -174,6 +175,8 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
         }]);
 
         const result = await sendChatMessageStream(content, sessionId, (delta) => {
+          // First delta received — we're streaming now, hide loading dots
+          setIsStreaming(true);
           // Update the assistant message with each delta
           setMessages((prev) =>
             prev.map((m) =>
@@ -194,6 +197,7 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
         );
       } finally {
         setIsLoading(false);
+        setIsStreaming(false);
       }
     },
     [sessionId]
@@ -243,11 +247,13 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto">
           <div className="divide-y divide-gray-800/50">
-            {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} />
-            ))}
+            {messages.map((message) => {
+              // Hide empty placeholder message before streaming starts
+              if (message.role === "assistant" && message.content === "" && !isStreaming) return null;
+              return <ChatMessage key={message.id} message={message} />;
+            })}
 
-            {isLoading && (
+            {isLoading && !isStreaming && (
               <div className="py-4">
                 <div className="max-w-3xl mx-auto flex gap-4 px-4">
                   <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
