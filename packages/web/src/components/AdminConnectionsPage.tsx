@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 
 interface ConnectionRecord {
   id: string;
@@ -12,10 +12,20 @@ interface ConnectionRecord {
   icon: string;
   description: string;
   users: number;
-  isProcore?: boolean;
 }
 
-const staticConnections: ConnectionRecord[] = [
+const connections: ConnectionRecord[] = [
+  {
+    id: "1",
+    name: "Procore",
+    type: "PMIS",
+    host: "sandbox.procore.com",
+    status: "pending",
+    lastSynced: "Not connected",
+    icon: "🏗️",
+    description: "Project management information system. Real-time sync of projects, RFIs, submittals, and daily logs.",
+    users: 0,
+  },
   {
     id: "2",
     name: "PostgreSQL",
@@ -82,95 +92,20 @@ const statusConfig = {
 export default function AdminConnectionsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
-  const [procoreConnected, setProcoreConnected] = useState(false);
-  const [procoreLoading, setProcoreLoading] = useState(true);
-  const [testResult, setTestResult] = useState<string | null>(null);
 
-  // Check Procore connection status
-  const checkProcoreStatus = useCallback(async () => {
-    try {
-      const res = await fetch("/api/procore/status");
-      const data = await res.json();
-      setProcoreConnected(data.connected === true);
-    } catch {
-      setProcoreConnected(false);
-    } finally {
-      setProcoreLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    checkProcoreStatus();
-
-    // Check URL params for OAuth callback result
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("procore_connected") === "true") {
-      setProcoreConnected(true);
-      // Clean URL
-      window.history.replaceState({}, "", window.location.pathname);
-    }
-    if (params.get("procore_error")) {
-      setTestResult(`OAuth Error: ${params.get("procore_error")}`);
-      window.history.replaceState({}, "", window.location.pathname);
-    }
-  }, [checkProcoreStatus]);
-
-  // Build the Procore card dynamically
-  const procoreCard: ConnectionRecord = {
-    id: "1",
-    name: "Procore",
-    type: "PMIS",
-    host: "sandbox.procore.com",
-    status: procoreLoading ? "pending" : procoreConnected ? "connected" : "pending",
-    lastSynced: procoreLoading ? "Checking..." : procoreConnected ? "OAuth connected" : "Not connected",
-    icon: "🏗️",
-    description: "Project management information system. Real-time sync of projects, RFIs, submittals, and daily logs.",
-    users: procoreConnected ? 24 : 0,
-    isProcore: true,
-  };
-
-  const allConnections = [procoreCard, ...staticConnections];
-  const connectedCount = allConnections.filter((c) => c.status === "connected").length;
-
-  const handleProcoreConnect = () => {
-    // Navigate to the OAuth auth endpoint
-    window.location.href = "/api/procore/auth";
-  };
-
-  const handleProcoreTest = async () => {
-    setTestingId("1");
-    setTestResult(null);
-    try {
-      const res = await fetch("/api/procore/projects");
-      const data = await res.json();
-      if (res.ok && Array.isArray(data)) {
-        setTestResult(`✅ Success! Found ${data.length} project${data.length !== 1 ? "s" : ""} in Procore.`);
-      } else {
-        setTestResult(`❌ Error: ${data.error || "Unknown error"}`);
-      }
-    } catch (err) {
-      setTestResult(`❌ Network error: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setTestingId(null);
-    }
-  };
+  const connectedCount = connections.filter((c) => c.status === "connected").length;
 
   const handleTest = (id: string) => {
-    if (id === "1") {
-      handleProcoreTest();
-      return;
-    }
     setTestingId(id);
     setTimeout(() => setTestingId(null), 2000);
   };
 
   return (
     <div className="flex flex-col h-full bg-[#0a0a0a]">
-      {/* Header */}
       <header className="flex items-center justify-between pl-14 pr-6 lg:px-6 h-14 border-b border-white/5">
         <div>
           <h2 className="text-sm font-semibold text-white">Connections</h2>
-          <p className="text-[11px] text-gray-500">{allConnections.length} integrations · {connectedCount} connected</p>
+          <p className="text-[11px] text-gray-500">{connections.length} integrations · {connectedCount} connected</p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
@@ -183,37 +118,16 @@ export default function AdminConnectionsPage() {
         </button>
       </header>
 
-      {/* Test Result Banner */}
-      {testResult && (
-        <div className={`mx-6 mt-3 px-4 py-2.5 rounded-lg text-[13px] font-medium flex items-center justify-between ${
-          testResult.startsWith("✅")
-            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-            : "bg-red-500/10 text-red-400 border border-red-500/20"
-        }`}>
-          <span>{testResult}</span>
-          <button onClick={() => setTestResult(null)} className="ml-3 hover:opacity-70 transition-opacity text-sm">✕</button>
-        </div>
-      )}
-
-      {/* Connection Cards */}
       <div className="flex-1 overflow-y-auto px-6 py-5">
         <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {allConnections.map((conn) => {
+          {connections.map((conn) => {
             const sc = statusConfig[conn.status];
             const isTesting = testingId === conn.id;
-            const isProcore = conn.isProcore;
             return (
-              <div key={conn.id} className={`rounded-xl border bg-[#171717] p-5 transition-colors ${
-                isProcore && procoreConnected
-                  ? "border-emerald-500/20 hover:border-emerald-500/30"
-                  : "border-white/5 hover:border-white/10"
-              }`}>
-                {/* Top row */}
+              <div key={conn.id} className="rounded-xl border bg-[#171717] border-white/5 hover:border-white/10 p-5 transition-colors">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-xl">
-                      {conn.icon}
-                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-xl">{conn.icon}</div>
                     <div>
                       <h3 className="text-[14px] font-semibold text-white">{conn.name}</h3>
                       <p className="text-[11px] text-gray-500">{conn.type}</p>
@@ -224,11 +138,7 @@ export default function AdminConnectionsPage() {
                     {sc.label}
                   </span>
                 </div>
-
-                {/* Description */}
                 <p className="text-[12px] text-gray-400 mb-3 leading-relaxed">{conn.description}</p>
-
-                {/* Details */}
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div>
                     <p className="text-[11px] text-gray-600">Host</p>
@@ -236,82 +146,24 @@ export default function AdminConnectionsPage() {
                   </div>
                   <div>
                     <p className="text-[11px] text-gray-600">Last Synced</p>
-                    <p className={`text-[12px] font-medium ${conn.status === "error" ? "text-red-400" : "text-gray-300"}`}>
-                      {conn.lastSynced}
-                    </p>
+                    <p className={`text-[12px] font-medium ${conn.status === "error" ? "text-red-400" : "text-gray-300"}`}>{conn.lastSynced}</p>
                   </div>
                 </div>
-
-                {/* Footer */}
                 <div className="flex items-center justify-between pt-3 border-t border-white/5">
                   <span className="text-[11px] text-gray-600">{conn.users} users connected</span>
                   <div className="flex items-center gap-1">
-                    {/* Procore-specific buttons */}
-                    {isProcore && !procoreConnected && !procoreLoading && (
-                      <button
-                        onClick={handleProcoreConnect}
-                        className="px-2.5 py-1 text-[11px] rounded-md text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 transition-colors font-medium"
-                      >
-                        Connect OAuth
-                      </button>
-                    )}
-                    {isProcore && procoreConnected && (
-                      <button
-                        onClick={() => handleTest(conn.id)}
-                        disabled={isTesting}
-                        className={`px-2.5 py-1 text-[11px] rounded-md transition-colors font-medium ${
-                          isTesting
-                            ? "text-blue-400 bg-blue-500/10"
-                            : "text-gray-400 hover:text-white hover:bg-white/5"
-                        }`}
-                      >
-                        {isTesting ? (
-                          <span className="flex items-center gap-1">
-                            <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                            </svg>
-                            Testing...
-                          </span>
-                        ) : (
-                          "Test Connection"
-                        )}
-                      </button>
-                    )}
-                    {/* Generic test/configure for non-Procore cards */}
-                    {!isProcore && (
-                      <>
-                        <button
-                          onClick={() => handleTest(conn.id)}
-                          disabled={isTesting}
-                          className={`px-2.5 py-1 text-[11px] rounded-md transition-colors font-medium ${
-                            isTesting
-                              ? "text-blue-400 bg-blue-500/10"
-                              : "text-gray-400 hover:text-white hover:bg-white/5"
-                          }`}
-                        >
-                          {isTesting ? (
-                            <span className="flex items-center gap-1">
-                              <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                              </svg>
-                              Testing...
-                            </span>
-                          ) : (
-                            "Test"
-                          )}
-                        </button>
-                        <button className="px-2.5 py-1 text-[11px] text-amber-400 hover:text-amber-300 rounded-md hover:bg-amber-500/5 transition-colors font-medium">
-                          Configure
-                        </button>
-                      </>
-                    )}
-                    {isProcore && procoreConnected && (
-                      <button className="px-2.5 py-1 text-[11px] text-amber-400 hover:text-amber-300 rounded-md hover:bg-amber-500/5 transition-colors font-medium">
-                        Configure
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleTest(conn.id)}
+                      disabled={isTesting}
+                      className={`px-2.5 py-1 text-[11px] rounded-md transition-colors font-medium ${
+                        isTesting ? "text-blue-400 bg-blue-500/10" : "text-gray-400 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      {isTesting ? "Testing..." : "Test"}
+                    </button>
+                    <button className="px-2.5 py-1 text-[11px] text-amber-400 hover:text-amber-300 rounded-md hover:bg-amber-500/5 transition-colors font-medium">
+                      Configure
+                    </button>
                   </div>
                 </div>
               </div>
@@ -320,7 +172,6 @@ export default function AdminConnectionsPage() {
         </div>
       </div>
 
-      {/* Add Connection Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowAddModal(false)}>
           <div className="w-full max-w-md bg-[#171717] border border-white/10 rounded-2xl p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -352,12 +203,8 @@ export default function AdminConnectionsPage() {
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-6">
-              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 text-[13px] text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5">
-                Cancel
-              </button>
-              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black text-[13px] font-semibold rounded-lg transition-colors">
-                Add Connection
-              </button>
+              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 text-[13px] text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5">Cancel</button>
+              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black text-[13px] font-semibold rounded-lg transition-colors">Add Connection</button>
             </div>
           </div>
         </div>
