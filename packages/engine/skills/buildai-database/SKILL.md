@@ -1,89 +1,45 @@
----
-name: buildai-database
-description: Query the BuildAI PostgreSQL database (read-only). Returns results as JSON for construction project data — projects, RFIs, submittals, budgets, change orders, daily logs, punch lists, insurance, vendors, pay applications.
-metadata: {"clawdbot":{"emoji":"🗄️","requires":{"anyBins":["psql"]}}}
----
+# BuildAI Database Skill
 
-# BuildAI Database Query
-
-Execute read-only SQL queries against the BuildAI PostgreSQL database (`buildai_demo`).
+Query the project's PostgreSQL database with read-only SQL.
 
 ## Usage
 
+When the user asks a data question (project counts, RFI status, budget numbers, etc.), use this skill to run actual SQL queries against the database.
+
+## Scripts
+
+### query.sh
+Execute a read-only SQL query. Returns JSON results.
+
 ```bash
-bash command:"cd /home/apoorvgarg/buildai/packages/engine/skills/buildai-database && bash query.sh 'SELECT * FROM projects LIMIT 5'"
+bash /path/to/skills/buildai-database/query.sh "SELECT * FROM projects LIMIT 5"
 ```
 
-## Parameters
+**Rules:**
+- Only SELECT and WITH statements are allowed
+- INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE are blocked
+- LIMIT is auto-applied if not specified (default 100)
+- Query timeout: 30 seconds
+- Returns JSON array of result rows
 
-The script takes a single argument: a SQL query string.
+**Available tables:**
+- `projects` — id, name, status, start_date, end_date, budget, contract_sum
+- `rfis` — id, project_id, number, subject, status, priority, assigned_to, due_date
+- `submittals` — id, project_id, number, title, status, due_date
+- `daily_logs` — id, project_id, log_date, weather, notes, created_by
+- `change_orders` — id, project_id, number, title, amount, status
+- `budget_line_items` — id, project_id, cost_code, description, original_budget, revised_budget, committed, actual
+- `punch_items` — id, project_id, location, description, status, assigned_to
+- `insurance_certificates` — id, project_id, vendor, policy_type, expiration_date
+- `vendors` — id, project_id, name, trade, contact_email, status
+- `team_members` — id, project_id, name, role, email, company
 
-**Safety:**
-- Only SELECT and WITH (CTE) queries are allowed
-- INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE, CREATE, GRANT, REVOKE, EXEC are rejected
-- Results are returned as JSON
-- Queries are limited to 30 seconds
+**Pre-built views (use these when possible):**
+- `v_project_dashboard` — project overview with stats
+- `v_overdue_rfis` — RFIs past due date
+- `v_expiring_insurance` — certs expiring within 90 days
+- `v_project_budget_summary` — budget rollup per project
 
-## Database Schema
-
-### Tables
-
-| Table | Description |
-|-------|-------------|
-| `projects` | Construction projects with status, contract sums, dates, stakeholders |
-| `rfis` | Requests for Information — open/closed/void, with priority and assignee |
-| `submittals` | Material/shop drawing submittals with approval tracking |
-| `budget_line_items` | Cost codes with original/revised/committed/actual budget breakdowns |
-| `change_orders` | Change order packages with amounts and reasons |
-| `daily_logs` | Daily site logs — weather, workforce, delays, safety incidents |
-| `punch_list_items` | Punch list items with status and priority |
-| `insurance_certs` | Vendor insurance certificates with expiration tracking |
-| `vendors` | Subcontractors/vendors with contract amounts and payments |
-| `pay_applications` | Payment applications (AIA G702/G703 style) |
-
-### Pre-Built Views (prefer these for common queries)
-
-| View | Best For |
-|------|----------|
-| `v_project_dashboard` | Project overview — open RFIs, pending submittals, expiring certs |
-| `v_overdue_rfis` | Overdue RFIs with days overdue |
-| `v_expiring_insurance` | Insurance certs expiring within 90 days |
-| `v_project_budget_summary` | Budget totals with variance analysis |
-
-### Key Columns
-
-**projects:** id, name, address, city, state, status (active/completed/on_hold), contract_sum, start_date, projected_completion, project_type
-
-**rfis:** id, project_id, number, subject, status (open/closed/void), priority (normal/urgent/critical), assigned_to, due_date, days_open
-
-**budget_line_items:** id, project_id, cost_code, description, original_budget, revised_budget, committed_costs, actual_costs, projected_final, variance, variance_percent
-
-## Examples
-
-```sql
--- Active projects overview
-SELECT * FROM v_project_dashboard WHERE status = 'active';
-
--- Overdue RFIs
-SELECT * FROM v_overdue_rfis ORDER BY days_overdue DESC;
-
--- Budget overruns
-SELECT * FROM v_project_budget_summary WHERE total_variance < 0;
-
--- Expiring insurance in next 30 days
-SELECT * FROM v_expiring_insurance WHERE days_until_expiration <= 30;
-
--- Workforce trends for a project
-SELECT log_date, workforce_count, weather FROM daily_logs
-WHERE project_id = 1 ORDER BY log_date DESC LIMIT 14;
-```
-
-## Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DB_HOST` | `/var/run/postgresql` | PostgreSQL host |
-| `DB_PORT` | `5432` | PostgreSQL port |
-| `DB_NAME` | `buildai_demo` | Database name |
-| `DB_USER` | `$USER` | Database user |
-| `DB_PASSWORD` | (none) | Database password (optional for local peer auth) |
+## Environment
+Reads `.env` from skill directory. Required vars:
+- DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
