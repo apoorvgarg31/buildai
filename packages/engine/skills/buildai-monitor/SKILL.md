@@ -1,7 +1,7 @@
 ---
 name: buildai-monitor
 description: Manage project monitors and watches. Add, list, remove, and check monitors for RFIs, budgets, submittals, and other project items. Monitors trigger alerts when conditions change.
-metadata: {"clawdbot":{"emoji":"👁️","requires":{"anyBins":["python3"]}}}
+metadata: {"engine":{"emoji":"👁️","requires":{"anyBins":["python3"]}}}
 ---
 
 # BuildAI Monitor

@@ -1,7 +1,7 @@
 ---
 name: buildai-procore
 description: Full Procore REST API client (read AND write). Query and create/update any entity — RFIs, submittals, budgets, daily logs, change orders, punch items, drawings, meetings, inspections, and more. Supports GET, POST, PUT, PATCH, DELETE.
-metadata: {"clawdbot":{"emoji":"🏗️","requires":{"anyBins":["curl","python3"]}}}
+metadata: {"engine":{"emoji":"🏗️","requires":{"anyBins":["curl","python3"]}}}
 ---
 
 # BuildAI Procore Integration
