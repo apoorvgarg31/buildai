@@ -385,21 +385,35 @@ export class GatewayClient {
         return '';
       };
 
+      // Track text across multi-turn (text → tool → text)
+      let lastDeltaText = '';
+      let accumulatedText = '';
+
       const unsubscribe = this.on('chat', (data: ChatEvent) => {
         if (data.sessionKey !== sessionKey) return;
 
         if (data.state === 'delta' && data.message) {
           const text = extractText(data.message);
           if (text) {
-            // Gateway sends cumulative text — track latest, don't append
-            fullMessage = text;
-            onDelta(text);
+            // Gateway sends cumulative text per turn — detect new turns
+            // If current text is shorter than last delta, it's a new turn (after tool call)
+            if (text.length < lastDeltaText.length && lastDeltaText.length > 0) {
+              // New turn started — save previous turn text
+              accumulatedText += lastDeltaText + '\n\n';
+            }
+            lastDeltaText = text;
+            fullMessage = accumulatedText + text;
+            onDelta(fullMessage);
           }
         } else if (data.state === 'final') {
           clearTimeout(timeout);
           unsubscribe();
-          const finalText = extractText(data.message) || fullMessage || '(No response)';
-          resolve({ response: finalText, sessionKey });
+          const finalText = extractText(data.message);
+          // Use accumulated multi-turn text if we have it
+          const resolvedText = accumulatedText
+            ? accumulatedText + (finalText || lastDeltaText)
+            : finalText || fullMessage || '(No response)';
+          resolve({ response: resolvedText, sessionKey });
         } else if (data.state === 'error') {
           clearTimeout(timeout);
           unsubscribe();
