@@ -55,7 +55,7 @@
     }
   },
   "skills": {
-    "allowBundled": ["buildai-database", "buildai-procore", "buildai-monitor", "buildai-marketplace"]
+    "allowBundled": ["buildai-database", "buildai-procore", "buildai-monitor", "buildai-marketplace", "buildai-pdf-extract", "buildai-doc-generator", "buildai-invoice-parser", "buildai-contract-parser", "buildai-schedule-import", "buildai-safety-checker", "buildai-photo-log"]
   },
   "plugins": {
     "entries": {

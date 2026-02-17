@@ -181,68 +181,203 @@ Connect to Oracle Unifier for cost management and project controls.
 ## Coming Soon
 This skill is in development. Contact your BuildAI admin for early access.`,
   },
+  // Old placeholders removed — replaced by real skills below
   {
-    id: 'buildai-documents',
-    name: 'Document Analysis',
-    description: 'Upload and analyze construction documents — specs, contracts, drawings. Extract key information and answer questions.',
+    id: 'buildai-pdf-extract',
+    name: 'PDF Extractor',
+    description: 'Extract text, tables, and structured content from any PDF — specifications, submittals, contracts, RFIs, inspection reports, and vendor quotes.',
     category: 'Documents',
     icon: '📄',
     vendor: 'BuildAI',
-    version: '0.1.0',
-    tags: ['documents', 'specs', 'contracts', 'analysis'],
-    readme: `# Document Analysis
+    version: '1.0.0',
+    tags: ['pdf', 'extract', 'text', 'tables', 'specifications', 'submittals'],
+    readme: `# PDF Extractor
 
-Upload construction documents and let your AI assistant extract information and answer questions.
+Extract text and tables from PDF documents for analysis.
 
 ## What You Can Do
-- **Spec Review** — Extract requirements from specifications
-- **Contract Analysis** — Find key terms, dates, obligations
-- **Drawing References** — Cross-reference drawing callouts
-- **Compliance Check** — Verify document completeness
+- **Text Extraction** — Pull all text from multi-page PDFs
+- **Table Extraction** — Extract tables with headers and rows
+- **Page Selection** — Process specific pages or ranges
+- **Multiple Formats** — Output as plain text or structured JSON
 
-## Coming Soon
-This skill is in development. Contact your BuildAI admin for early access.`,
+## Construction Use Cases
+- Parse specification sections to find requirements
+- Extract submittal data sheets and compare against specs
+- Pull key terms from contracts and subcontracts
+- Read RFI attachments and drawing notes
+- Extract data from inspection reports
+
+## Example
+Upload a PDF and ask: "Extract the tables from this specification document"`,
   },
   {
-    id: 'buildai-reports',
+    id: 'buildai-doc-generator',
     name: 'Report Generator',
-    description: 'Generate formatted project reports — executive summaries, status reports, meeting minutes, and custom templates.',
+    description: 'Generate professional PDF reports — executive summaries, RFI reports, daily construction logs, meeting minutes, and project status updates.',
     category: 'Communication',
     icon: '📋',
     vendor: 'BuildAI',
-    version: '0.1.0',
-    tags: ['reports', 'templates', 'executive-summary', 'status'],
+    version: '1.0.0',
+    tags: ['pdf', 'report', 'executive-summary', 'meeting-minutes', 'daily-log'],
     readme: `# Report Generator
 
-Generate professional project reports from your data automatically.
+Generate formatted PDF reports from your project data.
+
+## Report Types
+- **Executive Summary** — One-page project overview with budget, RFI status, and key risks
+- **RFI Report** — RFI status summary with details and aging
+- **Daily Report** — Construction daily log with weather, crew, work completed
+- **Meeting Minutes** — Structured notes with action items, owners, and due dates
+- **Status Report** — Weekly/monthly project status with metrics
+
+## How It Works
+1. Ask your assistant to generate a report
+2. It pulls live data from your connected sources (Procore, database)
+3. Formats it into a professional PDF
+4. Returns the file for download
+
+## Example
+"Generate an executive summary for Terminal A with current budget and RFI data"`,
+  },
+  {
+    id: 'buildai-invoice-parser',
+    name: 'Invoice Parser',
+    description: 'Extract structured data from construction invoices — vendor name, amounts, line items, dates, PO numbers. Parse PDF invoices for budget tracking and payment processing.',
+    category: 'Cost Management',
+    icon: '🧾',
+    vendor: 'BuildAI',
+    version: '1.0.0',
+    tags: ['invoice', 'payment', 'vendor', 'cost', 'budget', 'billing'],
+    readme: `# Invoice Parser
+
+Parse construction invoices into structured data.
 
 ## What You Can Do
-- **Executive Summaries** — One-page project overview for leadership
-- **Weekly Status** — Automated weekly status reports
-- **Meeting Minutes** — Structured meeting notes and action items
-- **Custom Templates** — Define your own report formats
+- **Vendor Extraction** — Identify vendor/contractor name
+- **Amount Parsing** — Extract subtotal, tax, and total amounts
+- **Line Items** — Parse individual line items with quantities and prices
+- **Reference Numbers** — Extract invoice numbers, PO numbers, dates
+- **Batch Processing** — Process multiple invoices at once
+
+## Construction Use Cases
+- Parse subcontractor payment applications
+- Cross-reference invoiced amounts against budget line items
+- Track payment schedules and due dates
+- Audit invoice amounts against approved change orders
+- Build payment history for vendor management
+
+## Example
+Upload an invoice and ask: "Parse this invoice and compare the total against our budget"`,
+  },
+  {
+    id: 'buildai-contract-parser',
+    name: 'Contract Parser',
+    description: 'Parse construction contracts to extract key terms — parties, dates, scope, payment terms, insurance requirements, liquidated damages, and obligations.',
+    category: 'Documents',
+    icon: '📜',
+    vendor: 'BuildAI',
+    version: '1.0.0',
+    tags: ['contract', 'legal', 'terms', 'insurance', 'obligations', 'subcontract'],
+    readme: `# Contract Parser
+
+Extract key terms and obligations from construction contracts.
+
+## What You Can Do
+- **Party Identification** — Extract owner, contractor, sub names
+- **Financial Terms** — Contract value, retainage, payment schedule
+- **Key Dates** — Execution, start, completion, milestones
+- **Insurance Requirements** — Required coverage types and limits
+- **Clause Detection** — Identify indemnification, termination, force majeure, bonds
+- **Risk Flags** — Highlight liquidated damages, warranty terms
+
+## Construction Use Cases
+- Review subcontract terms before execution
+- Extract insurance requirements for compliance tracking
+- Compare terms across multiple subcontracts
+- Identify onerous clauses or missing provisions
+- Build a contract terms database
+
+## Example
+Upload a contract and ask: "What are the insurance requirements and payment terms?"`,
+  },
+  {
+    id: 'buildai-schedule-import',
+    name: 'Schedule Import',
+    description: 'Import project schedules from CSV, Excel, or PDF exports — P6, MS Project, Asta Powerproject. Extract activities, durations, dependencies, and milestones.',
+    category: 'Scheduling',
+    icon: '📅',
+    vendor: 'BuildAI',
+    version: '1.0.0',
+    tags: ['schedule', 'p6', 'primavera', 'ms-project', 'activities', 'milestones'],
+    readme: `# Schedule Import
+
+Import and analyze project schedule data from various formats.
+
+## Supported Formats
+- **CSV** — P6 exports, MS Project CSV, generic schedule CSV
+- **Excel** — .xlsx schedule files
+- **PDF** — Tabular schedule PDFs (best effort)
+
+## What You Can Do
+- **Activity Import** — Parse activities with start, finish, duration
+- **Milestone Tracking** — Identify key milestones
+- **Dependency Mapping** — Extract predecessor relationships
+- **Progress Tracking** — Read percent complete values
+- **Summary Statistics** — Total activities, date range, average completion
+
+## Construction Use Cases
+- Import P6 schedule exports for AI-powered analysis
+- Compare baseline vs current schedule
+- Identify slipping activities and critical path changes
+- Track milestone completion rates
+- Generate schedule narratives from data
+
+## Example
+Upload a P6 CSV export and ask: "What activities are behind schedule?"`,
+  },
+  {
+    id: 'buildai-safety-checker',
+    name: 'Safety Compliance',
+    description: 'Check construction project safety compliance — OSHA 1926 requirements, safety plan review, incident tracking, toolbox talks, and inspection checklists.',
+    category: 'Compliance',
+    icon: '🦺',
+    vendor: 'BuildAI',
+    version: '0.1.0',
+    tags: ['safety', 'osha', 'compliance', 'inspection', 'incidents'],
+    readme: `# Safety Compliance
+
+Monitor and verify construction safety compliance.
+
+## Planned Capabilities
+- **OSHA Compliance** — Check against OSHA 1926 requirements
+- **Safety Plan Review** — Analyze site safety plans for completeness
+- **Incident Tracking** — Log and track safety incidents
+- **Toolbox Talks** — Schedule and track safety briefings
+- **Inspection Checklists** — Generate safety inspection forms
 
 ## Coming Soon
 This skill is in development. Contact your BuildAI admin for early access.`,
   },
   {
-    id: 'buildai-compliance',
-    name: 'Compliance Tracker',
-    description: 'Track insurance certificates, permits, safety compliance, and regulatory requirements with automated expiry alerts.',
-    category: 'Compliance',
-    icon: '✅',
+    id: 'buildai-photo-log',
+    name: 'Photo Log',
+    description: 'Process construction site photos — EXIF metadata extraction, auto-tagging by location and trade, daily photo logs, and visual progress reports.',
+    category: 'Documents',
+    icon: '📸',
     vendor: 'BuildAI',
     version: '0.1.0',
-    tags: ['compliance', 'insurance', 'permits', 'safety'],
-    readme: `# Compliance Tracker
+    tags: ['photos', 'site', 'progress', 'documentation', 'visual'],
+    readme: `# Photo Log
 
-Monitor compliance requirements and get alerted before things expire.
+Organize and process construction site photography.
 
-## What You Can Do
-- **Insurance Tracking** — Monitor certificate expiration dates
-- **Permits** — Track permit status and renewals
-- **Safety Compliance** — OSHA requirements and inspections
-- **Automated Alerts** — Get notified before deadlines
+## Planned Capabilities
+- **EXIF Extraction** — Pull date, GPS, camera data from photos
+- **Auto-Tagging** — Categorize by trade, location, phase
+- **Daily Photo Log** — Organize photos into dated reports
+- **Progress Tracking** — Compare photos over time
+- **Drawing Markup** — Link photos to drawing locations
 
 ## Coming Soon
 This skill is in development. Contact your BuildAI admin for early access.`,
