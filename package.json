@@ -15,6 +15,7 @@
     "test:web": "npx vitest run --config packages/web/vitest.config.ts",
     "test:engine": "npx vitest run --config packages/engine/vitest.buildai.config.ts",
     "test:watch": "npx vitest --config packages/web/vitest.config.ts",
+    "test:e2e": "npx playwright test",
     "lint": "npm run lint --workspaces --if-present"
   },
   "engines": {
@@ -23,7 +24,13 @@
   "author": "Apoorv Garg",
   "license": "MIT",
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@vitejs/plugin-react": "^5.1.4",
+    "@vitest/browser": "^4.0.18",
     "concurrently": "^9.2.1",
+    "jsdom": "^28.1.0",
     "vitest": "^4.0.18"
   }
 }
