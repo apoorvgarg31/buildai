@@ -5,8 +5,8 @@ import ChatMessage, { Message } from "./ChatMessage";
 import ChatInput from "./ChatInput";
 import DocumentPanel, { UploadedDoc } from "./DocumentPanel";
 
-// Dynamic onboarding — agent scans projects on first load
-const ONBOARDING_TRIGGER = "I just logged in. Run a full project health scan: query the database for all active projects, check for overdue RFIs, expiring insurance, and budget overruns. Show me a complete health dashboard.";
+// Simple welcome — no heavy auto-scan on load
+const WELCOME_MESSAGE = `Welcome to **BuildAI** 🏗️\n\nI'm your construction PM copilot. I can help you with:\n\n- 📋 **RFIs** — track, query, and manage\n- 💰 **Budgets** — line items, change orders\n- 📅 **Schedules** — tasks and milestones\n- 📄 **Documents** — search and organize\n- 🔗 **Procore** — live project data\n\nWhat would you like to work on?`;
 
 // Non-streaming fallback
 async function sendChatMessage(
@@ -116,31 +116,16 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
       });
   }, []);
 
-  // Auto-onboard: trigger a real project health scan on first load
+  // Show welcome message immediately — no slow API call on load
   useEffect(() => {
     if (hasOnboarded) return;
     setHasOnboarded(true);
-    setIsLoading(true);
-
-    sendChatMessage(ONBOARDING_TRIGGER, null)
-      .then((data) => {
-        if (data.sessionId) setSessionId(data.sessionId);
-        setMessages([{
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: data.response,
-          timestamp: new Date(),
-        }]);
-      })
-      .catch(() => {
-        setMessages([{
-          id: "welcome-fallback",
-          role: "assistant",
-          content: `Hey! I'm your **BuildAI assistant** — your personal construction PM copilot. 🏗️\n\nI can help you with RFIs, budgets, schedules, documents, and more. What are you working on today?`,
-          timestamp: new Date(),
-        }]);
-      })
-      .finally(() => setIsLoading(false));
+    setMessages([{
+      id: "welcome",
+      role: "assistant",
+      content: WELCOME_MESSAGE,
+      timestamp: new Date(),
+    }]);
   }, [hasOnboarded]);
 
   const addDocuments = useCallback((files: FileList) => {
