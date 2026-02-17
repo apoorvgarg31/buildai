@@ -1,7 +1,7 @@
 /**
  * POST /api/chat
  *
- * Thin proxy to the Clawdbot engine gateway.
+ * Thin proxy to the BuildAI engine gateway.
  * Supports two modes:
  *   - stream=true (default): Returns SSE stream with delta events
  *   - stream=false: Returns full JSON response (legacy)

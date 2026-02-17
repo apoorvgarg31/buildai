@@ -54,7 +54,9 @@
       "token": "buildai-dev-token-2026"
     }
   },
-  "skills": {},
+  "skills": {
+    "allowBundled": ["buildai-database", "buildai-procore", "buildai-monitor", "buildai-marketplace"]
+  },
   "plugins": {
     "entries": {
       "telegram": {

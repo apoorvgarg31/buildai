@@ -1,7 +1,7 @@
 /**
  * WebSocket Gateway Client for BuildAI Engine.
  *
- * Connects to the Clawdbot-fork engine gateway over WebSocket,
+ * Connects to the BuildAI engine gateway over WebSocket,
  * performs the hello/hello-ok handshake, sends chat.send requests,
  * and streams back ChatEvent responses.
  *
