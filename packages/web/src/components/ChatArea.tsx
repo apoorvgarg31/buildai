@@ -236,17 +236,17 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
   return (
     <div className="flex h-full">
       {/* Main chat */}
-      <div className="flex flex-col flex-1 min-w-0 bg-gray-900">
-        {/* Minimal header */}
-        <header className="flex items-center justify-between pl-14 pr-4 lg:px-4 py-2.5 border-b border-gray-800/80">
+      <div className="flex flex-col flex-1 min-w-0 bg-white">
+        {/* Minimal header — ChatGPT style */}
+        <header className="flex items-center justify-between pl-14 pr-4 lg:px-4 py-2.5 border-b border-black/5">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-gray-200">BuildAI</h2>
+            <h2 className="text-sm font-semibold text-[#171717]">BuildAI</h2>
             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
               engineStatus === "connected"
-                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                : "bg-amber-50 text-amber-600 border border-amber-200"
             }`}>
-              <span className={`w-1 h-1 rounded-full ${engineStatus === "connected" ? "bg-emerald-400" : "bg-amber-400"}`} />
+              <span className={`w-1 h-1 rounded-full ${engineStatus === "connected" ? "bg-emerald-500" : "bg-amber-500"}`} />
               {engineStatus === "connected" ? "Connected" : engineStatus === "checking" ? "..." : "Preview"}
             </span>
           </div>
@@ -255,8 +255,8 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
             onClick={() => setShowDocPanel(!showDocPanel)}
             className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               showDocPanel
-                ? "bg-amber-500/15 text-amber-400 border border-amber-500/20"
-                : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
+                ? "bg-black/[0.07] text-[#171717]"
+                : "text-[#8e8e8e] hover:text-[#171717] hover:bg-black/[0.04]"
             }`}
             title="Toggle documents panel"
           >
@@ -265,7 +265,7 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
             </svg>
             <span className="hidden sm:inline">Docs</span>
             {docCount > 0 && (
-              <span className="inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold bg-amber-500 text-white rounded-full">
+              <span className="inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold bg-[#171717] text-white rounded-full">
                 {docCount}
               </span>
             )}
@@ -274,16 +274,16 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto">
-          <div className="divide-y divide-gray-800/50">
-            {/* Empty state — prompt user to start conversation */}
+          <div>
+            {/* Empty state — ChatGPT style */}
             {messages.length === 0 && !isLoading && (
               <div className="flex items-center justify-center h-full min-h-[400px]">
-                <div className="text-center space-y-4 px-4">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center text-white text-2xl font-bold mx-auto">
+                <div className="text-center space-y-3 px-4">
+                  <div className="w-10 h-10 rounded-full bg-[#171717] flex items-center justify-center text-white text-sm font-bold mx-auto">
                     B
                   </div>
-                  <h2 className="text-xl font-semibold text-gray-200">BuildAI</h2>
-                  <p className="text-gray-400 max-w-md">Your AI construction PM assistant. Say hello to get started — I&apos;ll walk you through what I can do.</p>
+                  <h2 className="text-2xl font-semibold text-[#171717]">What can I help with?</h2>
+                  <p className="text-[#8e8e8e] text-sm max-w-md">Your AI construction PM assistant</p>
                 </div>
               </div>
             )}
@@ -296,16 +296,15 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
 
             {isLoading && !isStreaming && (
               <div className="py-4">
-                <div className="max-w-3xl mx-auto flex gap-4 px-4">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
+                <div className="max-w-[680px] mx-auto flex gap-3 px-4">
+                  <div className="w-6 h-6 rounded-full bg-[#171717] flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
                     B
                   </div>
                   <div className="flex-1">
-                    <p className="text-[13px] font-semibold text-gray-300 mb-2">BuildAI</p>
-                    <div className="flex gap-1">
-                      <span className="w-2 h-2 bg-gray-600 rounded-full animate-bounce [animation-delay:0ms]"></span>
-                      <span className="w-2 h-2 bg-gray-600 rounded-full animate-bounce [animation-delay:150ms]"></span>
-                      <span className="w-2 h-2 bg-gray-600 rounded-full animate-bounce [animation-delay:300ms]"></span>
+                    <div className="flex gap-1 pt-2">
+                      <span className="w-2 h-2 bg-[#d1d1d1] rounded-full animate-bounce [animation-delay:0ms]"></span>
+                      <span className="w-2 h-2 bg-[#d1d1d1] rounded-full animate-bounce [animation-delay:150ms]"></span>
+                      <span className="w-2 h-2 bg-[#d1d1d1] rounded-full animate-bounce [animation-delay:300ms]"></span>
                     </div>
                   </div>
                 </div>

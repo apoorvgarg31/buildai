@@ -52,13 +52,13 @@ export default function ChatInput({ onSend, onFilesAttached, disabled }: ChatInp
   );
 
   return (
-    <div className="bg-gray-900 px-4 pb-4 pt-2">
-      <div className="max-w-3xl mx-auto">
-        <div className="relative flex items-end bg-gray-800 border border-gray-600/50 rounded-2xl shadow-lg focus-within:border-gray-500 transition-colors">
+    <div className="bg-white px-4 pb-4 pt-2">
+      <div className="max-w-[680px] mx-auto">
+        <div className="relative flex items-end bg-[#f4f4f4] rounded-3xl border border-transparent focus-within:border-[#d9d9d9] transition-colors">
           {/* Attach button */}
           <button
             onClick={handleFileClick}
-            className="p-3 text-gray-400 hover:text-gray-200 transition-colors"
+            className="p-3 pl-4 text-[#8e8e8e] hover:text-[#171717] transition-colors"
             title="Attach documents"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -81,30 +81,30 @@ export default function ChatInput({ onSend, onFilesAttached, disabled }: ChatInp
             value={input}
             onChange={handleInput}
             onKeyDown={handleKeyDown}
-            placeholder="Message BuildAI..."
+            placeholder="Ask anything"
             rows={1}
             disabled={disabled}
-            className="flex-1 resize-none bg-transparent py-3 pr-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none disabled:opacity-50 max-h-[200px]"
+            className="flex-1 resize-none bg-transparent py-3.5 pr-2 text-[15px] text-[#171717] placeholder-[#8e8e8e] focus:outline-none disabled:opacity-50 max-h-[200px]"
           />
 
           {/* Send button */}
           <button
             onClick={handleSubmit}
             disabled={!input.trim() || disabled}
-            className={`p-2 m-1.5 rounded-xl transition-all ${
+            className={`p-2 m-2 rounded-full transition-all ${
               input.trim() && !disabled
-                ? "bg-amber-500 text-white hover:bg-amber-400 shadow-md"
-                : "bg-gray-700 text-gray-500 cursor-not-allowed"
+                ? "bg-[#171717] text-white hover:bg-[#333]"
+                : "bg-[#d9d9d9] text-white cursor-not-allowed"
             }`}
             title="Send message"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z" />
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 4l0 16m0-16l-6 6m6-6l6 6" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" fill="none" />
             </svg>
           </button>
         </div>
 
-        <p className="text-[11px] text-gray-600 text-center mt-2">
+        <p className="text-[11px] text-[#b4b4b4] text-center mt-2">
           BuildAI can make mistakes. Verify important project data.
         </p>
       </div>

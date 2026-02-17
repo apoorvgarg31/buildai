@@ -17,46 +17,53 @@ export default function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === "user";
 
   return (
-    <div className={`group py-4 ${isUser ? "" : ""}`}>
-      <div className="max-w-3xl mx-auto flex gap-4 px-4">
-        {/* Avatar */}
-        <div
-          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 mt-0.5 ${
-            isUser
-              ? "bg-gradient-to-br from-amber-400 to-amber-600 text-white"
-              : "bg-gradient-to-br from-emerald-400 to-teal-600 text-white"
-          }`}
-        >
-          {isUser ? "Y" : "B"}
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <p className={`text-[13px] font-semibold mb-1 ${isUser ? "text-gray-300" : "text-gray-300"}`}>
-            {isUser ? "You" : "BuildAI"}
-          </p>
-          <div
-            className={`prose prose-sm prose-invert max-w-none
-              prose-p:text-gray-200 prose-p:leading-relaxed prose-p:my-1.5
-              prose-strong:text-white prose-strong:font-semibold
-              prose-li:text-gray-200 prose-li:my-0.5
-              prose-ul:my-2 prose-ol:my-2
-              prose-code:text-amber-300 prose-code:bg-gray-800 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-[13px]
-              prose-pre:bg-gray-800 prose-pre:border prose-pre:border-gray-700 prose-pre:rounded-lg
-              prose-headings:text-white prose-headings:font-semibold
-              prose-a:text-amber-400 prose-a:no-underline hover:prose-a:underline
-              ${isUser ? "text-gray-200" : "text-gray-200"}
-            `}
-          >
-            <ReactMarkdown>{message.content}</ReactMarkdown>
+    <div className={`py-3 ${isUser ? "" : ""}`}>
+      <div className={`max-w-[680px] mx-auto px-4 ${isUser ? "flex justify-end" : ""}`}>
+        {isUser ? (
+          /* User message: right-aligned gray bubble */
+          <div className="max-w-[85%]">
+            <div className="inline-block bg-[#f4f4f4] text-[#171717] rounded-3xl px-5 py-3">
+              <div className="text-[15px] leading-[1.7] whitespace-pre-wrap">
+                {message.content}
+              </div>
+            </div>
           </div>
-          <p className="text-[11px] text-gray-600 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            {message.timestamp.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </p>
-        </div>
+        ) : (
+          /* Assistant message: left-aligned, plain text, small icon */
+          <div className="max-w-full">
+            <div className="flex items-start gap-3">
+              {/* Small BuildAI icon */}
+              <div className="w-6 h-6 rounded-full bg-[#171717] flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 mt-1">
+                B
+              </div>
+              <div
+                className="flex-1 min-w-0 prose prose-sm max-w-none
+                  prose-p:text-[#171717] prose-p:leading-[1.7] prose-p:my-2 prose-p:text-[15px]
+                  prose-strong:text-[#171717] prose-strong:font-semibold
+                  prose-li:text-[#171717] prose-li:my-0.5 prose-li:text-[15px] prose-li:leading-[1.7]
+                  prose-ul:my-2 prose-ul:list-disc prose-ul:pl-4
+                  prose-ol:my-2 prose-ol:pl-4
+                  prose-code:text-[#171717] prose-code:bg-[#f4f4f4] prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-[13px] prose-code:font-normal
+                  prose-pre:bg-[#f4f4f4] prose-pre:border prose-pre:border-[#e5e5e5] prose-pre:rounded-xl
+                  prose-headings:text-[#171717] prose-headings:font-semibold
+                  prose-a:text-[#171717] prose-a:no-underline prose-a:font-medium hover:prose-a:underline
+                  text-[#171717]
+                "
+              >
+                <ReactMarkdown>{message.content}</ReactMarkdown>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      {/* Timestamp hidden by default, shown on hover */}
+      <div className="group">
+        <p className={`text-[11px] text-[#b4b4b4] mt-1 opacity-0 group-hover:opacity-100 transition-opacity ${isUser ? "text-right pr-6" : "pl-[52px]"} max-w-[680px] mx-auto px-4`}>
+          {message.timestamp.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </p>
       </div>
     </div>
   );
