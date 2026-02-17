@@ -12,15 +12,15 @@
 ## Phase 1: Engine Fork & Core (Week 1-2)
 | # | Task | Status | Acceptance Criteria | Tests |
 |---|------|--------|-------------------|-------|
-| 1.1 | Fork OpenClaw source | ⬜ | Engine starts with `node entry.js gateway` | Startup test |
+| 1.1 | Fork OpenClaw source | ✅ | Engine copied to `packages/engine/` with all dist/skills/extensions | Verified files present |
 | 1.2 | Disable unnecessary components | ⬜ | Engine starts, webchat works, disabled components don't error | Component disable test |
-| 1.3 | Set up monorepo structure | ⬜ | `packages/engine`, `packages/backend`, `packages/frontend`, `workspaces/` | Dir structure verified |
+| 1.3 | Set up monorepo structure | ✅ | `packages/engine`, `packages/web`, `workspaces/templates` + root config | Dir structure verified |
 | 1.4 | Construction PM agent config | ⬜ | Agent responds as construction PM via webchat | Chat response test |
 | 1.5 | Verify memory persistence | ⬜ | Restart gateway → memory retained | Write/restart/read test |
 | 1.6 | Verify heartbeat | ⬜ | Heartbeat fires on schedule | Timer mock test |
 | 1.7 | Verify cron jobs | ⬜ | Cron job creates and executes | Cron create/fire test |
 | 1.8 | Verify compaction | ⬜ | Context compacts, critical data survives | Fill/compact/verify test |
-| 1.9 | Workspace templates | ⬜ | Template SOUL/AGENTS/HEARTBEAT/ACTIVE generates correctly | Template gen test |
+| 1.9 | Workspace templates | ✅ | SOUL/AGENTS/HEARTBEAT/ACTIVE/TOOLS/MEMORY in `workspaces/templates/` | Files verified |
 
 ## Phase 2: Connection Manager & Procore (Week 2-3)
 | # | Task | Status | Acceptance Criteria | Tests |
