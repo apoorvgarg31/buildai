@@ -148,7 +148,7 @@ export default function ChatArea() {
       {/* Main chat */}
       <div className="flex flex-col flex-1 min-w-0 bg-gray-900">
         {/* Minimal header */}
-        <header className="flex items-center justify-between px-4 py-2.5 border-b border-gray-800/80">
+        <header className="flex items-center justify-between pl-14 pr-4 lg:px-4 py-2.5 border-b border-gray-800/80">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-semibold text-gray-200">BuildAI</h2>
             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
