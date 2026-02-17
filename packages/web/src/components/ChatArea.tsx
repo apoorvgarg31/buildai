@@ -5,6 +5,16 @@ import ChatMessage, { Message } from "./ChatMessage";
 import ChatInput from "./ChatInput";
 import DocumentPanel, { UploadedDoc } from "./DocumentPanel";
 
+// Strip internal engine tags that shouldn't be shown to users
+function sanitizeContent(text: string): string {
+  return text
+    .replace(/\[\[\s*reply_to[:\s][^\]]*\]\]/gi, '')
+    .replace(/\[\[\s*reply_to_current\s*\]\]/gi, '')
+    .replace(/\bNO_REPLY\b/g, '')
+    .replace(/\bHEARTBEAT_OK\b/g, '')
+    .trim();
+}
+
 // Simple welcome — no heavy auto-scan on load
 const WELCOME_MESSAGE = `Welcome to **BuildAI** 🏗️\n\nI'm your construction PM copilot. I can help you with:\n\n- 📋 **RFIs** — track, query, and manage\n- 💰 **Budgets** — line items, change orders\n- 📅 **Schedules** — tasks and milestones\n- 📄 **Documents** — search and organize\n- 🔗 **Procore** — live project data\n\nWhat would you like to work on?`;
 
@@ -134,7 +144,7 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
           setMessages(data.messages.map((m: { id: string; role: "user" | "assistant"; content: string; timestamp: string }) => ({
             id: m.id,
             role: m.role,
-            content: m.content,
+            content: m.role === "assistant" ? sanitizeContent(m.content) : m.content,
             timestamp: new Date(m.timestamp),
           })));
         } else {
@@ -197,7 +207,7 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
           // Gateway sends cumulative text — REPLACE content, don't append
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === assistantId ? { ...m, content: delta } : m
+              m.id === assistantId ? { ...m, content: sanitizeContent(delta) } : m
             )
           );
         });
