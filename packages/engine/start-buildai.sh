@@ -5,7 +5,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PORT="${1:-18789}"
+PORT="${1:-18790}"
 
 # Source BuildAI environment overrides
 source "$SCRIPT_DIR/.env.buildai"

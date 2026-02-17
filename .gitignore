@@ -37,3 +37,6 @@ coverage/
 
 # Misc
 *.tsbuildinfo
+
+# Procore tokens (OAuth)
+.procore-tokens.json

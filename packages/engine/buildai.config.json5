@@ -8,7 +8,7 @@
 {
   // Gateway — the core WebSocket server (KEEP)
   "gateway": {
-    "port": 18789,
+    "port": 18790,
     "auth": {
       // Token-based auth for webchat connections
       "mode": "token"
@@ -77,7 +77,9 @@
   "agents": {
     "defaults": {
       "model": "anthropic/claude-sonnet-4-20250514",
-      "thinkingLevel": "low"
+      "thinkingLevel": "low",
+      // Point to the BuildAI agent workspace
+      "workspace": "../../workspaces/buildai-agent"
     }
   },
 
