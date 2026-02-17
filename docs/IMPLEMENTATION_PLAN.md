@@ -8,6 +8,27 @@
 
 ---
 
+## Current File Structure (packages/web/src/)
+```
+app/
+  layout.tsx          — Root layout (Geist font, html/body)
+  page.tsx            — Main page: LoginScreen → Sidebar + ChatArea/AdminDashboard
+  globals.css         — Tailwind imports
+  api/chat/route.ts   — POST: chat with LLM+DB, GET: health check
+components/
+  LoginScreen.tsx     — Fake login form (admin@buildai.com / pm@buildai.com)
+  Sidebar.tsx         — Role-based nav (admin vs user), responsive hamburger
+  ChatArea.tsx        — Chat messages + document panel toggle + input
+  ChatInput.tsx       — Text input + file attach button
+  ChatMessage.tsx     — Single message bubble (user/assistant)
+  DocumentPanel.tsx   — Right-side document panel (upload, list, delete)
+  AdminDashboard.tsx  — Admin stats, user table, connections overview
+lib/
+  auth.ts             — Demo user definitions + authenticate()
+  db.ts               — PostgreSQL connection (pg Pool)
+  llm.ts              — Gemini 2.0 Flash integration
+```
+
 ## Vision
 A personal AI assistant for construction PMs that connects to their PMIS systems (Procore, Unifier, P6, Kahua), databases, and documents. Reactive, not passive — it comes to PMs with problems and offers solutions. Built on a fork of Clawdbot's engine.
 
@@ -22,49 +43,63 @@ A personal AI assistant for construction PMs that connects to their PMIS systems
 - **Frontend:** NOT now — CLI first, prove engine works, then build Mission Control
 - **Auth:** Procore OAuth is user-scoped — each PM signs in themselves
 
+## 🚨 Rule 1: NO SECRETS IN GIT
+Never commit API keys, credentials, tokens, or sensitive info. Use env vars only.
+See CONTRIBUTING.md for details.
+
 ## Key Principles
 1. Fork, don't rebuild — strip what we don't need, keep what works
 2. Skills pattern for ALL integrations
-3. CLI first — prove everything works before touching frontend
-4. Reactive agent behavior is THE differentiator
-5. Single company deployment — no multi-tenant complexity yet
+3. Reactive agent behavior is THE differentiator
+4. Single company deployment — no multi-tenant complexity yet
+5. **No secrets in git** — env vars only, .env.example for documentation
+6. TypeScript only — no Python
 
 ---
 
-## Phase 1: Engine Fork & Core (Week 1-2)
-**Goal:** Working Clawdbot fork, stripped down, running as CLI
+## Phase 1: Engine Fork & Core ✅ COMPLETE
+**Goal:** Working Clawdbot fork, stripped down, with Next.js UI
 
-### Task 1.1: Fork Clawdbot Source
-- [ ] Clone Clawdbot source (from GitHub or npm package)
-- [ ] Set up as independent project with own git repo
-- [ ] Install dependencies, verify it builds and runs
-- **Acceptance:** `node buildai-engine/dist/entry.js gateway` starts without errors
+### Task 1.1: Fork Clawdbot Source ✅
+- [x] Cloned into packages/engine/
+- [x] Monorepo with npm workspaces
 
-### Task 1.2: Disable Unnecessary Components (don't delete — disable for future)
-- [ ] Disable: Telegram bot management (keep webchat only)
-- [ ] Disable: Node pairing & discovery
-- [ ] Disable: Browser automation
-- [ ] Disable: ClawdHub skill marketplace
-- [ ] Disable: Camera/screen tools
-- [ ] Disable: Canvas/A2UI
-- [ ] Keep: Memory architecture, compaction, heartbeat, cron, agent engine, tool system, exec, webchat
-- [ ] Write test: engine starts without errors with disabled components
-- **Acceptance:** Stripped engine starts, agent responds via webchat, no errors. Disabled components can be re-enabled via config.
+### Task 1.2: Disable Unnecessary Components ✅
+- [x] Config: buildai.config.json5 disables browser, canvas, node pairing, all messaging channels
+- [x] Env: .env.buildai with skip flags
+- [x] Docs: COMPONENTS.md documents all components
+- [x] 28 tests passing
 
-### Task 1.3: Construction PM Agent Configuration
-- [ ] Create workspace with SOUL.md (reactive construction PM personality)
-- [ ] Create AGENTS.md with construction-specific behavior rules
-- [ ] Create TOOLS.md documenting available skills
-- [ ] Create HEARTBEAT.md with construction-specific checks
-- [ ] Configure agent to use construction persona
-- **Acceptance:** Chat with agent via webchat, it responds as construction PM assistant, understands construction terminology
+### Task 1.3: Construction PM Agent Configuration ✅
+- [x] SOUL.md, AGENTS.md, TOOLS.md, HEARTBEAT.md, ACTIVE.md, MEMORY.md templates
+- [x] 44 tests validating templates
 
-### Task 1.4: Verify Core Systems
-- [ ] Test memory persistence across sessions (restart gateway, memory retained)
-- [ ] Test heartbeat fires on schedule
-- [ ] Test cron jobs create and execute
-- [ ] Test compaction works (fill context, verify graceful compaction)
-- **Acceptance:** All four systems working identically to Clawdbot
+### Task 1.4: Next.js Chat UI ✅
+- [x] Chat with bubbles, auto-scroll, loading animation
+- [x] Chat API route (/api/chat) with mock + real engine
+- [x] Document panel (right side) — drag/drop, file management
+- [x] 103 tests (93 unit + 10 E2E)
+
+### Task 1.5: Demo Database ✅
+- [x] PostgreSQL `buildai_demo` on localhost:5432
+- [x] 10 tables, 250+ records (projects, RFIs, submittals, budgets, etc.)
+- [x] Pre-built views: v_project_dashboard, v_overdue_rfis, v_expiring_insurance, v_project_budget_summary
+- [x] Seed script: packages/engine/scripts/seed-demo-db.sql
+
+### Task 1.6: Login & Role-Based UI ✅
+- [x] Fake login screen (admin@buildai.com / pm@buildai.com)
+- [x] Admin sidebar: 👥 Users, 🤖 Agents, 🔗 Connections, ⚙️ Settings
+- [x] User sidebar: 💬 Agent, 🛍️ Marketplace, 📊 Usage, ⚙️ Settings
+- [x] Admin dashboard with stats, users table, connections overview
+- [x] Role badge, user profile, logout
+- [x] Fully responsive (mobile hamburger + overlays)
+
+### Task 1.7: LLM + Database Wiring 🔵 IN PROGRESS
+- [ ] Gemini 2.0 Flash integration (via @google/generative-ai)
+- [ ] Agent generates SQL from natural language
+- [ ] Queries real PostgreSQL database
+- [ ] Returns natural language answers
+- [ ] Uses env vars only (GEMINI_API_KEY)
 
 ---
 
