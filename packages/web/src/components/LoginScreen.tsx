@@ -17,7 +17,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     e.preventDefault();
     setError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
+    await new Promise((r) => setTimeout(r, 600));
     const user = authenticate(email, password);
     if (user) {
       onLogin(user);
@@ -28,28 +28,28 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   };
 
   return (
-    <div className="min-h-full flex items-center justify-center bg-gray-950 px-4">
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-amber-500/5 rounded-full blur-3xl" />
-      </div>
+    <div className="min-h-full flex items-center justify-center bg-[#0a0a0a] px-4 relative overflow-hidden">
+      {/* Subtle gradient orbs */}
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-amber-500/5 rounded-full blur-[120px]" />
+      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-amber-500/3 rounded-full blur-[100px]" />
 
-      <div className="relative w-full max-w-md">
+      <div className="relative w-full max-w-[380px]">
+        {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-amber-500 text-white font-bold text-2xl mb-4 shadow-lg shadow-amber-500/20">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-white font-bold text-xl mb-4">
             B
           </div>
-          <h1 className="text-2xl font-bold text-white">BuildAI</h1>
-          <p className="text-sm text-gray-400 mt-1">AI-Powered Construction Project Management</p>
+          <h1 className="text-xl font-semibold text-white">Welcome to BuildAI</h1>
+          <p className="text-sm text-gray-500 mt-1">AI-Powered Construction Management</p>
         </div>
 
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 shadow-2xl">
-          <h2 className="text-lg font-semibold text-white mb-1">Sign in</h2>
-          <p className="text-sm text-gray-400 mb-6">Enter your credentials to continue</p>
-
+        {/* Login form */}
+        <div className="bg-[#171717] border border-white/10 rounded-2xl p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1.5">Email</label>
+              <label htmlFor="email" className="block text-[13px] font-medium text-gray-400 mb-1.5">
+                Email address
+              </label>
               <input
                 id="email"
                 type="email"
@@ -57,12 +57,15 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@company.com"
                 required
-                className="w-full px-4 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-colors"
+                autoFocus
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#0a0a0a] border border-white/10 text-white placeholder-gray-600 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500/50 focus:border-amber-500/50 transition-colors"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1.5">Password</label>
+              <label htmlFor="password" className="block text-[13px] font-medium text-gray-400 mb-1.5">
+                Password
+              </label>
               <input
                 id="password"
                 type="password"
@@ -70,62 +73,62 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full px-4 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-colors"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#0a0a0a] border border-white/10 text-white placeholder-gray-600 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500/50 focus:border-amber-500/50 transition-colors"
               />
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 text-sm text-red-400 bg-red-900/20 border border-red-800/30 rounded-xl px-4 py-2.5">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+              <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3.5 py-2.5">
                 {error}
-              </div>
+              </p>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
             >
               {loading ? (
-                <>
-                  <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <span className="inline-flex items-center gap-2">
+                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
                   Signing in...
-                </>
+                </span>
               ) : (
-                "Sign in"
+                "Continue"
               )}
             </button>
           </form>
-
-          <div className="mt-6 pt-4 border-t border-gray-800">
-            <p className="text-xs text-gray-500 text-center mb-3">Demo accounts</p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => { setEmail("admin@buildai.com"); setPassword("admin123"); setError(""); }}
-                className="text-xs text-gray-400 hover:text-amber-400 bg-gray-800/50 hover:bg-gray-800 rounded-lg px-3 py-2 transition-colors text-center"
-              >
-                <span className="block font-medium">Admin</span>
-                <span className="text-gray-500">PMO Director</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setEmail("pm@buildai.com"); setPassword("demo123"); setError(""); }}
-                className="text-xs text-gray-400 hover:text-amber-400 bg-gray-800/50 hover:bg-gray-800 rounded-lg px-3 py-2 transition-colors text-center"
-              >
-                <span className="block font-medium">Project Manager</span>
-                <span className="text-gray-500">User view</span>
-              </button>
-            </div>
-          </div>
         </div>
 
-        <p className="text-center text-xs text-gray-600 mt-6">© 2026 BuildAI. All rights reserved.</p>
+        {/* Demo accounts */}
+        <div className="mt-4">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex-1 h-px bg-white/5" />
+            <span className="text-[11px] text-gray-600 uppercase tracking-wider">Demo accounts</span>
+            <div className="flex-1 h-px bg-white/5" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => { setEmail("admin@buildai.com"); setPassword("admin123"); setError(""); }}
+              className="text-left px-3 py-2.5 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] transition-colors"
+            >
+              <p className="text-[13px] font-medium text-gray-300">Admin</p>
+              <p className="text-[11px] text-gray-600">PMO Director</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setEmail("pm@buildai.com"); setPassword("demo123"); setError(""); }}
+              className="text-left px-3 py-2.5 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] transition-colors"
+            >
+              <p className="text-[13px] font-medium text-gray-300">Project Manager</p>
+              <p className="text-[11px] text-gray-600">User view</p>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -34,7 +34,7 @@ export default function ChatInput({ onSend, onFilesAttached, disabled }: ChatInp
     setInput(e.target.value);
     const textarea = e.target;
     textarea.style.height = "auto";
-    textarea.style.height = Math.min(textarea.scrollHeight, 160) + "px";
+    textarea.style.height = Math.min(textarea.scrollHeight, 200) + "px";
   };
 
   const handleFileClick = useCallback(() => {
@@ -52,74 +52,61 @@ export default function ChatInput({ onSend, onFilesAttached, disabled }: ChatInp
   );
 
   return (
-    <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3">
-      <div className="flex items-end gap-3 max-w-4xl mx-auto">
-        {/* File upload button */}
-        <button
-          onClick={handleFileClick}
-          className="p-2 text-gray-400 hover:text-amber-500 dark:hover:text-amber-400 transition-colors"
-          title="Attach documents"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-5 h-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+    <div className="bg-gray-900 px-4 pb-4 pt-2">
+      <div className="max-w-3xl mx-auto">
+        <div className="relative flex items-end bg-gray-800 border border-gray-600/50 rounded-2xl shadow-lg focus-within:border-gray-500 transition-colors">
+          {/* Attach button */}
+          <button
+            onClick={handleFileClick}
+            className="p-3 text-gray-400 hover:text-gray-200 transition-colors"
+            title="Attach documents"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-            />
-          </svg>
-        </button>
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+            </svg>
+          </button>
 
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="hidden"
-          multiple
-          accept=".pdf,.doc,.docx,.xls,.xlsx,.pptx,.csv,.txt,.png,.jpg,.jpeg,.gif,.webp"
-          onChange={handleFileChange}
-        />
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            multiple
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.pptx,.csv,.txt,.png,.jpg,.jpeg,.gif,.webp"
+            onChange={handleFileChange}
+          />
 
-        {/* Text input */}
-        <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={handleInput}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask about your projects, RFIs, budget..."
-          rows={1}
-          disabled={disabled}
-          className="flex-1 resize-none rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:opacity-50"
-        />
+          {/* Text input */}
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={handleInput}
+            onKeyDown={handleKeyDown}
+            placeholder="Message BuildAI..."
+            rows={1}
+            disabled={disabled}
+            className="flex-1 resize-none bg-transparent py-3 pr-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none disabled:opacity-50 max-h-[200px]"
+          />
 
-        {/* Send button */}
-        <button
-          onClick={handleSubmit}
-          disabled={!input.trim() || disabled}
-          className="p-2.5 bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Send message"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-5 h-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+          {/* Send button */}
+          <button
+            onClick={handleSubmit}
+            disabled={!input.trim() || disabled}
+            className={`p-2 m-1.5 rounded-xl transition-all ${
+              input.trim() && !disabled
+                ? "bg-amber-500 text-white hover:bg-amber-400 shadow-md"
+                : "bg-gray-700 text-gray-500 cursor-not-allowed"
+            }`}
+            title="Send message"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-            />
-          </svg>
-        </button>
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z" />
+            </svg>
+          </button>
+        </div>
+
+        <p className="text-[11px] text-gray-600 text-center mt-2">
+          BuildAI can make mistakes. Verify important project data.
+        </p>
       </div>
     </div>
   );

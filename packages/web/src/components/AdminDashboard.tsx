@@ -7,10 +7,10 @@ interface AdminDashboardProps {
 }
 
 const stats = [
-  { label: "Active Users", value: "24", icon: "👥", change: "+3 this week" },
-  { label: "AI Agents", value: "24", icon: "🤖", change: "All healthy" },
-  { label: "Connections", value: "6", icon: "🔗", change: "2 pending setup" },
-  { label: "Queries Today", value: "1,847", icon: "💬", change: "+12% vs yesterday" },
+  { label: "Active Users", value: "24", icon: "👥", change: "+3 this week", color: "from-blue-500/10 to-blue-600/5 border-blue-500/10" },
+  { label: "AI Agents", value: "24", icon: "🤖", change: "All healthy", color: "from-emerald-500/10 to-emerald-600/5 border-emerald-500/10" },
+  { label: "Connections", value: "6", icon: "🔗", change: "2 pending", color: "from-amber-500/10 to-amber-600/5 border-amber-500/10" },
+  { label: "Queries Today", value: "1,847", icon: "💬", change: "+12%", color: "from-purple-500/10 to-purple-600/5 border-purple-500/10" },
 ];
 
 const recentUsers = [
@@ -23,62 +23,66 @@ const recentUsers = [
 
 const connections = [
   { name: "Procore", type: "PMIS", status: "connected", users: 24 },
-  { name: "PostgreSQL (Projects DB)", type: "Database", status: "connected", users: 24 },
-  { name: "Gemini 2.0 Flash", type: "LLM", status: "connected", users: 24 },
+  { name: "PostgreSQL", type: "Database", status: "connected", users: 24 },
+  { name: "Gemini 2.0 Flash", type: "LLM Provider", status: "connected", users: 24 },
   { name: "Primavera P6", type: "Scheduling", status: "pending", users: 0 },
-  { name: "Unifier", type: "Cost Management", status: "pending", users: 0 },
+  { name: "Unifier", type: "Cost Mgmt", status: "pending", users: 0 },
   { name: "SharePoint", type: "Documents", status: "connected", users: 18 },
 ];
 
 export default function AdminDashboard({ user }: AdminDashboardProps) {
   return (
-    <div className="flex flex-col h-full">
-      <header className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+    <div className="flex flex-col h-full bg-[#0a0a0a]">
+      {/* Header */}
+      <header className="flex items-center justify-between px-6 h-14 border-b border-white/5">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Admin Dashboard</h2>
-          <p className="text-xs text-gray-500">Welcome back, {user.name}</p>
+          <h2 className="text-sm font-semibold text-white">Dashboard</h2>
+          <p className="text-[11px] text-gray-500">Welcome back, {user.name}</p>
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950 px-4 sm:px-6 py-6">
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto px-6 py-6">
         <div className="max-w-6xl mx-auto space-y-6">
           {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {stats.map((stat) => (
-              <div key={stat.label} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                <span className="text-2xl">{stat.icon}</span>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{stat.value}</p>
-                <p className="text-sm text-gray-500 mt-0.5">{stat.label}</p>
-                <p className="text-xs text-green-500 mt-1">{stat.change}</p>
+              <div key={stat.label} className={`rounded-xl border bg-gradient-to-br ${stat.color} p-4`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xl">{stat.icon}</span>
+                  <span className="text-[11px] font-medium text-emerald-400">{stat.change}</span>
+                </div>
+                <p className="text-2xl font-bold text-white mt-2">{stat.value}</p>
+                <p className="text-[12px] text-gray-400 mt-0.5">{stat.label}</p>
               </div>
             ))}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Users */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+            <div className="rounded-xl border border-white/5 bg-[#171717] p-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Recent Users</h3>
-                <button className="text-xs text-amber-500 hover:text-amber-400 font-medium">View all →</button>
+                <h3 className="text-sm font-semibold text-white">Team Members</h3>
+                <button className="text-[12px] text-amber-400 hover:text-amber-300 font-medium">View all →</button>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-1">
                 {recentUsers.map((u) => (
-                  <div key={u.name} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
+                  <div key={u.name} className="flex items-center justify-between py-2.5 px-2 rounded-lg hover:bg-white/[0.03] transition-colors">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-medium text-gray-600 dark:text-gray-300">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center text-[11px] font-semibold text-white">
                         {u.name.split(" ").map((n) => n[0]).join("")}
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">{u.name}</p>
-                        <p className="text-xs text-gray-500">{u.role} · {u.projects} projects</p>
+                        <p className="text-[13px] font-medium text-gray-200">{u.name}</p>
+                        <p className="text-[11px] text-gray-500">{u.role} · {u.projects} projects</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className={`inline-flex items-center gap-1 text-xs font-medium ${u.status === "active" ? "text-green-500" : "text-gray-400"}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${u.status === "active" ? "bg-green-500" : "bg-gray-400"}`} />
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${u.status === "active" ? "text-emerald-400" : "text-gray-500"}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${u.status === "active" ? "bg-emerald-400" : "bg-gray-600"}`} />
                         {u.status}
                       </span>
-                      <p className="text-xs text-gray-400 mt-0.5">{u.queries} queries</p>
+                      <p className="text-[11px] text-gray-600">{u.queries} queries</p>
                     </div>
                   </div>
                 ))}
@@ -86,27 +90,26 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
             </div>
 
             {/* Connections */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+            <div className="rounded-xl border border-white/5 bg-[#171717] p-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Connections</h3>
-                <button className="text-xs text-amber-500 hover:text-amber-400 font-medium">Manage →</button>
+                <h3 className="text-sm font-semibold text-white">Connections</h3>
+                <button className="text-[12px] text-amber-400 hover:text-amber-300 font-medium">Manage →</button>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-1">
                 {connections.map((c) => (
-                  <div key={c.name} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
+                  <div key={c.name} className="flex items-center justify-between py-2.5 px-2 rounded-lg hover:bg-white/[0.03] transition-colors">
                     <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{c.name}</p>
-                      <p className="text-xs text-gray-500">{c.type}</p>
+                      <p className="text-[13px] font-medium text-gray-200">{c.name}</p>
+                      <p className="text-[11px] text-gray-500">{c.type}</p>
                     </div>
                     <div className="text-right">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
                         c.status === "connected"
-                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                          : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                          : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
                       }`}>
                         {c.status === "connected" ? "Connected" : "Pending"}
                       </span>
-                      <p className="text-xs text-gray-400 mt-0.5">{c.users} users</p>
                     </div>
                   </div>
                 ))}
