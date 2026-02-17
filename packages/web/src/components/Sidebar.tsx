@@ -6,32 +6,39 @@ import { DemoUser } from "@/lib/auth";
 interface NavItem {
   name: string;
   icon: string;
-  href: string;
-  active?: boolean;
+  page: Page;
 }
 
 const adminNav: NavItem[] = [
-  { name: "Users", icon: "👥", href: "/users", active: true },
-  { name: "Agents", icon: "🤖", href: "/agents" },
-  { name: "Connections", icon: "🔗", href: "/connections" },
-  { name: "Settings", icon: "⚙️", href: "/settings" },
+  { name: "Users", icon: "👥", page: "users" },
+  { name: "Agents", icon: "🤖", page: "agents" },
+  { name: "Connections", icon: "🔗", page: "connections" },
+  { name: "Settings", icon: "⚙️", page: "settings" },
 ];
 
 const userNav: NavItem[] = [
-  { name: "Chat", icon: "💬", href: "/", active: true },
-  { name: "Marketplace", icon: "🛍️", href: "/marketplace" },
-  { name: "Usage", icon: "📊", href: "/usage" },
-  { name: "Settings", icon: "⚙️", href: "/settings" },
+  { name: "Chat", icon: "💬", page: "chat" },
+  { name: "Marketplace", icon: "🛍️", page: "marketplace" },
+  { name: "Usage", icon: "📊", page: "usage" },
+  { name: "Settings", icon: "⚙️", page: "settings" },
 ];
+
+export type UserPage = "chat" | "marketplace" | "usage" | "settings";
+export type AdminPage = "users" | "agents" | "connections" | "settings";
+export type Page = UserPage | AdminPage;
 
 interface SidebarProps {
   user: DemoUser;
   onLogout: () => void;
+  activePage?: Page;
+  onNavigate?: (page: Page) => void;
 }
 
-export default function Sidebar({ user, onLogout }: SidebarProps) {
+export default function Sidebar({ user, onLogout, activePage, onNavigate }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigation = user.role === "admin" ? adminNav : userNav;
+  const defaultPage: Page = user.role === "admin" ? "users" : "chat";
+  const currentPage = activePage ?? defaultPage;
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-[#171717] text-gray-300">
@@ -51,19 +58,21 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 px-2 py-3 space-y-0.5">
         {navigation.map((item) => (
-          <a
+          <button
             key={item.name}
-            href={item.href}
-            onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-              item.active
+            onClick={() => {
+              onNavigate?.(item.page);
+              setMobileOpen(false);
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+              currentPage === item.page
                 ? "bg-white/10 text-white"
                 : "text-gray-400 hover:bg-white/5 hover:text-white"
             }`}
           >
             <span className="text-base">{item.icon}</span>
             <span className="font-medium">{item.name}</span>
-          </a>
+          </button>
         ))}
       </nav>
 
