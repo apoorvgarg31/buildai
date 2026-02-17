@@ -1,0 +1,56 @@
+// BuildAI Engine Configuration
+// Fork of Clawdbot — stripped down for construction PM use case.
+{
+  "gateway": {
+    "port": 18790,
+    "mode": "local",
+    "bind": "loopback",
+    "auth": {
+      "mode": "token"
+    }
+  },
+
+  "browser": {
+    "enabled": false
+  },
+
+  "canvasHost": {
+    "enabled": false
+  },
+
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "anthropic/claude-sonnet-4-20250514"
+      },
+      "thinkingDefault": "low",
+      "workspace": "../../workspaces/buildai-agent"
+    }
+  },
+
+  "cron": {
+    "enabled": true
+  },
+
+  "hooks": {
+    "internal": {
+      "enabled": true
+    }
+  },
+
+  "channels": {
+    "telegram": {
+      "enabled": false,
+      "dmPolicy": "disabled",
+      "groupPolicy": "disabled",
+      "streamMode": "off"
+    }
+  },
+
+  "skills": {},
+  "plugins": {},
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto"
+  }
+}
