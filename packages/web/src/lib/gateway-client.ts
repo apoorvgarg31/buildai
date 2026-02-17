@@ -64,6 +64,7 @@ export class GatewayClient {
   private ws: WebSocket | null = null;
   private connected = false;
   private handshakeCompleted = false;
+  private _connectId: string | null = null;
   private pendingRequests = new Map<string, {
     resolve: (value: unknown) => void;
     reject: (reason: Error) => void;
@@ -106,14 +107,16 @@ export class GatewayClient {
       }, 10_000);
 
       ws.on('open', () => {
-        // Send hello handshake
-        const hello = {
-          type: 'hello',
+        // Send connect handshake (standard req frame with method 'connect')
+        const connectFrame = {
+          type: 'req',
+          id: 'connect-' + Date.now(),
+          method: 'connect',
           params: {
-            minProtocol: 1,
-            maxProtocol: 1,
+            minProtocol: 3,
+            maxProtocol: 3,
             client: {
-              id: 'webchat-ui',
+              id: 'webchat',
               version: '1.0.0',
               platform: 'web',
               mode: 'webchat',
@@ -123,29 +126,29 @@ export class GatewayClient {
             },
           },
         };
-        ws.send(JSON.stringify(hello));
+        this._connectId = connectFrame.id;
+        ws.send(JSON.stringify(connectFrame));
       });
 
-      ws.on('message', (data: WebSocket.Data) => {
+      ws.on('message', (rawData: WebSocket.Data) => {
         let frame: GatewayFrame;
         try {
-          frame = JSON.parse(data.toString()) as GatewayFrame;
+          frame = JSON.parse(rawData.toString()) as GatewayFrame;
         } catch {
           return; // ignore malformed frames
         }
 
-        if (frame.type === 'hello-ok') {
+        // Handle connect response (hello-ok is in res.payload)
+        if (frame.type === 'res' && (frame as GatewayResponse).id === this._connectId) {
+          const res = frame as GatewayResponse;
           clearTimeout(connectTimeout);
-          this.connected = true;
-          this.handshakeCompleted = true;
-          resolve();
-          return;
-        }
-
-        if (frame.type === 'hello-error' || (frame.type as string) === 'error') {
-          clearTimeout(connectTimeout);
-          const msg = (frame as { message?: string }).message || 'Handshake rejected';
-          reject(new Error(`Gateway handshake failed: ${msg}`));
+          if (res.ok) {
+            this.connected = true;
+            this.handshakeCompleted = true;
+            resolve();
+          } else {
+            reject(new Error(`Gateway handshake failed: ${res.error?.message || 'unknown'}`));
+          }
           return;
         }
 
@@ -156,7 +159,7 @@ export class GatewayClient {
             clearTimeout(pending.timeout);
             this.pendingRequests.delete(res.id);
             if (res.ok) {
-              pending.resolve(res.result);
+              pending.resolve(res.result ?? (res as unknown as { payload?: unknown }).payload);
             } else {
               pending.reject(new Error(res.error?.message || 'Gateway request failed'));
             }
@@ -166,11 +169,13 @@ export class GatewayClient {
 
         if (frame.type === 'event') {
           const evt = frame as GatewayEvent;
+          // Event data is in 'payload' field, not 'data'
+          const eventData = (evt as unknown as { payload?: ChatEvent }).payload || evt.data;
           const listeners = this.eventListeners.get(evt.event);
-          if (listeners) {
+          if (listeners && eventData) {
             for (const listener of listeners) {
               try {
-                listener(evt.data);
+                listener(eventData);
               } catch {
                 // don't let listener errors propagate
               }
