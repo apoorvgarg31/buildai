@@ -350,6 +350,75 @@ export class GatewayClient {
   }
 
   /**
+   * Send a chat message and stream delta events via a callback.
+   * Returns the final response text.
+   */
+  async chatSendStream(
+    sessionKey: string,
+    message: string,
+    onDelta: (text: string) => void,
+  ): Promise<{ response: string; sessionKey: string }> {
+    await this.connect();
+
+    const idempotencyKey = generateId();
+    let fullMessage = '';
+
+    return new Promise<{ response: string; sessionKey: string }>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        unsubscribe();
+        reject(new Error('Chat response timeout (120s)'));
+      }, 120_000);
+
+      const extractText = (msg: unknown): string => {
+        if (typeof msg === 'string') return msg;
+        if (msg && typeof msg === 'object') {
+          const m = msg as { content?: unknown };
+          if (typeof m.content === 'string') return m.content;
+          if (Array.isArray(m.content)) {
+            return m.content.map((b: unknown) => {
+              if (typeof b === 'string') return b;
+              if ((b as { type?: string; text?: string })?.type === 'text') return (b as { text: string }).text;
+              return '';
+            }).join('');
+          }
+        }
+        return '';
+      };
+
+      const unsubscribe = this.on('chat', (data: ChatEvent) => {
+        if (data.sessionKey !== sessionKey) return;
+
+        if (data.state === 'delta' && data.message) {
+          const text = extractText(data.message);
+          if (text) {
+            fullMessage += text;
+            onDelta(text);
+          }
+        } else if (data.state === 'final') {
+          clearTimeout(timeout);
+          unsubscribe();
+          const finalText = extractText(data.message) || fullMessage || '(No response)';
+          resolve({ response: finalText, sessionKey });
+        } else if (data.state === 'error') {
+          clearTimeout(timeout);
+          unsubscribe();
+          reject(new Error(data.errorMessage || 'Chat error'));
+        } else if (data.state === 'aborted') {
+          clearTimeout(timeout);
+          unsubscribe();
+          reject(new Error('Aborted'));
+        }
+      });
+
+      this.request('chat.send', { sessionKey, message, idempotencyKey }).catch((err) => {
+        clearTimeout(timeout);
+        unsubscribe();
+        reject(err);
+      });
+    });
+  }
+
+  /**
    * Get chat history for a session.
    */
   async chatHistory(sessionKey: string, limit = 50): Promise<unknown> {

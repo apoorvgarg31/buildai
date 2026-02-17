@@ -8,6 +8,7 @@ import DocumentPanel, { UploadedDoc } from "./DocumentPanel";
 // Dynamic onboarding — agent scans projects on first load
 const ONBOARDING_TRIGGER = "I just logged in. Run a full project health scan: query the database for all active projects, check for overdue RFIs, expiring insurance, and budget overruns. Show me a complete health dashboard.";
 
+// Non-streaming fallback
 async function sendChatMessage(
   message: string,
   sessionId: string | null
@@ -15,7 +16,7 @@ async function sendChatMessage(
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, sessionId }),
+    body: JSON.stringify({ message, sessionId, stream: false }),
   });
 
   if (!res.ok) {
@@ -24,6 +25,59 @@ async function sendChatMessage(
   }
 
   return res.json();
+}
+
+// Streaming: calls onDelta for each chunk, returns final text
+async function sendChatMessageStream(
+  message: string,
+  sessionId: string | null,
+  onDelta: (text: string) => void,
+): Promise<{ sessionId: string }> {
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, sessionId, stream: true }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: "Request failed" }));
+    throw new Error(error.error || `HTTP ${res.status}`);
+  }
+
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("No response body");
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let returnedSessionId = sessionId || "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      try {
+        const data = JSON.parse(line.slice(6));
+        if (data.type === "delta" && data.text) {
+          onDelta(data.text);
+        } else if (data.type === "done") {
+          returnedSessionId = data.sessionId || returnedSessionId;
+        } else if (data.type === "error") {
+          throw new Error(data.message || "Stream error");
+        }
+      } catch (e) {
+        if (e instanceof Error && e.message !== "Stream error") continue;
+        throw e;
+      }
+    }
+  }
+
+  return { sessionId: returnedSessionId };
 }
 
 interface ChatAreaProps {
@@ -122,25 +176,37 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
       setMessages((prev) => [...prev, userMessage]);
       setIsLoading(true);
 
-      try {
-        const data = await sendChatMessage(content, sessionId);
-        if (data.sessionId) setSessionId(data.sessionId);
+      // Create a placeholder assistant message for streaming
+      const assistantId = crypto.randomUUID();
 
-        const assistantMessage: Message = {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: data.response,
+      try {
+        // Add empty assistant message that we'll fill with streaming content
+        setMessages((prev) => [...prev, {
+          id: assistantId,
+          role: "assistant" as const,
+          content: "",
           timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, assistantMessage]);
+        }]);
+
+        const result = await sendChatMessageStream(content, sessionId, (delta) => {
+          // Update the assistant message with each delta
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId ? { ...m, content: m.content + delta } : m
+            )
+          );
+        });
+
+        if (result.sessionId) setSessionId(result.sessionId);
       } catch (err) {
-        const errorMessage: Message = {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: `⚠️ ${err instanceof Error ? err.message : "Failed to get response"}. Please try again.`,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, errorMessage]);
+        // If streaming fails, update the placeholder with error
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: `⚠️ ${err instanceof Error ? err.message : "Failed to get response"}. Please try again.` }
+              : m
+          )
+        );
       } finally {
         setIsLoading(false);
       }

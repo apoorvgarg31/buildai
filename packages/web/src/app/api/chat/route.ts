@@ -2,8 +2,9 @@
  * POST /api/chat
  *
  * Thin proxy to the Clawdbot engine gateway.
- * The engine handles everything: LLM, skills, memory, tools.
- * This route just forwards and returns.
+ * Supports two modes:
+ *   - stream=true (default): Returns SSE stream with delta events
+ *   - stream=false: Returns full JSON response (legacy)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -12,22 +13,15 @@ import { getGatewayClient } from '@/lib/gateway-client';
 export interface ChatRequest {
   message: string;
   sessionId?: string;
-}
-
-export interface ChatResponse {
-  response: string;
-  sessionId: string;
-  timestamp: string;
+  stream?: boolean;
 }
 
 function resolveSessionKey(sessionId?: string): string {
   const id = sessionId || `buildai-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-  return id.startsWith('webchat:') ? id : `webchat:${id}`;
+  return id.startsWith('webchat:') || id.startsWith('agent:') ? id : `webchat:${id}`;
 }
 
-export async function POST(
-  request: NextRequest,
-): Promise<NextResponse<ChatResponse | { error: string }>> {
+export async function POST(request: NextRequest): Promise<Response> {
   try {
     const body = (await request.json()) as ChatRequest;
 
@@ -45,7 +39,47 @@ export async function POST(
 
     const rawSessionId = body.sessionId || `buildai-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
     const sessionKey = resolveSessionKey(rawSessionId);
+    const useStream = body.stream !== false; // default to streaming
 
+    if (useStream) {
+      // SSE streaming response
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            const client = getGatewayClient();
+            await client.chatSendStream(
+              sessionKey,
+              message,
+              (delta) => {
+                // Send delta as SSE event
+                const data = JSON.stringify({ type: 'delta', text: delta });
+                controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+              },
+            );
+            // Send done event
+            const done = JSON.stringify({ type: 'done', sessionId: rawSessionId });
+            controller.enqueue(encoder.encode(`data: ${done}\n\n`));
+            controller.close();
+          } catch (err) {
+            const errMsg = err instanceof Error ? err.message : 'Unknown error';
+            const errData = JSON.stringify({ type: 'error', message: errMsg });
+            controller.enqueue(encoder.encode(`data: ${errData}\n\n`));
+            controller.close();
+          }
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    }
+
+    // Non-streaming: wait for full response
     const client = getGatewayClient();
     const result = await client.chatSend(sessionKey, message);
 
