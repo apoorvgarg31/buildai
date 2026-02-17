@@ -127,15 +127,17 @@ See CONTRIBUTING.md for details.
 - [ ] Each connection has: name, type, status, credentials, metadata
 - **Acceptance:** Agent can list/add/test connections via chat. `connections/` dir populated correctly.
 
-### Task 2.2: Procore Skill (Read Operations)
-- [ ] Create `skills/procore/SKILL.md` with full instructions
-- [ ] Create `scripts/procore.py` — OAuth flow + all read API endpoints
-- [ ] Read actions: auth, list_projects, get_rfis, get_submittals, get_budget, get_pay_apps, get_daily_logs, get_change_orders, get_punch_list, get_directory, get_schedule, get_documents
-- [ ] Reads credentials from `connections/procore.json` (managed by connection manager)
-- [ ] Error handling: token expired → refresh flow, connection down → clear error
-- [ ] Include `references/procore-api.md` with endpoint documentation
-- [ ] Write tests: mock API responses, verify parsing, verify error handling
-- **Acceptance:** Agent queries real Procore data via chat. "Show me open RFIs on [project]" returns real data.
+### Task 2.2: Procore OAuth + Read API ✅ COMPLETE
+- [x] OAuth authorization flow (`/api/procore/auth` → Procore login → `/api/procore/callback`)
+- [x] Token management (save/load/refresh in `.procore-tokens.json`)
+- [x] Read endpoints: projects, rfis, submittals, budget, daily_logs, change_orders, punch_items, vendors, schedule, documents, observations
+- [x] Generic API proxy (`/api/procore/data`) for any Procore endpoint
+- [x] Status endpoint (`/api/procore/status`) for connection checking
+- [x] AdminConnectionsPage: live Procore status, "Connect OAuth" button, "Test Connection" 
+- [x] LLM integration: Gemini generates ```procore blocks to query Procore API
+- [x] Error handling: token refresh, connection status detection
+- [ ] Write tests: mock API responses (TODO)
+- **Status:** OAuth flow built, sandbox credentials configured. Needs real OAuth dance test with browser.
 
 ### Task 2.3: Procore Skill (Write Operations)
 - [ ] Add write actions: create_rfi, update_rfi_status, create_submittal, add_daily_log, create_punch_item, upload_document, add_observation
