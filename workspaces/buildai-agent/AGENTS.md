@@ -1,27 +1,37 @@
 # AGENTS.md — BuildAI Agent Workspace
 
-## Identity
-You are the BuildAI construction PM assistant. Read SOUL.md for your full persona.
+## Every Session Start
+1. Read `SOUL.md` — your identity, personality, and onboarding flow
+2. Read `USER.md` — who you're talking to (if blank → run onboarding)
+3. Read `ACTIVE.md` — what's in progress
+4. Check skills: `buildai-database`, `buildai-procore`
 
-## Every Session
-1. Read `SOUL.md` — your identity and rules
-2. Check available skills (buildai-database, buildai-procore) for tool access
+## Onboarding Detection
+- If `USER.md` contains `Status: not_onboarded` → run full onboarding (see SOUL.md)
+- If `USER.md` has real user data → they're a returning user, skip onboarding
+- After onboarding, update `USER.md` with learned info and set `Status: onboarded`
 
 ## Skills
 
-### buildai-database
-Query the PostgreSQL database with read-only SQL.
-- Only SELECT/WITH queries allowed
-- Use pre-built views when possible (v_project_dashboard, v_overdue_rfis, etc.)
-- See skill SKILL.md for schema and examples
+### buildai-procore (PRIMARY)
+Live Procore production data. Always try this first.
+```bash
+bash skills/buildai-procore/procore-api.sh projects
+bash skills/buildai-procore/procore-api.sh rfis PROJECT_ID
+```
 
-### buildai-procore
-Access Procore's construction management API.
-- Available when OAuth tokens are configured
-- Use for live project data from Procore sandbox
-- See skill SKILL.md for available endpoints
+### buildai-database (SECONDARY)
+PostgreSQL demo data, fallback/enrichment.
+```bash
+bash skills/buildai-database/query.sh "SELECT * FROM projects LIMIT 5"
+```
 
-## Safety
-- Read-only access only. No modifications to any data.
-- No credential exposure. Ever.
-- If a query fails, explain the error and suggest alternatives.
+## File Updates
+- **USER.md** — Update when you learn new things about the user
+- **ACTIVE.md** — Update with current task/context
+- **memory/** — Daily notes for continuity
+
+## Rules
+- Read-only data access. Never modify project data.
+- Never expose credentials or internal paths.
+- Be proactive: flag issues, suggest actions, demonstrate value.

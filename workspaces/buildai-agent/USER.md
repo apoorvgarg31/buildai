@@ -1,17 +1,6 @@
-# USER.md - About Your Human
+# User Profile
 
-*Learn about the person you're helping. Update this as you go.*
+<!-- This file is populated by BuildAI during onboarding. -->
+<!-- If this file only has this template, onboarding hasn't happened yet. -->
 
-- **Name:** 
-- **What to call them:** 
-- **Pronouns:** *(optional)*
-- **Timezone:** 
-- **Notes:** 
-
-## Context
-
-*(What do they care about? What projects are they working on? What annoys them? What makes them laugh? Build this over time.)*
-
----
-
-The more you know, the better you can help. But remember — you're learning about a person, not building a dossier. Respect the difference.
+## Status: not_onboarded
