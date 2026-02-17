@@ -22,9 +22,29 @@ What are you working on today?`,
   timestamp: new Date(),
 };
 
+async function sendChatMessage(
+  message: string,
+  sessionId: string | null
+): Promise<{ response: string; sessionId: string }> {
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, sessionId }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: "Request failed" }));
+    throw new Error(error.error || `HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
+
 export default function ChatArea() {
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [engineStatus, setEngineStatus] = useState<"mock" | "connected" | "checking">("checking");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback(() => {
@@ -34,6 +54,18 @@ export default function ChatArea() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
+
+  // Check engine status on mount
+  useEffect(() => {
+    fetch("/api/chat")
+      .then((res) => res.json())
+      .then((data) => {
+        setEngineStatus(data.engine === "connected" ? "connected" : "mock");
+      })
+      .catch(() => {
+        setEngineStatus("mock");
+      });
+  }, []);
 
   const handleSend = useCallback(
     async (content: string) => {
@@ -47,20 +79,34 @@ export default function ChatArea() {
       setMessages((prev) => [...prev, userMessage]);
       setIsLoading(true);
 
-      // TODO: Replace with actual engine API call
-      // For now, simulate a response
-      setTimeout(() => {
+      try {
+        const data = await sendChatMessage(content, sessionId);
+
+        // Store session ID for continuity
+        if (data.sessionId) {
+          setSessionId(data.sessionId);
+        }
+
         const assistantMessage: Message = {
           id: crypto.randomUUID(),
           role: "assistant",
-          content: `I received your message: "${content}"\n\n⚠️ Engine not connected yet. This is a UI preview — the actual engine integration is coming in Phase 2.`,
+          content: data.response,
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, assistantMessage]);
+      } catch (err) {
+        const errorMessage: Message = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: `⚠️ Error: ${err instanceof Error ? err.message : "Failed to get response"}. Please try again.`,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      } finally {
         setIsLoading(false);
-      }, 800);
+      }
     },
-    []
+    [sessionId]
   );
 
   return (
@@ -76,9 +122,19 @@ export default function ChatArea() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-            Preview Mode
+          <span
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+              engineStatus === "connected"
+                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+            }`}
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                engineStatus === "connected" ? "bg-green-500" : "bg-amber-500"
+              }`}
+            ></span>
+            {engineStatus === "connected" ? "Engine Connected" : engineStatus === "checking" ? "Connecting..." : "Preview Mode"}
           </span>
         </div>
       </header>
