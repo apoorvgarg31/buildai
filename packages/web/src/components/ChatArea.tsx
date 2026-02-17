@@ -15,8 +15,8 @@ function sanitizeContent(text: string): string {
     .trim();
 }
 
-// Simple welcome — no heavy auto-scan on load
-const WELCOME_MESSAGE = `Welcome to **BuildAI** 🏗️\n\nI'm your construction PM copilot. I can help you with:\n\n- 📋 **RFIs** — track, query, and manage\n- 💰 **Budgets** — line items, change orders\n- 📅 **Schedules** — tasks and milestones\n- 📄 **Documents** — search and organize\n- 🔗 **Procore** — live project data\n\nWhat would you like to work on?`;
+// Initial greeting — agent handles real onboarding via SOUL.md
+const WELCOME_MESSAGE = ``;
 
 // Non-streaming fallback
 async function sendChatMessage(
@@ -133,7 +133,8 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
     setHasOnboarded(true);
 
     if (!sessionId) {
-      setMessages([{ id: "welcome", role: "assistant", content: WELCOME_MESSAGE, timestamp: new Date() }]);
+      // No session yet — show empty state, agent will onboard on first message
+      setMessages([]);
       return;
     }
 
@@ -148,11 +149,11 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
             timestamp: new Date(m.timestamp),
           })));
         } else {
-          setMessages([{ id: "welcome", role: "assistant", content: WELCOME_MESSAGE, timestamp: new Date() }]);
+          setMessages([]);
         }
       })
       .catch(() => {
-        setMessages([{ id: "welcome", role: "assistant", content: WELCOME_MESSAGE, timestamp: new Date() }]);
+        setMessages([]);
       });
   }, [hasOnboarded, sessionId]);
 
@@ -274,6 +275,19 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto">
           <div className="divide-y divide-gray-800/50">
+            {/* Empty state — prompt user to start conversation */}
+            {messages.length === 0 && !isLoading && (
+              <div className="flex items-center justify-center h-full min-h-[400px]">
+                <div className="text-center space-y-4 px-4">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center text-white text-2xl font-bold mx-auto">
+                    B
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-200">BuildAI</h2>
+                  <p className="text-gray-400 max-w-md">Your AI construction PM assistant. Say hello to get started — I&apos;ll walk you through what I can do.</p>
+                </div>
+              </div>
+            )}
+
             {messages.map((message) => {
               // Hide empty placeholder message before streaming starts
               if (message.role === "assistant" && message.content === "" && !isStreaming) return null;
