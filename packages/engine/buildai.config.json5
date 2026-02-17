@@ -1,0 +1,110 @@
+// BuildAI Engine Configuration
+// This config disables unnecessary Clawdbot components while keeping
+// the core engine features needed for BuildAI.
+//
+// To re-enable any component, set its "enabled" to true or remove
+// the corresponding environment variable override.
+
+{
+  // Gateway — the core WebSocket server (KEEP)
+  "gateway": {
+    "port": 18789,
+    "auth": {
+      // Token-based auth for webchat connections
+      "mode": "token"
+    }
+  },
+
+  // Browser automation — NOT NEEDED for BuildAI
+  "browser": {
+    "enabled": false
+  },
+
+  // Canvas / A2UI — NOT NEEDED
+  "canvasHost": {
+    "enabled": false
+  },
+
+  // Node host / device pairing — NOT NEEDED
+  "nodeHost": {
+    "enabled": false
+  },
+
+  // Discovery (Bonjour/mDNS) — NOT NEEDED
+  "discovery": {
+    "enabled": false,
+    "wideArea": {
+      "enabled": false
+    }
+  },
+
+  // Channels — disable all messaging channels except web
+  "channels": {
+    "telegram": {
+      "enabled": false
+    },
+    "discord": {
+      "enabled": false
+    },
+    "whatsapp": {
+      "enabled": false
+    },
+    "slack": {
+      "enabled": false
+    },
+    "signal": {
+      "enabled": false
+    },
+    "imessage": {
+      "enabled": false
+    },
+    "line": {
+      "enabled": false
+    },
+    "googlechat": {
+      "enabled": false
+    },
+    "msteams": {
+      "enabled": false
+    },
+    // Web channel is the ONLY channel we keep
+    "web": {
+      "enabled": true
+    }
+  },
+
+  // Agents configuration (KEEP)
+  "agents": {
+    "defaults": {
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "thinkingLevel": "low"
+    }
+  },
+
+  // Cron — KEEP for scheduled monitoring
+  "cron": {
+    "enabled": true
+  },
+
+  // Hooks — KEEP for reactive behavior
+  "hooks": {
+    "internal": {
+      "enabled": true
+    },
+    // Gmail watcher — disable for now (not needed in MVP)
+    "gmail": {
+      "enabled": false
+    }
+  },
+
+  // TTS — disable for now (Phase 5)
+  "tts": {
+    "enabled": false
+  },
+
+  // Plugins — disable all non-essential
+  "plugins": {},
+
+  // Skills — only enable what BuildAI needs
+  "skills": {}
+}
