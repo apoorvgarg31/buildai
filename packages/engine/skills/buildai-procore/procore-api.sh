@@ -109,7 +109,13 @@ print('yes' if time.time() >= expires - 60 else 'no')
       exit 1
     fi
     
-    echo "$REFRESH_RESULT" > "$TOKEN_FILE"
+    # Only write if we got a valid token response (has access_token)
+    if python3 -c "import json,sys; d=json.loads(sys.argv[1]); assert 'access_token' in d" "$REFRESH_RESULT" 2>/dev/null; then
+      echo "$REFRESH_RESULT" > "$TOKEN_FILE"
+    else
+      echo "{\"error\": \"Token refresh returned invalid response\"}" >&2
+      exit 1
+    fi
   fi
 
   python3 -c "import json; print(json.load(open('$TOKEN_FILE'))['access_token'])"
