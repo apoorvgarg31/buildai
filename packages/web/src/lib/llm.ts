@@ -8,7 +8,10 @@
 import { GoogleGenerativeAI, Content } from '@google/generative-ai';
 import { getDatabaseSchema, query } from './db';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'REDACTED_SEE_ENV_EXAMPLE';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+if (!GEMINI_API_KEY) {
+  throw new Error('GEMINI_API_KEY environment variable is required');
+}
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });

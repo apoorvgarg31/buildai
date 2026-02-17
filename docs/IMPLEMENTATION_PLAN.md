@@ -189,30 +189,58 @@ A personal AI assistant for construction PMs that connects to their PMIS systems
 
 ---
 
-## Phase 6: Frontend — Mission Control (Week 7-10)
-**Goal:** Web UI for admin and PM chat
+## Phase 6: Frontend — Dual-Role UI (Week 7-10)
+**Goal:** Admin panel + User chat, role-based sidebar, fake auth for demo
 
-### Task 6.1: Mission Control Admin Panel
-- [ ] Next.js app
-- [ ] Company setup wizard
-- [ ] Connection Manager UI (add/test/manage connections)
-- [ ] Agent creation UI (create PM agents, assign projects)
-- [ ] Monitoring dashboard (agent activity, alerts, costs)
+### Architecture: Two Roles, Two Experiences
+The app has two distinct views controlled by role:
+
+**Admin** — the PMO director / company owner who sets up the platform:
+- 👥 User Management — create/manage PM users
+- 🤖 Agent Management — create/configure/assign AI agents  
+- 🔗 Connection Management — PMIS, database, LLM connections
+- ⚙️ Settings — company-wide settings
+
+**User** — the construction PM who uses the AI daily:
+- 💬 Agent — chat with their assigned AI assistant
+- 🛍️ Marketplace — browse/install skills for their agent
+- 📊 Usage — token usage, query history, costs
+- ⚙️ Settings — personal preferences
+
+### Task 6.0: Demo Login Screen (No Real Auth)
+- [x] Fake login screen with two hardcoded credentials
+- [x] Admin: admin@buildai.com / admin123
+- [x] User: pm@buildai.com / demo123
+- [x] Clean, professional login UI (not obviously fake)
+- [x] Role stored in React state (no JWT, no backend auth)
+- [x] Role determines which sidebar + pages are shown
+- **Acceptance:** Login with admin creds → see admin sidebar. Login with user creds → see user sidebar.
+
+### Task 6.1: Admin Panel
+- [ ] User management page (list/create/delete users)
+- [ ] Agent management page (create/configure/assign agents to users)
+- [ ] Connection management page (add/test/manage PMIS connections)
+- [ ] Dashboard with overview stats
 - **Acceptance:** Admin creates a connection and a new agent via web UI.
 
-### Task 6.2: PM Chat Interface
-- [ ] Web chat UI (React)
-- [ ] Connects to gateway webchat protocol
-- [ ] Message history, file upload, real-time streaming
-- [ ] Mobile-responsive
+### Task 6.2: User Chat Interface
+- [x] Web chat UI with AI agent
+- [x] Document panel (right side) for file uploads
+- [x] Responsive design (mobile + desktop)
+- [ ] Message history, real-time streaming
 - **Acceptance:** PM chats with agent via web browser, full functionality.
 
-### Task 6.3: Onboarding Flow
-- [ ] Company signup
-- [ ] Guided connection wizard (OAuth buttons for Procore, etc.)
-- [ ] Agent creation for each PM
-- [ ] PM receives welcome message with initial system scan results
-- **Acceptance:** New company signs up → connects Procore → creates PM agent → PM gets welcome message with project issues found.
+### Task 6.3: Marketplace Page
+- [ ] Browse available skills/integrations
+- [ ] Install/enable skills for user's agent
+- [ ] Skill cards with descriptions, ratings
+- **Acceptance:** User browses marketplace and installs a skill.
+
+### Task 6.4: Usage Page
+- [ ] Token usage charts
+- [ ] Query history
+- [ ] Cost breakdown
+- **Acceptance:** User sees their usage stats.
 
 ---
 

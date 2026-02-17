@@ -5,16 +5,18 @@
 
 import { Pool, QueryResult } from 'pg';
 
-const pool = new Pool({
-  // Use Unix socket for peer auth (no password needed)
-  host: process.env.DB_HOST || '/var/run/postgresql',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME || 'buildai_demo',
-  user: process.env.DB_USER || 'apoorvgarg',
-  password: process.env.DB_PASSWORD || undefined,
-  max: 5,
-  idleTimeoutMillis: 30000,
-});
+// Support DATABASE_URL (e.g. for hosted PG) or individual vars
+const pool = process.env.DATABASE_URL
+  ? new Pool({ connectionString: process.env.DATABASE_URL, max: 5, idleTimeoutMillis: 30000 })
+  : new Pool({
+      host: process.env.DB_HOST,
+      port: parseInt(process.env.DB_PORT || '5432'),
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD || undefined,
+      max: 5,
+      idleTimeoutMillis: 30000,
+    });
 
 /**
  * Execute a SQL query and return the result rows.
