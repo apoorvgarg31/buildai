@@ -7,6 +7,7 @@
 
 import { GoogleGenerativeAI, Content } from '@google/generative-ai';
 import { getDatabaseSchema, query } from './db';
+import { hasTokens, procoreApi, resolveEndpointPath, ENDPOINT_MAP } from './procore';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 if (!GEMINI_API_KEY) {
@@ -19,20 +20,63 @@ const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 // In-memory conversation store (good enough for demo)
 const conversationStore = new Map<string, Content[]>();
 
-const SYSTEM_PROMPT = `You are **BuildAI**, an expert construction project management assistant.
+function buildSystemPrompt(): string {
+  const procoreAvailable = hasTokens();
+  const procoreSection = procoreAvailable
+    ? `
+## Procore Integration (LIVE — sandbox.procore.com)
+
+You also have access to **Procore**, a cloud-based construction project management system.
+When the user asks about Procore data (or you need real-time project info from Procore), generate a Procore API call.
+
+Wrap the call in a code block tagged \`\`\`procore ... \`\`\`:
+
+\`\`\`procore
+{ "endpoint": "projects" }
+\`\`\`
+
+Or with project-scoped data:
+
+\`\`\`procore
+{ "endpoint": "rfis", "projectId": 12345 }
+\`\`\`
+
+### Available Procore endpoints:
+${Object.entries(ENDPOINT_MAP).map(([key, val]) => `- **${key}** — ${val.needsProject ? 'requires projectId' : 'no projectId needed'}`).join('\n')}
+
+### When to use Procore vs PostgreSQL:
+- **PostgreSQL** = your internal BuildAI database (historical data, agents, configs)
+- **Procore** = live project management data (real-time RFIs, submittals, budgets, daily logs from Procore)
+- If the user says "Procore" or asks about live/external project data, use Procore
+- If the user asks about internal data or doesn't specify, default to PostgreSQL
+- You can combine both in one answer if helpful
+`
+    : `
+## Procore Integration (NOT CONNECTED)
+Procore is not yet connected. If the user asks about Procore data, let them know they need to connect
+Procore first via the Admin → Connections page.
+`;
+
+  return `You are **BuildAI**, an expert construction project management assistant.
 You have access to a PostgreSQL database with real project data. Your job is to help construction PMs
 get instant answers about their projects, budgets, RFIs, submittals, and more.
 
 ${getDatabaseSchema()}
+${procoreSection}
 
 ## How you work
 
 When the user asks a question that requires data:
-1. Generate a SQL query to answer it.
+1. Generate a SQL query to answer it (for PostgreSQL data).
 2. Wrap the SQL in a code block tagged \`\`\`sql ... \`\`\`
 3. You will receive the query results, then provide a natural-language answer.
 
-When the user asks a general question (greetings, construction advice, etc.), answer directly without SQL.
+For Procore data:
+1. Generate a Procore API call as JSON.
+2. Wrap it in a code block tagged \`\`\`procore ... \`\`\`
+3. You will receive the API results, then provide a natural-language answer.
+
+When the user asks a general question (greetings, construction advice, etc.), answer directly without SQL or API calls.
 
 ## Onboarding (First-time Users)
 When a user first interacts (their first message, or they say "hi/hello/get started" or ask for a scan):
@@ -66,6 +110,39 @@ This makes the user feel the system is ALIVE and already working for them.
 - Be concise but thorough. This is for busy project managers.
 - Today's date for reference: use CURRENT_DATE in SQL.
 `;
+}
+
+const SYSTEM_PROMPT = buildSystemPrompt();
+
+/**
+ * Extract a Procore API call from a Gemini response (looks for ```procore ... ``` blocks).
+ */
+function extractProcoreCall(text: string): { endpoint: string; projectId?: number; params?: Record<string, string> } | null {
+  const match = text.match(/```procore\s*([\s\S]*?)```/);
+  if (!match) return null;
+  try {
+    return JSON.parse(match[1].trim());
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Execute a Procore API call and return formatted results.
+ */
+async function executeProcoreCall(call: { endpoint: string; projectId?: number; params?: Record<string, string> }): Promise<string> {
+  try {
+    const path = resolveEndpointPath(call.endpoint, call.projectId);
+    const data = await procoreApi(path, { params: call.params });
+    if (Array.isArray(data)) {
+      return `Procore API returned ${data.length} results:\n\n${JSON.stringify(data.slice(0, 20), null, 2)}${data.length > 20 ? `\n\n... and ${data.length - 20} more items` : ''}`;
+    }
+    return `Procore API response:\n\n${JSON.stringify(data, null, 2)}`;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return `Procore API Error: ${msg}`;
+  }
+}
 
 /**
  * Extract SQL from a Gemini response (looks for ```sql ... ``` blocks).
@@ -142,34 +219,45 @@ export async function chat(sessionId: string, userMessage: string): Promise<Agen
   const result1 = await chatSession.sendMessage(userMessage);
   const response1 = result1.response.text();
   
-  // Check if Gemini generated SQL
+  // Check if Gemini generated SQL or a Procore call
   const sql = extractSQL(response1);
+  const procoreCall = extractProcoreCall(response1);
   
-  if (!sql) {
-    // No SQL — it's a direct answer
+  if (!sql && !procoreCall) {
+    // No data call — it's a direct answer
     history.push({ role: 'model', parts: [{ text: response1 }] });
     conversationStore.set(sessionId, trimHistory(history));
     return { response: response1 };
   }
-  
-  // Step 2: Execute the SQL query
+
+  // Add the generation step to history
+  history.push({ role: 'model', parts: [{ text: response1 }] });
+
   let queryResults: string;
   let rowCount: number | null = null;
+  let executedSQL: string | undefined;
   
-  try {
-    const dbResult = await query(sql);
-    rowCount = dbResult.rowCount;
-    queryResults = formatResultsForLLM(dbResult.rows, dbResult.rowCount);
-  } catch (err: unknown) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    queryResults = `SQL Error: ${errMsg}\n\nPlease fix the query and try again, or answer based on what you know.`;
+  if (procoreCall) {
+    // Step 2a: Execute Procore API call
+    queryResults = await executeProcoreCall(procoreCall);
+  } else if (sql) {
+    // Step 2b: Execute SQL query
+    executedSQL = sql;
+    try {
+      const dbResult = await query(sql);
+      rowCount = dbResult.rowCount;
+      queryResults = formatResultsForLLM(dbResult.rows, dbResult.rowCount);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      queryResults = `SQL Error: ${errMsg}\n\nPlease fix the query and try again, or answer based on what you know.`;
+    }
+  } else {
+    queryResults = 'No data retrieved.';
   }
   
-  // Add the SQL generation step to history
-  history.push({ role: 'model', parts: [{ text: response1 }] });
-  
   // Step 3: Feed results back to Gemini for natural language response
-  const followUp = `Here are the database results for your query:\n\n${queryResults}\n\nNow please provide a clear, well-formatted natural language answer to the user's question based on these results. Use markdown formatting. Do NOT include the raw SQL in your response.`;
+  const source = procoreCall ? 'Procore API' : 'database';
+  const followUp = `Here are the ${source} results for your query:\n\n${queryResults}\n\nNow please provide a clear, well-formatted natural language answer to the user's question based on these results. Use markdown formatting. Do NOT include the raw SQL or API call JSON in your response.`;
   
   history.push({ role: 'user', parts: [{ text: followUp }] });
   
@@ -182,7 +270,7 @@ export async function chat(sessionId: string, userMessage: string): Promise<Agen
   
   return {
     response: response2,
-    sqlExecuted: sql,
+    sqlExecuted: executedSQL,
     rowCount: rowCount ?? undefined,
   };
 }
