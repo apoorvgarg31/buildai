@@ -5,7 +5,7 @@
   "agents": {
     "defaults": {
       "model": {
-        "primary": "anthropic/claude-sonnet-4-20250514"
+        "primary": "anthropic/claude-3-5-haiku-20241022"
       },
       "workspace": "../../workspaces/buildai-agent",
       "thinkingDefault": "off",
@@ -20,7 +20,7 @@
         "name": "Sarah PM Agent",
         "workspace": "../../workspaces/sarah-pm-agent",
         "model": {
-          "primary": "anthropic/claude-sonnet-4-20250514"
+          "primary": "anthropic/claude-3-5-haiku-20241022"
         },
         "identity": {
           "name": "BuildAI",
