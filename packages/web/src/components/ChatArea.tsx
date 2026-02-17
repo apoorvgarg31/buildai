@@ -177,10 +177,10 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
         const result = await sendChatMessageStream(content, sessionId, (delta) => {
           // First delta received — we're streaming now, hide loading dots
           setIsStreaming(true);
-          // Update the assistant message with each delta
+          // Gateway sends cumulative text — REPLACE content, don't append
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === assistantId ? { ...m, content: m.content + delta } : m
+              m.id === assistantId ? { ...m, content: delta } : m
             )
           );
         });

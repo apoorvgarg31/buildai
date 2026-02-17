@@ -391,7 +391,8 @@ export class GatewayClient {
         if (data.state === 'delta' && data.message) {
           const text = extractText(data.message);
           if (text) {
-            fullMessage += text;
+            // Gateway sends cumulative text — track latest, don't append
+            fullMessage = text;
             onDelta(text);
           }
         } else if (data.state === 'final') {
