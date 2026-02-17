@@ -48,15 +48,22 @@ export async function POST(request: NextRequest): Promise<Response> {
         async start(controller) {
           try {
             const client = getGatewayClient();
-            await client.chatSendStream(
+            let deltaSent = false;
+            const result = await client.chatSendStream(
               sessionKey,
               message,
               (delta) => {
-                // Send delta as SSE event
+                deltaSent = true;
+                // Send delta as SSE event (gateway sends cumulative text)
                 const data = JSON.stringify({ type: 'delta', text: delta });
                 controller.enqueue(encoder.encode(`data: ${data}\n\n`));
               },
             );
+            // If no deltas fired (fast response), send the final text as a delta
+            if (!deltaSent && result.response) {
+              const finalDelta = JSON.stringify({ type: 'delta', text: result.response });
+              controller.enqueue(encoder.encode(`data: ${finalDelta}\n\n`));
+            }
             // Send done event
             const done = JSON.stringify({ type: 'done', sessionId: rawSessionId });
             controller.enqueue(encoder.encode(`data: ${done}\n\n`));
