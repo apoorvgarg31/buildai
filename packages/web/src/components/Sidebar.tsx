@@ -12,9 +12,11 @@ interface NavItem {
 
 const adminNav: NavItem[] = [
   { name: "Dashboard", icon: "📊", page: "dashboard" },
+  { name: "Chat", icon: "💬", page: "chat" },
   { name: "Users", icon: "👥", page: "users" },
   { name: "Agents", icon: "🤖", page: "agents" },
   { name: "Connections", icon: "🔗", page: "connections" },
+  { name: "Marketplace", icon: "🛍️", page: "marketplace" },
   { name: "Settings", icon: "⚙️", page: "settings" },
 ];
 

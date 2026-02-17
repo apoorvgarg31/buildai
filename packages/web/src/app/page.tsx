@@ -37,6 +37,19 @@ export default function Home() {
   }
 
   const renderPage = () => {
+    // Shared pages (both admin and user)
+    switch (activePage) {
+      case "chat":
+        return <ChatArea agentId={user.agentId} />;
+      case "marketplace":
+        return <MarketplacePage />;
+      case "usage":
+        return <UsagePage />;
+      case "settings":
+        return user.role === "admin" ? <AdminSettingsPage /> : <SettingsPage />;
+    }
+
+    // Admin-only pages
     if (user.role === "admin") {
       switch (activePage) {
         case "dashboard":
@@ -47,24 +60,13 @@ export default function Home() {
           return <AdminAgentsPage />;
         case "connections":
           return <AdminConnectionsPage />;
-        case "settings":
-          return <AdminSettingsPage />;
         default:
           return <AdminDashboard user={user} />;
       }
     }
-    // User pages
-    switch (activePage) {
-      case "marketplace":
-        return <MarketplacePage />;
-      case "usage":
-        return <UsagePage />;
-      case "settings":
-        return <SettingsPage />;
-      case "chat":
-      default:
-        return <ChatArea agentId={user.agentId} />;
-    }
+
+    // Default for users
+    return <ChatArea agentId={user.agentId} />;
   };
 
   return (
