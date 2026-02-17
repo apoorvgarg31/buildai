@@ -117,17 +117,34 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
       });
   }, []);
 
-  // Show welcome message immediately — no slow API call on load
+  // Load chat history from engine on mount, fall back to welcome message
   useEffect(() => {
     if (hasOnboarded) return;
     setHasOnboarded(true);
-    setMessages([{
-      id: "welcome",
-      role: "assistant",
-      content: WELCOME_MESSAGE,
-      timestamp: new Date(),
-    }]);
-  }, [hasOnboarded]);
+
+    if (!sessionId) {
+      setMessages([{ id: "welcome", role: "assistant", content: WELCOME_MESSAGE, timestamp: new Date() }]);
+      return;
+    }
+
+    fetch(`/api/chat/history?sessionId=${encodeURIComponent(sessionId)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.messages && data.messages.length > 0) {
+          setMessages(data.messages.map((m: { id: string; role: "user" | "assistant"; content: string; timestamp: string }) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            timestamp: new Date(m.timestamp),
+          })));
+        } else {
+          setMessages([{ id: "welcome", role: "assistant", content: WELCOME_MESSAGE, timestamp: new Date() }]);
+        }
+      })
+      .catch(() => {
+        setMessages([{ id: "welcome", role: "assistant", content: WELCOME_MESSAGE, timestamp: new Date() }]);
+      });
+  }, [hasOnboarded, sessionId]);
 
   const addDocuments = useCallback((files: FileList) => {
     const newDocs: UploadedDoc[] = Array.from(files).map((file) => ({
