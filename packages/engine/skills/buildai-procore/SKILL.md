@@ -1,25 +1,30 @@
 ---
 name: buildai-procore
-description: Access Procore construction project management API (production). Query live project data — projects, RFIs, submittals, budgets, daily logs, change orders, punch items, vendors, schedules, documents.
+description: Full Procore REST API client (read AND write). Query and create/update any entity — RFIs, submittals, budgets, daily logs, change orders, punch items, drawings, meetings, inspections, and more. Supports GET, POST, PUT, PATCH, DELETE.
 metadata: {"clawdbot":{"emoji":"🏗️","requires":{"anyBins":["curl","python3"]}}}
 ---
 
 # BuildAI Procore Integration
 
-Query Procore's production API for live construction project data.
+Full CRUD access to Procore's REST API. Read, create, update, delete any construction entity.
 
 ## How to Use
 
-Run queries using the procore-api.sh script in this skill directory:
-
+### Generic Mode (any endpoint, any method)
 ```bash
-bash skills/buildai-procore/procore-api.sh projects
+bash skills/buildai-procore/procore-api.sh <METHOD> <path> [json_body]
 ```
 
-That's it. The script handles authentication, token refresh, and returns JSON.
+### Shortcuts (common read operations)
+```bash
+bash skills/buildai-procore/procore-api.sh projects
+bash skills/buildai-procore/procore-api.sh rfis <project_id>
+bash skills/buildai-procore/procore-api.sh submittals <project_id>
+```
 
 ## Examples
 
+### READ operations
 ```bash
 # List all projects
 bash skills/buildai-procore/procore-api.sh projects
@@ -27,41 +32,115 @@ bash skills/buildai-procore/procore-api.sh projects
 # Get RFIs for a project
 bash skills/buildai-procore/procore-api.sh rfis 562949954991755
 
-# Check Procore connection status
-bash skills/buildai-procore/procore-api.sh status
+# Get a specific RFI
+bash skills/buildai-procore/procore-api.sh GET /rest/v1.0/projects/562949954991755/rfis/123
 
-# Get submittals for a project
-bash skills/buildai-procore/procore-api.sh submittals 562949954991755
+# List drawings
+bash skills/buildai-procore/procore-api.sh GET /rest/v1.0/projects/562949954991755/drawings
 
-# Get daily logs
-bash skills/buildai-procore/procore-api.sh daily_logs 562949954991755
+# List meetings
+bash skills/buildai-procore/procore-api.sh GET /rest/v1.0/projects/562949954991755/meetings
 
-# Get change orders
-bash skills/buildai-procore/procore-api.sh change_orders 562949954991755
+# List inspections
+bash skills/buildai-procore/procore-api.sh GET /rest/v1.0/projects/562949954991755/inspections
+
+# Search directory (people)
+bash skills/buildai-procore/procore-api.sh GET /rest/v1.0/projects/562949954991755/directory
 ```
 
-## Workflow
+### CREATE operations
+```bash
+# Create an RFI
+bash skills/buildai-procore/procore-api.sh POST /rest/v1.0/projects/562949954991755/rfis '{
+  "rfi": {
+    "subject": "Electrical conduit routing conflict",
+    "assigned_id": 12345,
+    "responsible_contractor_id": 67890,
+    "due_date": "2026-03-01",
+    "question": "There is a routing conflict between electrical conduits and HVAC ductwork at grid line B3. Please advise on preferred routing."
+  }
+}'
 
-1. Call `status` to verify Procore is connected
-2. Call `projects` to get project IDs and names
-3. Use a project ID for project-scoped queries (rfis, submittals, etc.)
+# Create a punch item
+bash skills/buildai-procore/procore-api.sh POST /rest/v1.0/projects/562949954991755/punch_items '{
+  "punch_item": {
+    "name": "Touch up paint in lobby",
+    "description": "Paint chipped near entrance door frame",
+    "priority": "medium",
+    "assignee_id": 12345,
+    "due_date": "2026-03-15"
+  }
+}'
 
-## Available Endpoints
+# Create a daily log entry
+bash skills/buildai-procore/procore-api.sh POST /rest/v1.0/projects/562949954991755/daily_logs '{
+  "daily_log": {
+    "log_date": "2026-02-17",
+    "notes": "Concrete pour completed for Level 3 slab. Weather clear."
+  }
+}'
+```
 
-| Endpoint | Needs Project ID | Description |
-|----------|-----------------|-------------|
-| `projects` | No | List all projects |
-| `rfis` | Yes | RFIs for a project |
-| `submittals` | Yes | Submittals for a project |
-| `budget` | Yes | Budget line items |
-| `daily_logs` | Yes | Daily logs |
-| `change_orders` | Yes | Change order packages |
-| `punch_items` | Yes | Punch list items |
-| `vendors` | Yes | Vendors/subcontractors |
-| `schedule` | Yes | Schedule tasks |
-| `documents` | Yes | Project documents |
+### UPDATE operations
+```bash
+# Update RFI status
+bash skills/buildai-procore/procore-api.sh PATCH /rest/v1.0/projects/562949954991755/rfis/123 '{
+  "rfi": {"status": "closed", "answer": "Route conduits above ductwork per revised drawing A-301."}
+}'
+
+# Update punch item
+bash skills/buildai-procore/procore-api.sh PATCH /rest/v1.0/projects/562949954991755/punch_items/456 '{
+  "punch_item": {"status": "ready_for_review"}
+}'
+```
+
+### DELETE operations
+```bash
+# Delete a punch item
+bash skills/buildai-procore/procore-api.sh DELETE /rest/v1.0/projects/562949954991755/punch_items/456
+```
+
+## Available Shortcuts
+
+| Shortcut | Method | Description |
+|----------|--------|-------------|
+| `projects` | GET | List all projects |
+| `rfis` | GET | RFIs for a project |
+| `submittals` | GET | Submittals for a project |
+| `budget` | GET | Budget line items |
+| `daily_logs` | GET | Daily logs |
+| `change_orders` | GET | Change order packages |
+| `punch_items` | GET | Punch list items |
+| `vendors` | GET | Vendors/subcontractors |
+| `schedule` | GET | Schedule tasks |
+| `documents` | GET | Project documents |
+
+## Procore REST API Reference
+
+Base URL: `https://api.procore.com`
+Docs: `https://developers.procore.com/reference`
+
+Common project-scoped paths:
+- `/rest/v1.0/projects/{pid}/rfis`
+- `/rest/v1.0/projects/{pid}/submittals`
+- `/rest/v1.0/projects/{pid}/punch_items`
+- `/rest/v1.0/projects/{pid}/daily_logs`
+- `/rest/v1.0/projects/{pid}/drawings`
+- `/rest/v1.0/projects/{pid}/meetings`
+- `/rest/v1.0/projects/{pid}/inspections`
+- `/rest/v1.0/projects/{pid}/specifications`
+- `/rest/v1.0/projects/{pid}/transmittals`
+- `/rest/v1.0/projects/{pid}/change_order_packages`
+- `/rest/v1.0/projects/{pid}/budget_line_items`
+- `/rest/v1.0/projects/{pid}/directory`
+- `/rest/v1.0/projects/{pid}/schedule/tasks`
+- `/rest/v1.0/projects/{pid}/photos`
+- `/rest/v1.0/projects/{pid}/correspondence`
+
+Company_id is auto-appended. Token auto-refreshes.
 
 ## Rules
-- Returns JSON with `endpoint`, `count`, and `data` fields
-- Token auto-refreshes when expired
-- Environment variables loaded from process (set in engine start.sh)
+- Returns JSON with `method`, `path`, `count` (for arrays), and `data` fields
+- company_id is automatically appended if not in the path
+- Token auto-refreshes when expired (never overwrites token file on failure)
+- For write operations, wrap the entity in its type key: `{"rfi": {...}}`, `{"punch_item": {...}}`

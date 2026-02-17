@@ -1,89 +1,117 @@
 #!/usr/bin/env bash
-# BuildAI Procore API — query Procore PRODUCTION endpoints
-# Usage: procore-api.sh <endpoint> [project_id]
-# Usage: procore-api.sh status
+# ═══════════════════════════════════════════════════════════════════
+# BuildAI Procore API — Generic REST client
+# Supports ANY Procore endpoint, ANY HTTP method, with request bodies
 #
-# Environment:
-#   PROCORE_CLIENT_ID
-#   PROCORE_CLIENT_SECRET
-#   PROCORE_COMPANY_ID
-
+# Usage:
+#   procore-api.sh <method> <path> [json_body]
+#   procore-api.sh GET /rest/v1.0/projects
+#   procore-api.sh POST /rest/v1.0/projects/{pid}/rfis '{"rfi": {"subject": "..."}}'
+#   procore-api.sh PATCH /rest/v1.0/projects/{pid}/rfis/123 '{"rfi": {"status": "closed"}}'
+#
+# Shortcuts (backward compat):
+#   procore-api.sh status
+#   procore-api.sh projects
+#   procore-api.sh rfis <project_id>
+# ═══════════════════════════════════════════════════════════════════
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TOKEN_FILE="${SCRIPT_DIR}/../../../../.procore-tokens.json"
-API_BASE="https://api.procore.com"
+TOKEN_FILE="$SCRIPT_DIR/../../../../.procore-tokens.json"
 LOGIN_BASE="https://login.procore.com"
-
-ENDPOINT="${1:-}"
-PROJECT_ID="${2:-}"
+API_BASE="https://api.procore.com"
 COMPANY_ID="${PROCORE_COMPANY_ID:-562949953508550}"
 
-if [ -z "$ENDPOINT" ]; then
-  echo '{"error": "No endpoint specified. Usage: procore-api.sh <endpoint> [project_id]"}' >&2
-  echo '{"available": ["projects","rfis","submittals","daily_logs","change_orders","punch_items","vendors","schedule","documents","status"]}' >&2
-  exit 1
-fi
-
-# ── Endpoint mapping (v1.0 for compatibility) ────────────────────
-declare -A ENDPOINTS=(
-  ["projects"]="/rest/v1.0/projects?company_id=${COMPANY_ID}"
-  ["rfis"]="/rest/v1.0/projects/{pid}/rfis?company_id=${COMPANY_ID}"
-  ["submittals"]="/rest/v1.0/projects/{pid}/submittals?company_id=${COMPANY_ID}"
-  ["daily_logs"]="/rest/v1.0/projects/{pid}/daily_logs?company_id=${COMPANY_ID}&start_date=2024-01-01&end_date=2026-12-31"
-  ["change_orders"]="/rest/v1.0/projects/{pid}/change_order_packages?company_id=${COMPANY_ID}"
-  ["punch_items"]="/rest/v1.0/projects/{pid}/punch_items?company_id=${COMPANY_ID}"
-  ["vendors"]="/rest/v1.0/projects/{pid}/vendors?company_id=${COMPANY_ID}"
-  ["schedule"]="/rest/v1.0/projects/{pid}/schedule/tasks?company_id=${COMPANY_ID}"
-  ["documents"]="/rest/v1.0/projects/{pid}/documents?company_id=${COMPANY_ID}"
+# ── Shortcut mapping (backward compat) ───────────────────────────
+declare -A SHORTCUTS=(
+  ["projects"]="GET /rest/v1.0/projects?company_id=${COMPANY_ID}"
+  ["rfis"]="GET /rest/v1.0/projects/{pid}/rfis?company_id=${COMPANY_ID}"
+  ["submittals"]="GET /rest/v1.0/projects/{pid}/submittals?company_id=${COMPANY_ID}"
+  ["daily_logs"]="GET /rest/v1.0/projects/{pid}/daily_logs?company_id=${COMPANY_ID}&start_date=2024-01-01&end_date=2026-12-31"
+  ["change_orders"]="GET /rest/v1.0/projects/{pid}/change_order_packages?company_id=${COMPANY_ID}"
+  ["punch_items"]="GET /rest/v1.0/projects/{pid}/punch_items?company_id=${COMPANY_ID}"
+  ["vendors"]="GET /rest/v1.0/projects/{pid}/vendors?company_id=${COMPANY_ID}"
+  ["schedule"]="GET /rest/v1.0/projects/{pid}/schedule/tasks?company_id=${COMPANY_ID}"
+  ["documents"]="GET /rest/v1.0/projects/{pid}/documents?company_id=${COMPANY_ID}"
+  ["budget"]="GET /rest/v1.0/projects/{pid}/budget_line_items?company_id=${COMPANY_ID}"
 )
 
-declare -A NEEDS_PROJECT=(
-  ["rfis"]=1 ["submittals"]=1 ["daily_logs"]=1
+declare -A SHORTCUT_NEEDS_PROJECT=(
+  ["rfis"]=1 ["submittals"]=1 ["daily_logs"]=1 ["budget"]=1
   ["change_orders"]=1 ["punch_items"]=1 ["vendors"]=1
   ["schedule"]=1 ["documents"]=1
 )
 
-# ── Status check ─────────────────────────────────────────────────
-if [ "$ENDPOINT" = "status" ]; then
+# ── Parse arguments ──────────────────────────────────────────────
+ARG1="${1:-}"
+ARG2="${2:-}"
+ARG3="${3:-}"
+
+# Handle: procore-api.sh status
+if [ "$ARG1" = "status" ]; then
   if [ ! -f "$TOKEN_FILE" ]; then
-    echo '{"connected": false, "reason": "No tokens found. Run procore-auth.sh to connect."}'
+    echo '{"connected": false, "reason": "No token file"}'
     exit 0
   fi
   python3 -c "
 import json, time
-with open('$TOKEN_FILE') as f:
-    t = json.load(f)
-expires = (t.get('created_at',0) + t.get('expires_in',0))
-remaining = expires - time.time()
-print(json.dumps({'connected': True, 'expires_in_seconds': int(remaining), 'expired': remaining < 0}))
-" 2>/dev/null || echo '{"connected": false, "reason": "Failed to read tokens"}'
+try:
+    t = json.load(open('$TOKEN_FILE'))
+    expires = (t.get('created_at',0) + t.get('expires_in',0))
+    remaining = expires - time.time()
+    print(json.dumps({'connected': True, 'expires_in_seconds': int(remaining), 'expired': remaining < 0}))
+except:
+    print(json.dumps({'connected': False, 'reason': 'Failed to read tokens'}))
+"
   exit 0
 fi
 
-# ── Validate endpoint ────────────────────────────────────────────
-if [ -z "${ENDPOINTS[$ENDPOINT]:-}" ]; then
-  echo "{\"error\": \"Unknown endpoint: $ENDPOINT\"}" >&2
-  exit 1
-fi
-
-if [ -n "${NEEDS_PROJECT[$ENDPOINT]:-}" ] && [ -z "$PROJECT_ID" ]; then
-  echo "{\"error\": \"Endpoint '$ENDPOINT' requires a project_id. Usage: procore-api.sh $ENDPOINT <project_id>\"}" >&2
-  exit 1
+# Handle shortcuts: procore-api.sh rfis <project_id>
+if [ -n "${SHORTCUTS[$ARG1]+x}" ]; then
+  SHORTCUT="${SHORTCUTS[$ARG1]}"
+  METHOD="${SHORTCUT%% *}"
+  API_PATH="${SHORTCUT#* }"
+  
+  if [ -n "${SHORTCUT_NEEDS_PROJECT[$ARG1]+x}" ]; then
+    if [ -z "$ARG2" ]; then
+      echo "{\"error\": \"Endpoint '$ARG1' requires a project ID. Usage: procore-api.sh $ARG1 <project_id>\"}"
+      exit 1
+    fi
+    API_PATH="${API_PATH//\{pid\}/$ARG2}"
+  fi
+  BODY=""
+else
+  # Generic mode: procore-api.sh <METHOD> <path> [body]
+  METHOD="${ARG1^^}"  # uppercase
+  API_PATH="$ARG2"
+  BODY="$ARG3"
+  
+  if [ -z "$API_PATH" ]; then
+    echo '{"error": "Usage: procore-api.sh <METHOD> <path> [json_body] OR procore-api.sh <shortcut> [project_id]", "shortcuts": ["projects","rfis","submittals","daily_logs","change_orders","punch_items","vendors","schedule","documents","budget"]}'
+    exit 1
+  fi
+  
+  # Auto-append company_id if not present
+  if [[ "$API_PATH" != *"company_id"* ]]; then
+    if [[ "$API_PATH" == *"?"* ]]; then
+      API_PATH="${API_PATH}&company_id=${COMPANY_ID}"
+    else
+      API_PATH="${API_PATH}?company_id=${COMPANY_ID}"
+    fi
+  fi
 fi
 
 # ── Token management ─────────────────────────────────────────────
 get_access_token() {
   if [ ! -f "$TOKEN_FILE" ]; then
-    echo '{"error": "Not connected to Procore. Run procore-auth.sh to authenticate."}' >&2
+    echo '{"error": "No Procore tokens. Run auth first."}' >&2
     exit 1
   fi
 
   local EXPIRED
   EXPIRED=$(python3 -c "
 import json, time
-with open('$TOKEN_FILE') as f:
-    t = json.load(f)
+t = json.load(open('$TOKEN_FILE'))
 expires = (t.get('created_at',0) + t.get('expires_in',0))
 print('yes' if time.time() >= expires - 60 else 'no')
 " 2>/dev/null)
@@ -109,7 +137,7 @@ print('yes' if time.time() >= expires - 60 else 'no')
       exit 1
     fi
     
-    # Only write if we got a valid token response (has access_token)
+    # Only write if we got a valid token response
     if python3 -c "import json,sys; d=json.loads(sys.argv[1]); assert 'access_token' in d" "$REFRESH_RESULT" 2>/dev/null; then
       echo "$REFRESH_RESULT" > "$TOKEN_FILE"
     else
@@ -124,34 +152,53 @@ print('yes' if time.time() >= expires - 60 else 'no')
 # ── Make API call ────────────────────────────────────────────────
 ACCESS_TOKEN=$(get_access_token)
 
-API_PATH="${ENDPOINTS[$ENDPOINT]}"
-if [ -n "$PROJECT_ID" ]; then
-  API_PATH="${API_PATH//\{pid\}/$PROJECT_ID}"
+# For write operations, use v1.1 API and Procore-Company-Id header
+FINAL_PATH="$API_PATH"
+if [[ "$METHOD" =~ ^(POST|PUT|PATCH|DELETE)$ ]]; then
+  # Upgrade v1.0 to v1.1 for write operations (v1.0 returns 500 on writes)
+  FINAL_PATH="${FINAL_PATH/\/rest\/v1.0\//\/rest\/v1.1\/}"
 fi
 
-RESULT=$(curl -s -w "\n%{http_code}" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  "$API_BASE$API_PATH")
+# Build curl command
+CURL_ARGS=(
+  -s
+  -w "\n%{http_code}"
+  -X "$METHOD"
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+  -H "Content-Type: application/json"
+  -H "Procore-Company-Id: $COMPANY_ID"
+)
+
+# Add body for POST/PUT/PATCH
+if [ -n "$BODY" ] && [[ "$METHOD" =~ ^(POST|PUT|PATCH)$ ]]; then
+  CURL_ARGS+=(-d "$BODY")
+fi
+
+RESULT=$(curl "${CURL_ARGS[@]}" "$API_BASE$FINAL_PATH")
 
 HTTP_CODE=$(echo "$RESULT" | tail -1)
-BODY=$(echo "$RESULT" | sed '$d')
+RESPONSE_BODY=$(echo "$RESULT" | sed '$d')
 
 if [ "$HTTP_CODE" -ge 400 ]; then
-  echo "{\"error\": \"Procore API returned HTTP $HTTP_CODE\", \"body\": $(python3 -c "import json,sys; print(json.dumps(json.loads(sys.argv[1])))" "$BODY" 2>/dev/null || echo "\"$BODY\"")}" >&2
+  echo "{\"error\": \"Procore API returned HTTP $HTTP_CODE\", \"method\": \"$METHOD\", \"path\": \"$API_PATH\", \"body\": $(python3 -c "import json,sys; print(json.dumps(json.loads(sys.argv[1])))" "$RESPONSE_BODY" 2>/dev/null || echo "\"$RESPONSE_BODY\"")}" >&2
   exit 1
 fi
 
+# Format output
 python3 -c "
 import json, sys
 body = sys.argv[1]
-endpoint = sys.argv[2]
+method = sys.argv[2]
+path = sys.argv[3]
 try:
     data = json.loads(body)
+    result = {'method': method, 'path': path}
     if isinstance(data, list):
-        print(json.dumps({'endpoint': endpoint, 'count': len(data), 'data': data}))
+        result['count'] = len(data)
+        result['data'] = data
     else:
-        print(json.dumps({'endpoint': endpoint, 'data': data}))
+        result['data'] = data
+    print(json.dumps(result))
 except:
-    print(json.dumps({'endpoint': endpoint, 'raw': body}))
-" "$BODY" "$ENDPOINT"
+    print(json.dumps({'method': method, 'path': path, 'raw': body}))
+" "$RESPONSE_BODY" "$METHOD" "$API_PATH"
