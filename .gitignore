@@ -42,3 +42,13 @@ coverage/
 .procore-tokens.json
 packages/engine/skills/*/.env
 workspaces/*/skills/*/.env
+
+# Admin DB (generated)
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
+# Generated agent workspaces (only templates should be committed)
+workspaces/*/
+!workspaces/templates/
+!workspaces/buildai-agent/
