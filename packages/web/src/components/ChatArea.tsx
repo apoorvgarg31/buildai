@@ -106,6 +106,8 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
   const [documents, setDocuments] = useState<UploadedDoc[]>([]);
   const [showDocPanel, setShowDocPanel] = useState(false);
   const [hasOnboarded, setHasOnboarded] = useState(false);
+  // Track files that were uploaded since the last message was sent
+  const [knownFileNames, setKnownFileNames] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback(() => {
@@ -157,29 +159,94 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
       });
   }, [hasOnboarded, sessionId]);
 
-  const addDocuments = useCallback((files: FileList) => {
-    const newDocs: UploadedDoc[] = Array.from(files).map((file) => ({
-      id: crypto.randomUUID(),
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      uploadedAt: new Date(),
-      url: URL.createObjectURL(file),
-    }));
-    setDocuments((prev) => [...prev, ...newDocs]);
-    setShowDocPanel(true);
-  }, []);
+  // Upload a file to the server immediately
+  const uploadFile = useCallback(
+    async (file: File) => {
+      if (!agentId) return;
 
-  const removeDocument = useCallback((id: string) => {
-    setDocuments((prev) => {
-      const doc = prev.find((d) => d.id === id);
-      if (doc?.url) URL.revokeObjectURL(doc.url);
-      return prev.filter((d) => d.id !== id);
-    });
-  }, []);
+      const tempId = crypto.randomUUID();
+      const newDoc: UploadedDoc = {
+        id: tempId,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        uploadedAt: new Date(),
+        status: "uploading",
+      };
+
+      setDocuments((prev) => [...prev, newDoc]);
+      setShowDocPanel(true);
+
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("agentId", agentId);
+
+        const res = await fetch("/api/files/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: "Upload failed" }));
+          throw new Error(err.error || "Upload failed");
+        }
+
+        const result = await res.json();
+
+        setDocuments((prev) =>
+          prev.map((d) =>
+            d.id === tempId
+              ? {
+                  ...d,
+                  id: result.id,
+                  name: result.name,
+                  size: result.size,
+                  type: result.type,
+                  hasExtraction: result.extractedText,
+                  status: "done" as const,
+                }
+              : d
+          )
+        );
+      } catch (err) {
+        console.error("Upload error:", err);
+        setDocuments((prev) =>
+          prev.map((d) =>
+            d.id === tempId ? { ...d, status: "error" as const } : d
+          )
+        );
+      }
+    },
+    [agentId]
+  );
+
+  const addDocuments = useCallback(
+    (files: FileList) => {
+      Array.from(files).forEach((file) => uploadFile(file));
+    },
+    [uploadFile]
+  );
 
   const handleSend = useCallback(
     async (content: string) => {
+      // Build file context for new uploads
+      const completedDocs = documents.filter((d) => d.status === "done");
+      const newFiles = completedDocs.filter((d) => !knownFileNames.has(d.name));
+
+      let messageToSend = content;
+
+      if (newFiles.length > 0) {
+        const fileList = newFiles
+          .map((f) => `${f.name} (at files/${f.name})`)
+          .join(", ");
+        const context = `[Context: The user has uploaded the following files to their workspace: ${fileList}. You can use the PDF extract skill to read PDFs, or read other files directly.]`;
+        messageToSend = `${context}\n\n${content}`;
+      }
+
+      // Mark all current files as known
+      setKnownFileNames(new Set(completedDocs.map((d) => d.name)));
+
       const userMessage: Message = {
         id: crypto.randomUUID(),
         role: "user",
@@ -205,7 +272,7 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
           isThinking: true, // Mark as thinking until first delta
         }]);
 
-        const result = await sendChatMessageStream(content, sessionId, (delta) => {
+        const result = await sendChatMessageStream(messageToSend, sessionId, (delta) => {
           if (!receivedFirstDelta) {
             receivedFirstDelta = true;
             setIsStreaming(true);
@@ -235,10 +302,10 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
         setIsStreaming(false);
       }
     },
-    [sessionId]
+    [sessionId, documents, knownFileNames]
   );
 
-  const docCount = documents.length;
+  const docCount = documents.filter((d) => d.status === "done").length;
 
   return (
     <div className="flex h-full">
@@ -351,11 +418,16 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
       </div>
 
       {/* Document panel */}
-      {showDocPanel && (
+      {showDocPanel && agentId && (
         <>
           <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setShowDocPanel(false)} />
           <div className="fixed right-0 top-0 bottom-0 w-80 z-50 lg:relative lg:z-auto lg:w-80 lg:flex-shrink-0 shadow-xl lg:shadow-none">
-            <DocumentPanel documents={documents} onRemove={removeDocument} onAdd={addDocuments} onClose={() => setShowDocPanel(false)} />
+            <DocumentPanel
+              agentId={agentId}
+              documents={documents}
+              setDocuments={setDocuments}
+              onClose={() => setShowDocPanel(false)}
+            />
           </div>
         </>
       )}

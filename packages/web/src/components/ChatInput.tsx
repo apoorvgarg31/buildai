@@ -2,14 +2,28 @@
 
 import { useState, useRef, useCallback } from "react";
 
+export interface AttachedFile {
+  id: string;
+  name: string;
+  size: number;
+  status: "uploading" | "done" | "error";
+}
+
 interface ChatInputProps {
   onSend: (message: string) => void;
   onFilesAttached: (files: FileList) => void;
   disabled?: boolean;
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function ChatInput({ onSend, onFilesAttached, disabled }: ChatInputProps) {
   const [input, setInput] = useState("");
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -18,6 +32,7 @@ export default function ChatInput({ onSend, onFilesAttached, disabled }: ChatInp
     if (!trimmed || disabled) return;
     onSend(trimmed);
     setInput("");
+    setAttachedFiles([]);
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
@@ -44,16 +59,77 @@ export default function ChatInput({ onSend, onFilesAttached, disabled }: ChatInp
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files.length > 0) {
+        // Show chips immediately
+        const newChips: AttachedFile[] = Array.from(e.target.files).map((f) => ({
+          id: crypto.randomUUID(),
+          name: f.name,
+          size: f.size,
+          status: "uploading" as const,
+        }));
+        setAttachedFiles((prev) => [...prev, ...newChips]);
+
+        // Trigger upload immediately
         onFilesAttached(e.target.files);
+
+        // Mark chips as done after a brief delay (upload is handled by parent)
+        setTimeout(() => {
+          setAttachedFiles((prev) =>
+            prev.map((f) =>
+              newChips.some((n) => n.id === f.id) ? { ...f, status: "done" as const } : f
+            )
+          );
+        }, 1500);
+
         e.target.value = "";
       }
     },
     [onFilesAttached]
   );
 
+  const removeAttached = useCallback((id: string) => {
+    setAttachedFiles((prev) => prev.filter((f) => f.id !== id));
+  }, []);
+
   return (
     <div className="bg-white px-4 pb-4 pt-2">
       <div className="max-w-[680px] mx-auto">
+        {/* File chips */}
+        {attachedFiles.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {attachedFiles.map((file) => (
+              <div
+                key={file.id}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs border transition-colors ${
+                  file.status === "uploading"
+                    ? "bg-[#f4f4f4] border-[#e5e5e5] text-[#8e8e8e]"
+                    : file.status === "error"
+                    ? "bg-red-50 border-red-200 text-red-600"
+                    : "bg-[#f4f4f4] border-[#d9d9d9] text-[#171717]"
+                }`}
+              >
+                {file.status === "uploading" ? (
+                  <svg className="w-3 h-3 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                ) : file.status === "done" ? (
+                  <span className="text-emerald-600">✓</span>
+                ) : (
+                  <span className="text-red-500">✗</span>
+                )}
+                <span className="truncate max-w-[120px]">{file.name}</span>
+                <span className="text-[#b4b4b4]">{formatFileSize(file.size)}</span>
+                <button
+                  onClick={() => removeAttached(file.id)}
+                  className="text-[#b4b4b4] hover:text-[#666] ml-0.5"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="relative flex items-end bg-[#f4f4f4] rounded-3xl border border-transparent focus-within:border-[#d9d9d9] transition-colors">
           {/* Attach button */}
           <button
