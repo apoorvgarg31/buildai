@@ -1,12 +1,14 @@
 "use client";
 
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  isThinking?: boolean;
 }
 
 interface ChatMessageProps {
@@ -29,7 +31,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
             </div>
           </div>
         ) : (
-          /* Assistant message: left-aligned, plain text, small icon */
+          /* Assistant message: left-aligned with markdown rendering */
           <div className="max-w-full">
             <div className="flex items-start gap-3">
               {/* Small BuildAI icon */}
@@ -47,10 +49,15 @@ export default function ChatMessage({ message }: ChatMessageProps) {
                   prose-pre:bg-[#f4f4f4] prose-pre:border prose-pre:border-[#e5e5e5] prose-pre:rounded-xl
                   prose-headings:text-[#171717] prose-headings:font-semibold
                   prose-a:text-[#171717] prose-a:no-underline prose-a:font-medium hover:prose-a:underline
+                  prose-table:border-collapse prose-table:w-full
+                  prose-th:bg-[#f4f4f4] prose-th:border prose-th:border-[#e5e5e5] prose-th:px-3 prose-th:py-1.5 prose-th:text-left prose-th:text-[13px] prose-th:font-semibold
+                  prose-td:border prose-td:border-[#e5e5e5] prose-td:px-3 prose-td:py-1.5 prose-td:text-[13px]
                   text-[#171717]
                 "
               >
-                <ReactMarkdown>{message.content}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {message.content}
+                </ReactMarkdown>
               </div>
             </div>
           </div>

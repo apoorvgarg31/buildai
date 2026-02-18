@@ -2,7 +2,7 @@
  * WebSocket Gateway Client for BuildAI Engine.
  *
  * Connects to the BuildAI engine gateway over WebSocket,
- * performs the hello/hello-ok handshake, sends chat.send requests,
+ * performs the connect handshake, sends chat.send requests,
  * and streams back ChatEvent responses.
  *
  * Designed for server-side use in Next.js API routes (Node.js runtime).
@@ -16,6 +16,18 @@ const GATEWAY_TOKEN = process.env.BUILDAI_GATEWAY_TOKEN || '';
 
 // ── Types ───────────────────────────────────────────────────────
 
+/**
+ * Chat event payload as broadcast by the gateway.
+ *
+ * Delta messages have:
+ *   { state: "delta", message: { role: "assistant", content: [{ type: "text", text: "cumulative..." }] } }
+ *
+ * Final messages have:
+ *   { state: "final", message: { role: "assistant", content: [...] } | undefined }
+ *
+ * Error/aborted have:
+ *   { state: "error"|"aborted", errorMessage?: string }
+ */
 export interface ChatEvent {
   runId: string;
   sessionKey: string;
@@ -27,36 +39,74 @@ export interface ChatEvent {
   stopReason?: string;
 }
 
-interface HelloOkResponse {
-  type: 'hello-ok';
-  protocol: number;
-  server: { version: string; connId: string };
-  features: { methods: string[]; events: string[] };
-  snapshot: Record<string, unknown>;
-  policy: Record<string, unknown>;
-}
-
 interface GatewayResponse {
   type: 'res';
   id: string;
   ok: boolean;
   result?: unknown;
+  payload?: unknown;
   error?: { code: number; message: string };
 }
 
 interface GatewayEvent {
   type: 'event';
   event: string;
-  data: ChatEvent;
+  payload?: unknown;
+  data?: unknown;
 }
 
-type GatewayFrame = HelloOkResponse | GatewayResponse | GatewayEvent | { type: string; [key: string]: unknown };
+type GatewayFrame = GatewayResponse | GatewayEvent | { type: string; [key: string]: unknown };
 
 // ── Helpers ─────────────────────────────────────────────────────
 
 function generateId(): string {
   return `req-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 }
+
+/**
+ * Extract plain text from a gateway chat message payload.
+ *
+ * The gateway sends messages in Anthropic content-block format:
+ *   { role: "assistant", content: [{ type: "text", text: "..." }] }
+ *
+ * But we also handle plain string messages gracefully.
+ */
+function extractTextFromMessage(msg: unknown): string {
+  if (!msg) return '';
+
+  // Plain string
+  if (typeof msg === 'string') return msg;
+
+  if (typeof msg === 'object') {
+    const m = msg as Record<string, unknown>;
+
+    // Direct text field (some payloads)
+    if (typeof m.text === 'string') return m.text;
+
+    // Content field
+    if (typeof m.content === 'string') return m.content;
+
+    if (Array.isArray(m.content)) {
+      return m.content
+        .map((block: unknown) => {
+          if (typeof block === 'string') return block;
+          if (block && typeof block === 'object') {
+            const b = block as Record<string, unknown>;
+            if (typeof b.text === 'string') return b.text;
+          }
+          return '';
+        })
+        .join('');
+    }
+  }
+
+  return '';
+}
+
+// ── Reconnection Config ─────────────────────────────────────────
+const RECONNECT_INITIAL_MS = 1000;
+const RECONNECT_MAX_MS = 30000;
+const RECONNECT_BACKOFF = 1.5;
 
 // ── Gateway Client Class ────────────────────────────────────────
 
@@ -72,6 +122,11 @@ export class GatewayClient {
   }>();
   private eventListeners = new Map<string, Set<(data: ChatEvent) => void>>();
   private connectPromise: Promise<void> | null = null;
+
+  // Reconnection state
+  private shouldReconnect = true;
+  private reconnectAttempts = 0;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * Connect to the gateway and complete the handshake.
@@ -107,7 +162,7 @@ export class GatewayClient {
       }, 10_000);
 
       ws.on('open', () => {
-        // Send connect handshake (standard req frame with method 'connect')
+        // Send connect handshake
         const connectFrame = {
           type: 'req',
           id: 'connect-' + Date.now(),
@@ -138,13 +193,14 @@ export class GatewayClient {
           return; // ignore malformed frames
         }
 
-        // Handle connect response (hello-ok is in res.payload)
+        // Handle connect response
         if (frame.type === 'res' && (frame as GatewayResponse).id === this._connectId) {
           const res = frame as GatewayResponse;
           clearTimeout(connectTimeout);
           if (res.ok) {
             this.connected = true;
             this.handshakeCompleted = true;
+            this.reconnectAttempts = 0; // Reset on successful connect
             resolve();
           } else {
             reject(new Error(`Gateway handshake failed: ${res.error?.message || 'unknown'}`));
@@ -159,7 +215,7 @@ export class GatewayClient {
             clearTimeout(pending.timeout);
             this.pendingRequests.delete(res.id);
             if (res.ok) {
-              pending.resolve(res.result ?? (res as unknown as { payload?: unknown }).payload);
+              pending.resolve(res.result ?? res.payload);
             } else {
               pending.reject(new Error(res.error?.message || 'Gateway request failed'));
             }
@@ -169,8 +225,8 @@ export class GatewayClient {
 
         if (frame.type === 'event') {
           const evt = frame as GatewayEvent;
-          // Event data is in 'payload' field, not 'data'
-          const eventData = (evt as unknown as { payload?: ChatEvent }).payload || evt.data;
+          // Gateway event payload is in the 'payload' field
+          const eventData = (evt.payload ?? evt.data) as ChatEvent | undefined;
           const listeners = this.eventListeners.get(evt.event);
           if (listeners && eventData) {
             for (const listener of listeners) {
@@ -196,6 +252,11 @@ export class GatewayClient {
           pending.reject(new Error('WebSocket connection closed'));
           this.pendingRequests.delete(id);
         }
+
+        // Automatic reconnection
+        if (this.shouldReconnect) {
+          this._scheduleReconnect();
+        }
       });
 
       ws.on('error', (err) => {
@@ -205,6 +266,28 @@ export class GatewayClient {
         }
       });
     });
+  }
+
+  /**
+   * Schedule a reconnection with exponential backoff.
+   */
+  private _scheduleReconnect(): void {
+    if (this.reconnectTimer) return;
+
+    const delay = Math.min(
+      RECONNECT_INITIAL_MS * Math.pow(RECONNECT_BACKOFF, this.reconnectAttempts),
+      RECONNECT_MAX_MS
+    );
+    this.reconnectAttempts++;
+
+    this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null;
+      try {
+        await this.connect();
+      } catch {
+        // connect() failed, the 'close' handler will trigger another reconnect
+      }
+    }, delay);
   }
 
   /**
@@ -271,54 +354,17 @@ export class GatewayClient {
         if (data.sessionKey !== sessionKey) return;
 
         if (data.state === 'delta') {
-          // Accumulate delta text
-          if (data.message && typeof data.message === 'string') {
-            fullMessage += data.message;
-          } else if (data.message && typeof data.message === 'object') {
-            // Message might be structured (like { role, content })
-            const msg = data.message as { content?: unknown };
-            if (typeof msg.content === 'string') {
-              fullMessage += msg.content;
-            } else if (Array.isArray(msg.content)) {
-              // Handle content blocks
-              for (const block of msg.content) {
-                if (typeof block === 'string') fullMessage += block;
-                else if (block?.text) fullMessage += block.text;
-                else if (block?.type === 'text' && block?.text) fullMessage += block.text;
-              }
-            }
+          // Gateway sends cumulative text in message.content[0].text
+          const text = extractTextFromMessage(data.message);
+          if (text) {
+            fullMessage = text; // Cumulative — replace, don't append
           }
         } else if (data.state === 'final') {
           clearTimeout(timeout);
           unsubscribe();
 
-          // Extract final message text
-          let finalText = fullMessage;
-          if (data.message) {
-            if (typeof data.message === 'string') {
-              finalText = data.message;
-            } else if (typeof data.message === 'object') {
-              const msg = data.message as { content?: unknown; role?: string };
-              if (typeof msg.content === 'string') {
-                finalText = msg.content;
-              } else if (Array.isArray(msg.content)) {
-                finalText = msg.content
-                  .map((block: unknown) => {
-                    if (typeof block === 'string') return block;
-                    if ((block as { type?: string; text?: string })?.type === 'text') {
-                      return (block as { text: string }).text;
-                    }
-                    return '';
-                  })
-                  .join('');
-              }
-            }
-          }
-
-          // If we got no text from the final event but accumulated deltas, use those
-          if (!finalText && fullMessage) {
-            finalText = fullMessage;
-          }
+          // Extract final message text (prefer final message, fall back to accumulated)
+          const finalText = extractTextFromMessage(data.message) || fullMessage;
 
           resolve({
             response: finalText || '(No response)',
@@ -351,6 +397,7 @@ export class GatewayClient {
 
   /**
    * Send a chat message and stream delta events via a callback.
+   * The callback receives cumulative text from the gateway.
    * Returns the final response text.
    */
   async chatSendStream(
@@ -369,27 +416,11 @@ export class GatewayClient {
         reject(new Error('Chat response timeout (120s)'));
       }, 120_000);
 
-      const extractText = (msg: unknown): string => {
-        if (typeof msg === 'string') return msg;
-        if (msg && typeof msg === 'object') {
-          const m = msg as { content?: unknown };
-          if (typeof m.content === 'string') return m.content;
-          if (Array.isArray(m.content)) {
-            return m.content.map((b: unknown) => {
-              if (typeof b === 'string') return b;
-              if ((b as { type?: string; text?: string })?.type === 'text') return (b as { text: string }).text;
-              return '';
-            }).join('');
-          }
-        }
-        return '';
-      };
-
       const unsubscribe = this.on('chat', (data: ChatEvent) => {
         if (data.sessionKey !== sessionKey) return;
 
         if (data.state === 'delta' && data.message) {
-          const text = extractText(data.message);
+          const text = extractTextFromMessage(data.message);
           if (text) {
             // Gateway sends cumulative text — track latest
             fullMessage = text;
@@ -398,7 +429,7 @@ export class GatewayClient {
         } else if (data.state === 'final') {
           clearTimeout(timeout);
           unsubscribe();
-          const finalText = extractText(data.message) || fullMessage || '(No response)';
+          const finalText = extractTextFromMessage(data.message) || fullMessage || '(No response)';
           resolve({ response: finalText, sessionKey });
         } else if (data.state === 'error') {
           clearTimeout(timeout);
@@ -444,8 +475,14 @@ export class GatewayClient {
 
   /**
    * Close the WebSocket connection.
+   * Disables automatic reconnection.
    */
   disconnect(): void {
+    this.shouldReconnect = false;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     if (this.ws) {
       this.ws.close();
       this.ws = null;

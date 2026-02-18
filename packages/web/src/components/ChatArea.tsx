@@ -192,23 +192,30 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
 
       // Create a placeholder assistant message for streaming
       const assistantId = crypto.randomUUID();
+      let receivedFirstDelta = false;
 
       try {
-        // Add empty assistant message that we'll fill with streaming content
+        // Add placeholder assistant message — initially null content to avoid flicker
+        // We'll only show the message once we receive the first delta OR when streaming starts
         setMessages((prev) => [...prev, {
           id: assistantId,
           role: "assistant" as const,
           content: "",
           timestamp: new Date(),
+          isThinking: true, // Mark as thinking until first delta
         }]);
 
         const result = await sendChatMessageStream(content, sessionId, (delta) => {
-          // First delta received — we're streaming now, hide loading dots
-          setIsStreaming(true);
+          if (!receivedFirstDelta) {
+            receivedFirstDelta = true;
+            setIsStreaming(true);
+          }
           // Gateway sends cumulative text — REPLACE content, don't append
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === assistantId ? { ...m, content: sanitizeContent(delta) } : m
+              m.id === assistantId
+                ? { ...m, content: sanitizeContent(delta), isThinking: false }
+                : m
             )
           );
         });
@@ -219,7 +226,7 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
-              ? { ...m, content: `⚠️ ${err instanceof Error ? err.message : "Failed to get response"}. Please try again.` }
+              ? { ...m, content: `⚠️ ${err instanceof Error ? err.message : "Failed to get response"}. Please try again.`, isThinking: false }
               : m
           )
         );
@@ -289,12 +296,37 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
             )}
 
             {messages.map((message) => {
-              // Hide empty placeholder message before streaming starts
-              if (message.role === "assistant" && message.content === "" && !isStreaming) return null;
+              // Show thinking indicator for assistant messages that haven't received content yet
+              if (message.role === "assistant" && message.content === "" && message.isThinking) {
+                return (
+                  <div key={message.id} className="py-4">
+                    <div className="max-w-[680px] mx-auto flex gap-3 px-4">
+                      <div className="w-6 h-6 rounded-full bg-[#171717] flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
+                        B
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 pt-1">
+                          <div className="flex gap-1">
+                            <span className="w-1.5 h-1.5 bg-[#c4c4c4] rounded-full animate-pulse"></span>
+                            <span className="w-1.5 h-1.5 bg-[#c4c4c4] rounded-full animate-pulse [animation-delay:300ms]"></span>
+                            <span className="w-1.5 h-1.5 bg-[#c4c4c4] rounded-full animate-pulse [animation-delay:600ms]"></span>
+                          </div>
+                          <span className="text-xs text-[#b4b4b4] italic">Thinking...</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Hide empty assistant messages that aren't thinking
+              if (message.role === "assistant" && message.content === "") return null;
+
               return <ChatMessage key={message.id} message={message} />;
             })}
 
-            {isLoading && !isStreaming && (
+            {/* Loading indicator shown before the assistant placeholder is created */}
+            {isLoading && !isStreaming && messages.length > 0 && !messages.some(m => m.role === "assistant" && m.isThinking) && (
               <div className="py-4">
                 <div className="max-w-[680px] mx-auto flex gap-3 px-4">
                   <div className="w-6 h-6 rounded-full bg-[#171717] flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
