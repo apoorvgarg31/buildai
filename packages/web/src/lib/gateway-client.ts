@@ -11,7 +11,7 @@
 import WebSocket from 'ws';
 
 // ── Configuration ───────────────────────────────────────────────
-const GATEWAY_URL = process.env.BUILDAI_GATEWAY_URL || 'ws://localhost:18790';
+const GATEWAY_URL = process.env.BUILDAI_GATEWAY_URL || 'ws://localhost:18789';
 const GATEWAY_TOKEN = process.env.BUILDAI_GATEWAY_TOKEN || '';
 
 // ── Types ───────────────────────────────────────────────────────

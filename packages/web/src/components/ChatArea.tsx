@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import ChatMessage, { Message } from "./ChatMessage";
 import ChatInput from "./ChatInput";
 import DocumentPanel, { UploadedDoc } from "./DocumentPanel";
@@ -92,6 +92,8 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
   const [documents, setDocuments] = useState<UploadedDoc[]>([]);
   const [showDocPanel, setShowDocPanel] = useState(false);
   const [hasOnboarded, setHasOnboarded] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(120);
+  const [compactionHint, setCompactionHint] = useState<string>("");
   // Track files that were uploaded since the last message was sent
   const [knownFileNames, setKnownFileNames] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -136,6 +138,9 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
             content: m.role === "assistant" ? sanitizeContent(m.content) : m.content,
             timestamp: new Date(m.timestamp),
           })));
+          if (data.messages.length >= 95) {
+            setCompactionHint("Older context may be compacted by the engine to keep chat fast.");
+          }
         } else {
           setMessages([]);
         }
@@ -307,6 +312,13 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
 
   const docCount = documents.filter((d) => d.status === "done").length;
 
+  const visibleMessages = useMemo(() => {
+    if (messages.length <= visibleCount) return messages;
+    return messages.slice(messages.length - visibleCount);
+  }, [messages, visibleCount]);
+
+  const hiddenCount = Math.max(0, messages.length - visibleMessages.length);
+
   return (
     <div className="flex h-full">
       {/* Main chat */}
@@ -362,7 +374,24 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
               </div>
             )}
 
-            {messages.map((message) => {
+            {hiddenCount > 0 && (
+              <div className="max-w-[680px] mx-auto px-4 py-2">
+                <button
+                  onClick={() => setVisibleCount((v) => v + 120)}
+                  className="text-xs rounded-lg border border-black/10 px-3 py-1.5 text-[#666] hover:text-[#171717]"
+                >
+                  Load {Math.min(120, hiddenCount)} older messages ({hiddenCount} hidden)
+                </button>
+              </div>
+            )}
+
+            {compactionHint && (
+              <div className="max-w-[680px] mx-auto px-4 pb-2">
+                <p className="text-[11px] text-[#8a8a8a]">🧠 {compactionHint}</p>
+              </div>
+            )}
+
+            {visibleMessages.map((message) => {
               // Show thinking indicator for assistant messages that haven't received content yet
               if (message.role === "assistant" && message.content === "" && message.isThinking) {
                 return (

@@ -64,14 +64,21 @@ Each PM gets their own isolated agent with persistent memory, learning their hab
 git clone https://github.com/apoorvgarg31/buildai.git
 cd buildai
 
-# Install dependencies (web app only — engine deps are large)
-npm install
+# One-time setup
+make setup
 
-# Start the dev server
-npm run dev
+# Start web + BuildAI engine (single command)
+make start
 ```
 
 The web app will be available at `http://localhost:3000`.
+
+Stop everything with:
+```bash
+make stop
+```
+
+For full developer workflow, see `docs/DEVELOPER_SETUP.md`.
 
 ### Engine Setup (Advanced)
 

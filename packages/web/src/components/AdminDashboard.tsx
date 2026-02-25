@@ -38,7 +38,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
     { label: "Active Users", value: stats?.users.total ?? "—", icon: "👥", sub: stats ? `${stats.users.admins} admin${stats.users.admins !== 1 ? "s" : ""}` : "", color: "from-blue-500/10 to-blue-600/5 border-blue-500/10" },
     { label: "AI Agents", value: stats?.agents.total ?? "—", icon: "🤖", sub: stats ? `${stats.agents.active} active` : "", color: "from-emerald-500/10 to-emerald-600/5 border-emerald-500/10" },
     { label: "Connections", value: stats?.connections.total ?? "—", icon: "🔗", sub: stats ? `${stats.connections.connected} connected` : "", color: "from-amber-500/10 to-amber-600/5 border-amber-500/10" },
-    { label: "Engine", value: "Online", icon: "⚡", sub: "Port 18790", color: "from-purple-500/10 to-purple-600/5 border-purple-500/10" },
+    { label: "Engine", value: "Online", icon: "⚡", sub: "Port 18789", color: "from-purple-500/10 to-purple-600/5 border-purple-500/10" },
   ];
 
   return (

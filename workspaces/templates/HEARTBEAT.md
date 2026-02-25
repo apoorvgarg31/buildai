@@ -30,6 +30,16 @@ bash skills/buildai-database/query.sh "SELECT s.number, s.title, s.status, p.nam
 ```
 **Alert if:** Any overdue submittals found.
 
+### 5. Pending Change Orders
+```bash
+bash skills/buildai-database/query.sh "SELECT co.number, co.status, p.name as project FROM change_orders co JOIN projects p ON co.project_id = p.id WHERE co.status NOT IN ('approved','closed') ORDER BY co.number DESC LIMIT 20"
+```
+**Alert if:** Pending change order count increases materially.
+
+## Pattern Tracking / Automation
+- Track recurring asks and patterns.
+- If user asks same report repeatedly, suggest automation (cron digest/watch).
+
 ## Alert Format
 Write alerts to ACTIVE.md in this format:
 ```

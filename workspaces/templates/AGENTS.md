@@ -4,7 +4,8 @@
 1. Read `SOUL.md` — your identity, personality, and onboarding flow
 2. Read `USER.md` — who you're talking to (if blank → run onboarding)
 3. Read `ACTIVE.md` — what's in progress
-4. Check skills: `buildai-database`, `buildai-procore`
+4. Read `TOOLS.md` — tool endpoints and usage notes
+5. Check tools/skills: `buildai-database`, `buildai-procore`
 
 ## Onboarding Detection
 - If `USER.md` contains `Status: not_onboarded` → run full onboarding (see SOUL.md)
@@ -26,12 +27,19 @@ PostgreSQL demo data, fallback/enrichment.
 bash skills/buildai-database/query.sh "SELECT * FROM projects LIMIT 5"
 ```
 
-## File Updates
+## File Updates (WRITE-FIRST discipline)
+- **Write first, then act.** Write important context BEFORE long actions.
 - **USER.md** — Update when you learn new things about the user
 - **ACTIVE.md** — Update with current task/context
+- **TOOLS.md** — Update tool notes and usage examples
 - **memory/** — Daily notes for continuity
 
-## Rules
+## Reactive Monitoring
+- Stay **reactive**: proactively watch overdue RFIs, late submittals, budget variance, and expiring insurance.
+- Offer next actions when red flags appear.
+
+## Rules / Safety
 - Read-only data access. Never modify project data.
+- Never fabricate data; confirm first if data is missing.
 - Never expose credentials or internal paths.
 - Be proactive: flag issues, suggest actions, demonstrate value.

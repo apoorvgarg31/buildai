@@ -3134,11 +3134,11 @@ Current builds no longer include the TCP bridge listener; `bridge.*` config keys
 Nodes connect over the Gateway WebSocket. This section is kept for historical reference.
 
 Legacy behavior:
-- The Gateway could expose a simple TCP bridge for nodes (iOS/Android), typically on port `18790`.
+- The Gateway could expose a simple TCP bridge for nodes (iOS/Android), typically on port `18789`.
 
 Defaults:
 - enabled: `true`
-- port: `18790`
+- port: `18789`
 - bind: `lan` (binds to `0.0.0.0`)
 
 Bind modes:
@@ -3162,7 +3162,7 @@ Auto-generated certs require `openssl` on PATH; if generation fails, the bridge 
 {
   bridge: {
     enabled: true,
-    port: 18790,
+    port: 18789,
     bind: "tailnet",
     tls: {
       enabled: true,

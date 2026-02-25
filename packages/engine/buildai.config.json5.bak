@@ -2,7 +2,7 @@
 // Fork of Clawdbot — stripped down for construction PM use case.
 {
   "gateway": {
-    "port": 18790,
+    "port": 18789,
     "mode": "local",
     "bind": "loopback",
     "auth": {

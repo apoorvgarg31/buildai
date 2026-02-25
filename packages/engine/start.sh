@@ -20,4 +20,4 @@ PROCORE_SECRETS="$(cd ../.. && pwd)/.secrets/procore.env"
 
 mkdir -p "$CLAWDBOT_STATE_DIR"
 
-exec clawdbot gateway --port 18790
+exec clawdbot gateway --port 18789

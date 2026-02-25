@@ -114,7 +114,7 @@ lib/
 skills/
   buildai-database/       — SQL query skill
   buildai-procore/        — Procore API skill
-buildai.config.json5      — Engine config (port 18790)
+buildai.config.json5      — Engine config (port 18789)
 ```
 
 ### workspaces/buildai-agent/ (Agent Template)
@@ -131,7 +131,7 @@ HEARTBEAT.md              — Monitoring checklist
 
 ### Task 1.1: Clawdbot Engine Fork ✅
 - [x] Monorepo with npm workspaces
-- [x] Engine config: buildai.config.json5 (port 18790, local mode)
+- [x] Engine config: buildai.config.json5 (port 18789, local mode)
 - [x] Engine starts and accepts WebSocket connections
 - [x] Gateway client in web package (connect handshake, protocol v3)
 

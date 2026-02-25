@@ -38,7 +38,7 @@ export async function provisionWorkspace(agentId: string): Promise<string> {
   }
 
   // Create fresh state files
-  fs.writeFileSync(path.join(workspaceDir, 'ACTIVE.md'), `# ACTIVE.md\n\nAgent: ${agentId}\nStatus: Ready\nCreated: ${new Date().toISOString()}\n`);
+  fs.writeFileSync(path.join(workspaceDir, 'ACTIVE.md'), `# ACTIVE.md\n\nAgent: ${agentId}\nStatus: Onboarding pending\nCreated: ${new Date().toISOString()}\n\n## Onboarding\n- Status: pending\n- Next step: Ask user onboarding questions on first message\n`);
   fs.writeFileSync(path.join(workspaceDir, 'MEMORY.md'), `# MEMORY.md\n\nLong-term memory for agent ${agentId}.\n`);
 
   // Return relative path for engine config

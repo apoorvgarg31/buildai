@@ -13,6 +13,8 @@ import AdminSettingsPage from "@/components/AdminSettingsPage";
 import MarketplacePage from "@/components/MarketplacePage";
 import UsagePage from "@/components/UsagePage";
 import SettingsPage from "@/components/SettingsPage";
+import PersonalityStudio from "@/components/PersonalityStudio";
+import WatchlistPage from "@/components/WatchlistPage";
 
 export default function Home() {
   const { user, isLoaded } = useCurrentUser();
@@ -41,6 +43,10 @@ export default function Home() {
     switch (activePage) {
       case "chat":
         return <ChatArea agentId={user.agentId} />;
+      case "watchlist":
+        return <WatchlistPage agentId={user.agentId} />;
+      case "personality":
+        return <PersonalityStudio agentId={user.agentId} />;
       case "marketplace":
         return <MarketplacePage />;
       case "usage":
