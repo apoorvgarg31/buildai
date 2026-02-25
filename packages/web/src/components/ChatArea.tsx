@@ -15,33 +15,13 @@ function sanitizeContent(text: string): string {
     .trim();
 }
 
-// Initial greeting — agent handles real onboarding via SOUL.md
-const WELCOME_MESSAGE = ``;
-
-// Non-streaming fallback
-async function sendChatMessage(
-  message: string,
-  sessionId: string | null
-): Promise<{ response: string; sessionId: string }> {
-  const res = await fetch("/api/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, sessionId, stream: false }),
-  });
-
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(error.error || `HTTP ${res.status}`);
-  }
-
-  return res.json();
-}
-
 // Streaming: calls onDelta for each chunk, returns final text
 async function sendChatMessageStream(
   message: string,
   sessionId: string | null,
   onDelta: (text: string) => void,
+  onThinking?: (text: string) => void,
+  onTool?: (name: string) => void,
 ): Promise<{ sessionId: string }> {
   const res = await fetch("/api/chat", {
     method: "POST",
@@ -75,6 +55,10 @@ async function sendChatMessageStream(
         const data = JSON.parse(line.slice(6));
         if (data.type === "delta" && data.text) {
           onDelta(data.text);
+        } else if (data.type === "thinking" && data.text && onThinking) {
+          onThinking(data.text);
+        } else if (data.type === "tool" && data.name && onTool) {
+          onTool(data.name);
         } else if (data.type === "done") {
           returnedSessionId = data.sessionId || returnedSessionId;
         } else if (data.type === "error") {
@@ -98,6 +82,8 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [thinkingPreview, setThinkingPreview] = useState<string>("");
+  const [activeTools, setActiveTools] = useState<string[]>([]);
   // Session key routes to the assigned agent
   const [sessionId, setSessionId] = useState<string | null>(
     agentId ? `agent:${agentId}:webchat:default` : null
@@ -256,6 +242,8 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
 
       setMessages((prev) => [...prev, userMessage]);
       setIsLoading(true);
+      setThinkingPreview("");
+      setActiveTools([]);
 
       // Create a placeholder assistant message for streaming
       const assistantId = crypto.randomUUID();
@@ -272,20 +260,30 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
           isThinking: true, // Mark as thinking until first delta
         }]);
 
-        const result = await sendChatMessageStream(messageToSend, sessionId, (delta) => {
-          if (!receivedFirstDelta) {
-            receivedFirstDelta = true;
-            setIsStreaming(true);
+        const result = await sendChatMessageStream(
+          messageToSend,
+          sessionId,
+          (delta) => {
+            if (!receivedFirstDelta) {
+              receivedFirstDelta = true;
+              setIsStreaming(true);
+            }
+            // Gateway sends cumulative text — REPLACE content, don't append
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? { ...m, content: sanitizeContent(delta), isThinking: false }
+                  : m
+              )
+            );
+          },
+          (thinkingText) => {
+            setThinkingPreview(thinkingText.slice(0, 240));
+          },
+          (toolName) => {
+            setActiveTools((prev) => (prev.includes(toolName) ? prev : [...prev, toolName]));
           }
-          // Gateway sends cumulative text — REPLACE content, don't append
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId
-                ? { ...m, content: sanitizeContent(delta), isThinking: false }
-                : m
-            )
-          );
-        });
+        );
 
         if (result.sessionId) setSessionId(result.sessionId);
       } catch (err) {
@@ -300,6 +298,8 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
       } finally {
         setIsLoading(false);
         setIsStreaming(false);
+        setThinkingPreview("");
+        setActiveTools([]);
       }
     },
     [sessionId, documents, knownFileNames]
@@ -380,6 +380,23 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
                           </div>
                           <span className="text-xs text-[#b4b4b4] italic">Thinking...</span>
                         </div>
+                        {thinkingPreview && (
+                          <p className="mt-2 text-[11px] text-[#9a9a9a] line-clamp-2">
+                            {thinkingPreview}
+                          </p>
+                        )}
+                        {activeTools.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {activeTools.map((tool) => (
+                              <span
+                                key={tool}
+                                className="inline-flex items-center rounded-full bg-[#f4f4f4] px-2 py-0.5 text-[10px] text-[#666]"
+                              >
+                                tool: {tool}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

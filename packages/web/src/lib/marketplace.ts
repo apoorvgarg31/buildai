@@ -493,5 +493,8 @@ export function packageSkill(skillId: string): SkillPackage | null {
  * Get the marketplace signing secret.
  */
 function getMarketplaceSecret(): string {
-  return process.env.BUILDAI_MARKETPLACE_SECRET || process.env.BUILDAI_ENCRYPTION_KEY || 'buildai-marketplace-default-key';
+  const secret = process.env.BUILDAI_MARKETPLACE_SECRET || process.env.BUILDAI_ENCRYPTION_KEY;
+  if (secret) return secret;
+  if (process.env.NODE_ENV === 'test') return 'buildai-test-marketplace-secret';
+  throw new Error('BUILDAI_MARKETPLACE_SECRET (or BUILDAI_ENCRYPTION_KEY) must be set');
 }

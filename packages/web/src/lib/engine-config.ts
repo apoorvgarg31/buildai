@@ -5,6 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
 
 const CONFIG_PATH = path.resolve(
   process.env.BUILDAI_ENGINE_CONFIG || path.join(process.cwd(), '../../packages/engine/buildai.config.json5')
@@ -107,7 +108,6 @@ export async function removeAgentFromConfig(agentId: string): Promise<void> {
 async function reloadEngine(): Promise<void> {
   try {
     // Find engine PID from the pidfile or by port
-    const { execSync } = require('child_process');
     const result = execSync("ss -tlnp | grep ':18790' | grep -oP 'pid=\\K[0-9]+'", { encoding: 'utf-8', timeout: 3000 }).trim();
     if (result) {
       const pid = parseInt(result, 10);

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { canAccessAgent, requireSignedIn } from '@/lib/api-guard';
+import { isValidAgentId, safeJoinWithin } from '@/lib/security';
 
 function getWorkspaceBase(): string {
   return path.resolve(process.cwd(), "../../workspaces");
@@ -11,24 +13,30 @@ export async function DELETE(
   { params }: { params: Promise<{ name: string }> }
 ) {
   try {
+    const actor = await requireSignedIn();
     const { name } = await params;
     const agentId = request.nextUrl.searchParams.get("agentId");
 
     if (!agentId) {
       return NextResponse.json({ error: "agentId is required" }, { status: 400 });
     }
+    if (!isValidAgentId(agentId)) {
+      return NextResponse.json({ error: "Invalid agentId" }, { status: 400 });
+    }
+    if (!canAccessAgent(actor, agentId)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     if (!name) {
       return NextResponse.json({ error: "File name is required" }, { status: 400 });
     }
 
-    const filesDir = path.join(getWorkspaceBase(), agentId, "files");
-    const filePath = path.join(filesDir, name);
-
-    // Security: ensure the resolved path is within the files directory
-    const resolvedPath = path.resolve(filePath);
-    const resolvedDir = path.resolve(filesDir);
-    if (!resolvedPath.startsWith(resolvedDir)) {
+    const filesDir = safeJoinWithin(getWorkspaceBase(), agentId, "files");
+    if (!filesDir) {
+      return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
+    }
+    const filePath = safeJoinWithin(filesDir, name);
+    if (!filePath) {
       return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
     }
 
@@ -36,10 +44,8 @@ export async function DELETE(
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
 
-    // Delete the file
     fs.unlinkSync(filePath);
 
-    // Also delete extraction file if it exists
     const ext = path.extname(name);
     const baseName = path.basename(name, ext);
     const extractionPath = path.join(filesDir, `${baseName}.extracted.json`);
@@ -49,6 +55,9 @@ export async function DELETE(
 
     return NextResponse.json({ success: true, name });
   } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHENTICATED') {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
     console.error("Delete error:", err);
     return NextResponse.json({ error: "Failed to delete file" }, { status: 500 });
   }

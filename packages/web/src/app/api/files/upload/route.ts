@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import { exec } from "child_process";
+import { canAccessAgent, requireSignedIn } from '@/lib/api-guard';
+import { isValidAgentId, safeJoinWithin } from '@/lib/security';
 
 const ALLOWED_TYPES = new Set([
   "application/pdf",
@@ -56,6 +58,7 @@ function runExtraction(filePath: string): Promise<string> {
 
 export async function POST(request: NextRequest) {
   try {
+    const actor = await requireSignedIn();
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const agentId = formData.get("agentId") as string | null;
@@ -66,6 +69,12 @@ export async function POST(request: NextRequest) {
 
     if (!agentId) {
       return NextResponse.json({ error: "No agentId provided" }, { status: 400 });
+    }
+    if (!isValidAgentId(agentId)) {
+      return NextResponse.json({ error: "Invalid agentId" }, { status: 400 });
+    }
+    if (!canAccessAgent(actor, agentId)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Validate file size
@@ -86,7 +95,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Ensure directory exists
-    const filesDir = path.join(getWorkspaceBase(), agentId, "files");
+    const filesDir = safeJoinWithin(getWorkspaceBase(), agentId, "files");
+    if (!filesDir) {
+      return NextResponse.json({ error: "Invalid path" }, { status: 400 });
+    }
     fs.mkdirSync(filesDir, { recursive: true });
 
     // Get unique filename
@@ -120,6 +132,9 @@ export async function POST(request: NextRequest) {
       extractedText,
     });
   } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHENTICATED') {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
     console.error("Upload error:", err);
     return NextResponse.json(
       { error: "Upload failed" },

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { canAccessAgent, requireSignedIn } from '@/lib/api-guard';
+import { isValidAgentId, safeJoinWithin } from '@/lib/security';
 
 function getWorkspaceBase(): string {
   return path.resolve(process.cwd(), "../../workspaces");
@@ -25,13 +27,23 @@ function getMimeType(ext: string): string {
 
 export async function GET(request: NextRequest) {
   try {
+    const actor = await requireSignedIn();
     const agentId = request.nextUrl.searchParams.get("agentId");
 
     if (!agentId) {
       return NextResponse.json({ error: "agentId is required" }, { status: 400 });
     }
+    if (!isValidAgentId(agentId)) {
+      return NextResponse.json({ error: "Invalid agentId" }, { status: 400 });
+    }
+    if (!canAccessAgent(actor, agentId)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
-    const filesDir = path.join(getWorkspaceBase(), agentId, "files");
+    const filesDir = safeJoinWithin(getWorkspaceBase(), agentId, "files");
+    if (!filesDir) {
+      return NextResponse.json({ error: "Invalid path" }, { status: 400 });
+    }
 
     if (!fs.existsSync(filesDir)) {
       return NextResponse.json([]);
@@ -61,6 +73,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(files);
   } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHENTICATED') {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
     console.error("File list error:", err);
     return NextResponse.json({ error: "Failed to list files" }, { status: 500 });
   }

@@ -34,10 +34,8 @@ export function useCurrentUser(): { user: BuildAIUser | null; isLoaded: boolean 
   const [agentLoaded, setAgentLoaded] = useState(false);
 
   useEffect(() => {
-    if (!user) {
-      setAgentLoaded(true);
-      return;
-    }
+    if (!user) return;
+
     // Fetch agent assignment from admin DB (source of truth)
     fetch('/api/me')
       .then(r => r.ok ? r.json() : null)
@@ -48,7 +46,7 @@ export function useCurrentUser(): { user: BuildAIUser | null; isLoaded: boolean 
       .catch(() => setAgentLoaded(true));
   }, [user]);
 
-  if (!isLoaded || !agentLoaded) {
+  if (!isLoaded || (user && !agentLoaded)) {
     return { user: null, isLoaded: false };
   }
 

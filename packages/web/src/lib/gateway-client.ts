@@ -39,6 +39,10 @@ export interface ChatEvent {
   stopReason?: string;
 }
 
+export type StreamSideEvent =
+  | { type: 'thinking'; text: string }
+  | { type: 'tool'; name: string };
+
 interface GatewayResponse {
   type: 'res';
   id: string;
@@ -92,7 +96,7 @@ function extractTextFromMessage(msg: unknown): string {
           if (typeof block === 'string') return block;
           if (block && typeof block === 'object') {
             const b = block as Record<string, unknown>;
-            if (typeof b.text === 'string') return b.text;
+            if (b.type === 'text' && typeof b.text === 'string') return b.text;
           }
           return '';
         })
@@ -101,6 +105,35 @@ function extractTextFromMessage(msg: unknown): string {
   }
 
   return '';
+}
+
+function extractThinkingAndTools(msg: unknown): StreamSideEvent[] {
+  if (!msg || typeof msg !== 'object') return [];
+  const m = msg as Record<string, unknown>;
+  if (!Array.isArray(m.content)) return [];
+
+  const events: StreamSideEvent[] = [];
+  for (const block of m.content) {
+    if (!block || typeof block !== 'object') continue;
+    const b = block as Record<string, unknown>;
+    const type = String(b.type || '');
+
+    if (type === 'thinking') {
+      const text = typeof b.text === 'string'
+        ? b.text
+        : typeof b.thinking === 'string'
+          ? b.thinking
+          : '';
+      if (text.trim()) events.push({ type: 'thinking', text });
+    }
+
+    if (type === 'tool_use' || type === 'server_tool_use' || type === 'mcp_tool_use') {
+      const name = typeof b.name === 'string' ? b.name : 'tool';
+      events.push({ type: 'tool', name });
+    }
+  }
+
+  return events;
 }
 
 // ── Reconnection Config ─────────────────────────────────────────
@@ -404,6 +437,7 @@ export class GatewayClient {
     sessionKey: string,
     message: string,
     onDelta: (text: string) => void,
+    onSideEvent?: (event: StreamSideEvent) => void,
   ): Promise<{ response: string; sessionKey: string }> {
     await this.connect();
 
@@ -416,10 +450,34 @@ export class GatewayClient {
         reject(new Error('Chat response timeout (120s)'));
       }, 120_000);
 
+      const seenTools = new Set<string>();
+      let lastThinking = '';
+
+      const emitSideEvents = (messagePayload: unknown) => {
+        if (!onSideEvent) return;
+        const sideEvents = extractThinkingAndTools(messagePayload);
+        for (const evt of sideEvents) {
+          if (evt.type === 'thinking') {
+            if (evt.text !== lastThinking) {
+              lastThinking = evt.text;
+              onSideEvent(evt);
+            }
+            continue;
+          }
+
+          const toolKey = `${evt.type}:${evt.name}`;
+          if (!seenTools.has(toolKey)) {
+            seenTools.add(toolKey);
+            onSideEvent(evt);
+          }
+        }
+      };
+
       const unsubscribe = this.on('chat', (data: ChatEvent) => {
         if (data.sessionKey !== sessionKey) return;
 
         if (data.state === 'delta' && data.message) {
+          emitSideEvents(data.message);
           const text = extractTextFromMessage(data.message);
           if (text) {
             // Gateway sends cumulative text — track latest
@@ -427,6 +485,7 @@ export class GatewayClient {
             onDelta(text);
           }
         } else if (data.state === 'final') {
+          emitSideEvents(data.message);
           clearTimeout(timeout);
           unsubscribe();
           const finalText = extractTextFromMessage(data.message) || fullMessage || '(No response)';

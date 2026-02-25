@@ -67,8 +67,7 @@ export default function AdminUsersPage() {
     fetchData();
   };
 
-  const getAgentName = (agentId: string | null) =>
-    agentId ? agents.find((a) => a.id === agentId)?.name || agentId : "Unassigned";
+  // Agent display is handled directly in the assignment dropdown.
 
   return (
     <div className="flex flex-col h-full bg-white">

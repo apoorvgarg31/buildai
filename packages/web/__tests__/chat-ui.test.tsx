@@ -50,7 +50,7 @@ describe('ChatMessage Component', () => {
     expect(screen.getByText('B')).toBeDefined();
   });
 
-  it('should show user avatar (PM) for user messages', () => {
+  it('should render user message bubble without assistant avatar', () => {
     const message = {
       id: 'test-4',
       role: 'user' as const,
@@ -59,7 +59,8 @@ describe('ChatMessage Component', () => {
     };
 
     render(<ChatMessage message={message} />);
-    expect(screen.getByText('PM')).toBeDefined();
+    expect(screen.getByText('User text')).toBeDefined();
+    expect(screen.queryByText('B')).toBeNull();
   });
 
   it('should display timestamp', () => {
@@ -79,29 +80,33 @@ describe('ChatMessage Component', () => {
     expect(hasTime).toBe(true);
   });
 
-  it('should style assistant messages differently from user messages', () => {
+  it('should style assistant and user messages differently', () => {
     const assistantMsg = {
       id: 'test-6a',
       role: 'assistant' as const,
       content: 'Assistant says hi',
       timestamp: new Date(),
     };
-    
+
     const { container: assistantContainer } = render(<ChatMessage message={assistantMsg} />);
-    const assistantWrapper = assistantContainer.firstElementChild as HTMLElement;
-    expect(assistantWrapper.className).toContain('justify-start');
-    
+    const assistantAlign = Array.from(assistantContainer.querySelectorAll('div')).find((el) =>
+      (el as HTMLElement).className.includes('max-w-[680px] mx-auto px-4')
+    ) as HTMLElement | undefined;
+    expect(assistantAlign?.className).not.toContain('justify-end');
+
     cleanup();
-    
+
     const userMsg = {
       id: 'test-6b',
       role: 'user' as const,
       content: 'User says hi',
       timestamp: new Date(),
     };
-    
+
     const { container: userContainer } = render(<ChatMessage message={userMsg} />);
-    const userWrapper = userContainer.firstElementChild as HTMLElement;
-    expect(userWrapper.className).toContain('justify-end');
+    const userAlign = Array.from(userContainer.querySelectorAll('div')).find((el) =>
+      (el as HTMLElement).className.includes('max-w-[680px] mx-auto px-4')
+    ) as HTMLElement | undefined;
+    expect(userAlign?.className).toContain('justify-end');
   });
 });
