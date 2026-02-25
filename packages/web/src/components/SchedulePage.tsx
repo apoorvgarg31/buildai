@@ -85,7 +85,7 @@ export default function SchedulePage() {
     <div className="h-full overflow-auto bg-white p-4 md:p-6">
       <div className="max-w-5xl mx-auto space-y-4">
         <div>
-          <h1 className="text-2xl font-semibold text-[#171717]">Schedule</h1>
+          <h1 className="text-2xl font-semibold text-[#171717]">Automation</h1>
           <p className="text-sm text-[#666] mt-1">Manage recurring assistant automations.</p>
         </div>
 

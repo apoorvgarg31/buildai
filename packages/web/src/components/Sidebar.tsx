@@ -22,7 +22,7 @@ const adminNav: NavItem[] = [
 
 const userNav: NavItem[] = [
   { name: "Chat", icon: "💬", page: "chat" },
-  { name: "Schedule", icon: "🗓️", page: "schedule" },
+  { name: "Automation", icon: "🗓️", page: "schedule" },
   { name: "Watchlist", icon: "👀", page: "watchlist" },
   { name: "Personality", icon: "✨", page: "personality" },
   { name: "Marketplace", icon: "🛍️", page: "marketplace" },
