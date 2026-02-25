@@ -1,0 +1,82 @@
+{
+  "projects": {
+    "collection": "/rest/v1.0/projects",
+    "item": "/rest/v1.0/projects/{id}",
+    "actions": ["list", "get"]
+  },
+  "rfis": {
+    "collection": "/rest/v1.0/projects/{pid}/rfis",
+    "item": "/rest/v1.0/projects/{pid}/rfis/{id}",
+    "actions": ["list", "get", "create", "update", "delete"]
+  },
+  "submittals": {
+    "collection": "/rest/v1.0/projects/{pid}/submittals",
+    "item": "/rest/v1.0/projects/{pid}/submittals/{id}",
+    "actions": ["list", "get", "create", "update", "delete"]
+  },
+  "daily_logs": {
+    "collection": "/rest/v1.0/projects/{pid}/daily_logs",
+    "item": "/rest/v1.0/projects/{pid}/daily_logs/{id}",
+    "actions": ["list", "get", "create", "update", "delete"]
+  },
+  "change_order_packages": {
+    "collection": "/rest/v1.0/projects/{pid}/change_order_packages",
+    "item": "/rest/v1.0/projects/{pid}/change_order_packages/{id}",
+    "actions": ["list", "get", "create", "update", "delete"]
+  },
+  "punch_items": {
+    "collection": "/rest/v1.0/projects/{pid}/punch_items",
+    "item": "/rest/v1.0/projects/{pid}/punch_items/{id}",
+    "actions": ["list", "get", "create", "update", "delete"]
+  },
+  "drawings": {
+    "collection": "/rest/v1.0/projects/{pid}/drawings",
+    "item": "/rest/v1.0/projects/{pid}/drawings/{id}",
+    "actions": ["list", "get"]
+  },
+  "meetings": {
+    "collection": "/rest/v1.0/projects/{pid}/meetings",
+    "item": "/rest/v1.0/projects/{pid}/meetings/{id}",
+    "actions": ["list", "get", "create", "update", "delete"]
+  },
+  "inspections": {
+    "collection": "/rest/v1.0/projects/{pid}/inspections",
+    "item": "/rest/v1.0/projects/{pid}/inspections/{id}",
+    "actions": ["list", "get", "create", "update", "delete"]
+  },
+  "specifications": {
+    "collection": "/rest/v1.0/projects/{pid}/specifications",
+    "item": "/rest/v1.0/projects/{pid}/specifications/{id}",
+    "actions": ["list", "get"]
+  },
+  "transmittals": {
+    "collection": "/rest/v1.0/projects/{pid}/transmittals",
+    "item": "/rest/v1.0/projects/{pid}/transmittals/{id}",
+    "actions": ["list", "get", "create", "update", "delete"]
+  },
+  "correspondence": {
+    "collection": "/rest/v1.0/projects/{pid}/correspondence",
+    "item": "/rest/v1.0/projects/{pid}/correspondence/{id}",
+    "actions": ["list", "get", "create", "update", "delete"]
+  },
+  "budget_line_items": {
+    "collection": "/rest/v1.0/projects/{pid}/budget_line_items",
+    "item": "/rest/v1.0/projects/{pid}/budget_line_items/{id}",
+    "actions": ["list", "get"]
+  },
+  "directory": {
+    "collection": "/rest/v1.0/projects/{pid}/directory",
+    "item": "/rest/v1.0/projects/{pid}/directory/{id}",
+    "actions": ["list", "get"]
+  },
+  "schedule_tasks": {
+    "collection": "/rest/v1.0/projects/{pid}/schedule/tasks",
+    "item": "/rest/v1.0/projects/{pid}/schedule/tasks/{id}",
+    "actions": ["list", "get", "create", "update", "delete"]
+  },
+  "photos": {
+    "collection": "/rest/v1.0/projects/{pid}/photos",
+    "item": "/rest/v1.0/projects/{pid}/photos/{id}",
+    "actions": ["list", "get", "create", "update", "delete"]
+  }
+}

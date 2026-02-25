@@ -10,12 +10,22 @@ Full CRUD access to Procore's REST API. Read, create, update, delete any constru
 
 ## How to Use
 
-### Generic Mode (any endpoint, any method)
+### Entity Mode (recommended)
+```bash
+# List supported entities
+bash skills/buildai-procore/procore-api.sh entities
+
+# Generic entity actions
+bash skills/buildai-procore/procore-api.sh <entity> <action> [project_id] [id] [json_body]
+# actions: list | get | create | update | delete
+```
+
+### Generic Raw Mode (any endpoint, any method)
 ```bash
 bash skills/buildai-procore/procore-api.sh <METHOD> <path> [json_body]
 ```
 
-### Shortcuts (common read operations)
+### Shortcuts (backward compatibility)
 ```bash
 bash skills/buildai-procore/procore-api.sh projects
 bash skills/buildai-procore/procore-api.sh rfis <project_id>
@@ -100,6 +110,22 @@ bash skills/buildai-procore/procore-api.sh PATCH /rest/v1.0/projects/56294995499
 bash skills/buildai-procore/procore-api.sh DELETE /rest/v1.0/projects/562949954991755/punch_items/456
 ```
 
+## Entity Examples
+
+```bash
+# List RFIs
+bash skills/buildai-procore/procore-api.sh rfis list 562949954991755
+
+# Get one RFI
+bash skills/buildai-procore/procore-api.sh rfis get 562949954991755 123
+
+# Create RFI
+bash skills/buildai-procore/procore-api.sh rfis create 562949954991755 '' '{"rfi":{"subject":"Need clarification","question":"..."}}'
+
+# Update RFI
+bash skills/buildai-procore/procore-api.sh rfis update 562949954991755 123 '{"rfi":{"status":"closed"}}'
+```
+
 ## Available Shortcuts
 
 | Shortcut | Method | Description |
@@ -140,7 +166,7 @@ Common project-scoped paths:
 Company_id is auto-appended. Token auto-refreshes.
 
 ## Rules
-- Returns JSON with `method`, `path`, `count` (for arrays), and `data` fields
+- Returns JSON envelope with `ok`, `mode`, `method`, `path`, and `data` fields
 - company_id is automatically appended if not in the path
 - Token auto-refreshes when expired (never overwrites token file on failure)
 - For write operations, wrap the entity in its type key: `{"rfi": {...}}`, `{"punch_item": {...}}`
