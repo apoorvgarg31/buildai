@@ -18,6 +18,10 @@ bash skills/buildai-procore/procore-api.sh entities
 # Generic entity actions
 bash skills/buildai-procore/procore-api.sh <entity> <action> [project_id] [id] [json_body]
 # actions: list | get | create | update | delete
+
+# Optional list controls
+bash skills/buildai-procore/procore-api.sh --page 2 --per-page 50 --filter status=open rfis list <project_id>
+bash skills/buildai-procore/procore-api.sh --all --per-page 100 rfis list <project_id>
 ```
 
 ### Generic Raw Mode (any endpoint, any method)
@@ -124,6 +128,14 @@ bash skills/buildai-procore/procore-api.sh rfis create 562949954991755 '' '{"rfi
 
 # Update RFI
 bash skills/buildai-procore/procore-api.sh rfis update 562949954991755 123 '{"rfi":{"status":"closed"}}'
+```
+
+## PM Wrappers (Phase 2)
+
+```bash
+bash skills/buildai-procore/procore-api.sh pm rfis-overdue <project_id>
+bash skills/buildai-procore/procore-api.sh pm submittals-late <project_id>
+bash skills/buildai-procore/procore-api.sh pm budget-variance <project_id> --threshold 5
 ```
 
 ## Available Shortcuts
