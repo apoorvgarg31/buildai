@@ -31,4 +31,13 @@ stop_pid_file() {
 stop_pid_file "web" "$WEB_PID_FILE"
 stop_pid_file "engine" "$ENGINE_PID_FILE"
 
+# Also kill any process still on port 18789 (gateway may have forked)
+if command -v lsof &>/dev/null; then
+  PIDS=$(lsof -ti :18789 2>/dev/null || true)
+  if [[ -n "$PIDS" ]]; then
+    echo "Cleaning up gateway processes on port 18789..."
+    echo "$PIDS" | xargs kill -9 2>/dev/null || true
+  fi
+fi
+
 echo "BuildAI stopped."
