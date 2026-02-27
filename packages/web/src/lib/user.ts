@@ -29,48 +29,59 @@ function defaultTitle(role: Role): string {
 }
 
 export function useCurrentUser(): { user: BuildAIUser | null; isLoaded: boolean } {
-  const { user, isLoaded } = useUser();
-  const [agentId, setAgentId] = useState<string | undefined>(undefined);
-  const [agentLoaded, setAgentLoaded] = useState(false);
+  const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
+  const [meData, setMeData] = useState<{
+    userId: string;
+    email: string;
+    name: string;
+    role: Role;
+    agentId: string | null;
+  } | null>(null);
+  const [meLoaded, setMeLoaded] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!clerkUser) {
+      setMeLoaded(true);
+      return;
+    }
 
-    // Fetch agent assignment from admin DB (source of truth)
     fetch('/api/me')
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (data?.agentId) setAgentId(data.agentId);
-        setAgentLoaded(true);
+        if (data) {
+          setMeData({
+            userId: data.userId,
+            email: data.email || clerkUser.primaryEmailAddress?.emailAddress || '',
+            name: data.name || clerkUser.fullName || clerkUser.firstName || 'User',
+            role: data.role === 'admin' ? 'admin' : 'user',
+            agentId: data.agentId || null,
+          });
+        }
+        setMeLoaded(true);
       })
-      .catch(() => setAgentLoaded(true));
-  }, [user]);
+      .catch(() => setMeLoaded(true));
+  }, [clerkUser]);
 
-  if (!isLoaded || (user && !agentLoaded)) {
+  if (!clerkLoaded || (clerkUser && !meLoaded)) {
     return { user: null, isLoaded: false };
   }
 
-  if (!user) {
+  if (!clerkUser || !meData) {
     return { user: null, isLoaded: true };
   }
 
-  const metadata = user.publicMetadata as Record<string, unknown> | undefined;
-  const role: Role = (metadata?.role === 'admin' ? 'admin' : 'user');
-  const title = (typeof metadata?.title === 'string' ? metadata.title : defaultTitle(role));
-  // Use admin DB agentId first, fall back to Clerk metadata
-  const resolvedAgentId = agentId || (typeof metadata?.agentId === 'string' ? metadata.agentId : undefined);
-  const fullName = user.fullName || user.firstName || 'User';
-  const email = user.primaryEmailAddress?.emailAddress || '';
+  const metadata = clerkUser.publicMetadata as Record<string, unknown> | undefined;
+  const title = (typeof metadata?.title === 'string' ? metadata.title : defaultTitle(meData.role));
 
   return {
     user: {
-      id: user.id,
-      email,
-      name: fullName,
-      role,
+      id: meData.userId,
+      email: meData.email,
+      name: meData.name,
+      role: meData.role,
       title,
-      avatar: getInitials(fullName),
-      agentId: resolvedAgentId,
+      avatar: getInitials(meData.name),
+      agentId: meData.agentId || undefined,
     },
     isLoaded: true,
   };

@@ -319,6 +319,29 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
 
   const hiddenCount = Math.max(0, messages.length - visibleMessages.length);
 
+  // No agent assigned — show friendly message
+  if (!agentId) {
+    return (
+      <div className="flex items-center justify-center h-full bg-white">
+        <div className="text-center space-y-4 px-6 max-w-md">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 border border-amber-200 flex items-center justify-center text-2xl mx-auto">
+            🏗️
+          </div>
+          <h2 className="text-xl font-semibold text-[#171717]">No Agent Assigned</h2>
+          <p className="text-sm text-[#8e8e8e] leading-relaxed">
+            An admin needs to create an agent and assign it to your account before you can start chatting.
+          </p>
+          <div className="pt-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-600 border border-amber-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              Waiting for agent assignment
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full">
       {/* Main chat */}

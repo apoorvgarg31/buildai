@@ -42,6 +42,7 @@ function initSchema(db: Database.Database) {
       name TEXT NOT NULL,
       user_id TEXT,
       model TEXT DEFAULT 'anthropic/claude-sonnet-4-20250514',
+      api_key TEXT,
       workspace_dir TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'active',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),

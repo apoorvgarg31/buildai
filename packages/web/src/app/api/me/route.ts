@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 
 /**
- * GET /api/me — returns the current user's agent assignment from admin DB.
- * This is the source of truth for which agent a user chats with.
+ * GET /api/me — returns the current user's role + agent assignment.
+ * Auto-provisions first user as admin. Subsequent users as 'user'.
  */
 export async function GET() {
   try {
@@ -12,15 +12,38 @@ export async function GET() {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    // Dynamic import to avoid bundling better-sqlite3 in client
     const { getDb } = await import('@/lib/admin-db-server');
-    const row = getDb().prepare(
-      'SELECT agent_id FROM users WHERE id = ?'
-    ).get(userId) as { agent_id: string | null } | undefined;
+    const db = getDb();
+
+    // Check if user already exists
+    let row = db.prepare(
+      'SELECT id, email, name, role, agent_id FROM users WHERE id = ?'
+    ).get(userId) as { id: string; email: string; name: string; role: string; agent_id: string | null } | undefined;
+
+    if (!row) {
+      // Auto-provision: first user ever = admin, rest = user
+      const clerkUser = await currentUser();
+      const email = clerkUser?.emailAddresses?.[0]?.emailAddress || '';
+      const name = clerkUser?.fullName || clerkUser?.firstName || 'User';
+
+      const userCount = (db.prepare('SELECT COUNT(*) as cnt FROM users').get() as { cnt: number }).cnt;
+      const role = userCount === 0 ? 'admin' : 'user';
+
+      db.prepare(
+        'INSERT INTO users (id, email, name, role) VALUES (?, ?, ?, ?)'
+      ).run(userId, email, name, role);
+
+      row = db.prepare(
+        'SELECT id, email, name, role, agent_id FROM users WHERE id = ?'
+      ).get(userId) as { id: string; email: string; name: string; role: string; agent_id: string | null };
+    }
 
     return NextResponse.json({
-      userId,
-      agentId: row?.agent_id || null,
+      userId: row!.id,
+      email: row!.email,
+      name: row!.name,
+      role: row!.role,
+      agentId: row!.agent_id || null,
     });
   } catch (err) {
     console.error('GET /api/me error:', err);

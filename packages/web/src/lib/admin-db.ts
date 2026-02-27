@@ -58,6 +58,7 @@ function initSchema(db: Database.Database) {
       name TEXT NOT NULL,
       user_id TEXT,
       model TEXT DEFAULT 'anthropic/claude-sonnet-4-20250514',
+      api_key TEXT,
       workspace_dir TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'active',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -274,6 +275,7 @@ export interface Agent {
   name: string;
   user_id: string | null;
   model: string;
+  api_key: string | null;
   workspace_dir: string;
   status: string;
   connection_ids: string[];
@@ -306,6 +308,7 @@ export function createAgent(data: {
   name: string;
   userId?: string;
   model?: string;
+  apiKey?: string;
   workspaceDir: string;
   connectionIds?: string[];
 }): Agent {
@@ -315,8 +318,8 @@ export function createAgent(data: {
   const db = getDb();
   const txn = db.transaction(() => {
     db.prepare(
-      'INSERT INTO agents (id, name, user_id, model, workspace_dir) VALUES (?, ?, ?, ?, ?)'
-    ).run(id, data.name, data.userId || null, model, data.workspaceDir);
+      'INSERT INTO agents (id, name, user_id, model, api_key, workspace_dir) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(id, data.name, data.userId || null, model, data.apiKey || null, data.workspaceDir);
 
     if (data.connectionIds?.length) {
       const stmt = db.prepare('INSERT INTO agent_connections (agent_id, connection_id) VALUES (?, ?)');
@@ -333,6 +336,7 @@ export function updateAgent(id: string, data: Partial<{
   name: string;
   userId: string | null;
   model: string;
+  apiKey: string | null;
   status: string;
   connectionIds: string[];
 }>): Agent | undefined {
@@ -346,6 +350,7 @@ export function updateAgent(id: string, data: Partial<{
     if (data.name !== undefined) { fields.push('name = ?'); values.push(data.name); }
     if (data.userId !== undefined) { fields.push('user_id = ?'); values.push(data.userId); }
     if (data.model !== undefined) { fields.push('model = ?'); values.push(data.model); }
+    if (data.apiKey !== undefined) { fields.push('api_key = ?'); values.push(data.apiKey); }
     if (data.status !== undefined) { fields.push('status = ?'); values.push(data.status); }
     if (fields.length > 0) {
       fields.push("updated_at = datetime('now')");

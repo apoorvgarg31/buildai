@@ -8,7 +8,12 @@ import { requireAdmin } from '@/lib/api-guard';
 export async function GET() {
   try {
     await requireAdmin();
-    return NextResponse.json(listAgents());
+    // Mask API keys — never return raw keys to frontend
+    const agents = listAgents().map(a => ({
+      ...a,
+      api_key: a.api_key ? '••••' + a.api_key.slice(-4) : null,
+    }));
+    return NextResponse.json(agents);
   } catch (err) {
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
@@ -25,7 +30,7 @@ export async function POST(request: NextRequest) {
   try {
     await requireAdmin();
     const body = await request.json();
-    const { name, userId, model, connectionIds } = body;
+    const { name, userId, model, apiKey, connectionIds } = body;
     if (!name) {
       return NextResponse.json({ error: 'name is required' }, { status: 400 });
     }
@@ -41,12 +46,14 @@ export async function POST(request: NextRequest) {
       name,
       workspace: workspaceDir,
       model: model || 'anthropic/claude-sonnet-4-20250514',
+      apiKey: apiKey || undefined,
     });
 
     const agent = createAgent({
       name,
       userId,
       model,
+      apiKey,
       workspaceDir,
       connectionIds,
     });

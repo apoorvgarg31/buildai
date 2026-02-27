@@ -7,6 +7,7 @@ interface Agent {
   name: string;
   user_id: string | null;
   model: string;
+  api_key: string | null;
   workspace_dir: string;
   status: string;
   connection_ids: string[];
@@ -30,6 +31,7 @@ export default function AdminAgentsPage() {
   // Form state
   const [formName, setFormName] = useState("");
   const [formModel, setFormModel] = useState("anthropic/claude-sonnet-4-20250514");
+  const [formApiKey, setFormApiKey] = useState("");
   const [selectedConnections, setSelectedConnections] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
@@ -58,12 +60,13 @@ export default function AdminAgentsPage() {
         body: JSON.stringify({
           name: formName,
           model: formModel,
+          apiKey: formApiKey || undefined,
           connectionIds: selectedConnections,
         }),
       });
       if (res.ok) {
         setShowCreateModal(false);
-        setFormName(""); setSelectedConnections([]);
+        setFormName(""); setFormApiKey(""); setSelectedConnections([]);
         fetchData();
       } else {
         const data = await res.json();
@@ -141,6 +144,12 @@ export default function AdminAgentsPage() {
                     <span className="text-[#333] font-mono text-[11px]">{agent.model.split("/").pop()}</span>
                   </div>
                   <div className="flex justify-between text-[12px]">
+                    <span className="text-[#8e8e8e]">API Key</span>
+                    <span className={`text-[11px] font-medium ${agent.api_key ? 'text-emerald-500' : 'text-red-400'}`}>
+                      {agent.api_key ? '✓ Configured' : '✗ Missing'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-[12px]">
                     <span className="text-[#8e8e8e]">Connections</span>
                     <span className="text-[#333]">{agent.connection_ids.length > 0 ? getConnectionNames(agent.connection_ids) : "None"}</span>
                   </div>
@@ -184,7 +193,15 @@ export default function AdminAgentsPage() {
                   <option value="anthropic/claude-sonnet-4-20250514">Claude Sonnet 4 (Recommended)</option>
                   <option value="anthropic/claude-opus-4-6">Claude Opus 4</option>
                   <option value="google/gemini-2.0-flash">Gemini 2.0 Flash</option>
+                  <option value="openai/gpt-4o">GPT-4o</option>
                 </select>
+              </div>
+              <div>
+                <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">API Key</label>
+                <input type="password" value={formApiKey} onChange={(e) => setFormApiKey(e.target.value)}
+                  placeholder={formModel.startsWith('anthropic') ? 'sk-ant-...' : formModel.startsWith('openai') ? 'sk-...' : 'API key for the selected provider'}
+                  className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20 font-mono" />
+                <p className="text-[10px] text-[#b4b4b4] mt-1">Required. The agent uses this key to call the LLM.</p>
               </div>
               {connections.length > 0 && (
                 <div>

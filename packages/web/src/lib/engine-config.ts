@@ -55,7 +55,7 @@ function writeConfig(config: EngineConfig): void {
  */
 export async function addAgentToConfig(
   agentId: string,
-  opts: { name: string; workspace: string; model?: string }
+  opts: { name: string; workspace: string; model?: string; apiKey?: string }
 ): Promise<void> {
   const config = readConfig();
 
@@ -86,6 +86,28 @@ export async function addAgentToConfig(
   }
 
   writeConfig(config);
+
+  // Write agent-specific env file with API key if provided
+  if (opts.apiKey) {
+    const envDir = path.resolve(path.dirname(CONFIG_PATH), '../../data/agent-env');
+    if (!fs.existsSync(envDir)) fs.mkdirSync(envDir, { recursive: true });
+    const envPath = path.join(envDir, `${agentId}.env`);
+    const provider = (opts.model || 'anthropic/claude-sonnet-4-20250514').split('/')[0];
+    const envLines: string[] = [];
+    if (provider === 'anthropic') {
+      envLines.push(`ANTHROPIC_API_KEY=${opts.apiKey}`);
+    } else if (provider === 'openai') {
+      envLines.push(`OPENAI_API_KEY=${opts.apiKey}`);
+    } else if (provider === 'google') {
+      envLines.push(`GEMINI_API_KEY=${opts.apiKey}`);
+    } else {
+      // Generic fallback
+      envLines.push(`LLM_API_KEY=${opts.apiKey}`);
+    }
+    fs.writeFileSync(envPath, envLines.join('\n') + '\n', 'utf-8');
+    console.log(`[engine-config] Wrote API key env for agent ${agentId} → ${envPath}`);
+  }
+
   await reloadEngine();
 }
 
