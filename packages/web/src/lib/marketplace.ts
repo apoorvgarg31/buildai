@@ -360,6 +360,69 @@ Monitor and verify construction safety compliance.
 This skill is in development. Contact your BuildAI admin for early access.`,
   },
   {
+    id: 'buildai-email',
+    name: 'Email Send',
+    description: 'Send emails with attachments — deliver reports, exports, notifications, and summaries to users via email. Supports HTML formatting and file attachments.',
+    category: 'Communication',
+    icon: '📧',
+    vendor: 'BuildAI',
+    version: '1.0.0',
+    tags: ['email', 'smtp', 'notification', 'report', 'attachment'],
+    readme: `# Email Send
+
+Send emails directly from your AI assistant — reports, exports, notifications, and more.
+
+## What You Can Do
+- **Send Reports** — Email generated PDF reports to stakeholders
+- **Deliver Exports** — Send Excel exports as attachments
+- **Notifications** — Send project updates and alerts
+- **HTML Emails** — Rich formatting with tables, headers, and styling
+
+## Setup
+Admin configures SMTP credentials (Gmail App Password) as environment variables. No user setup needed.
+
+## Example Requests
+- "Email the RFI report to sarah@company.com"
+- "Send the budget export to the project team"
+- "Notify the PM about the overdue submittals"`,
+  },
+  {
+    id: 'buildai-excel-export',
+    name: 'Excel Export',
+    description: 'Export data to formatted Excel (.xlsx) files — RFIs, budgets, schedules, or any tabular data with headers, auto-column-widths, filters, and multiple sheets.',
+    category: 'Analytics',
+    icon: '📊',
+    vendor: 'BuildAI',
+    version: '1.0.0',
+    tags: ['excel', 'xlsx', 'export', 'spreadsheet', 'report', 'data'],
+    readme: `# Excel Export
+
+Export any project data to professionally formatted Excel spreadsheets.
+
+## What You Can Do
+- **Data Export** — Convert any query results or project data to .xlsx
+- **Formatted Output** — Headers, auto-column-widths, alternating rows, filters
+- **Multiple Sheets** — Combine different data sets in one workbook
+- **Title Pages** — Add report titles and metadata
+
+## Construction Use Cases
+- Export RFI list with status, dates, and assignees
+- Budget line items with variance analysis
+- Schedule activities with progress tracking
+- Vendor list with insurance expiry dates
+- Punch list items by area and trade
+
+## Workflow
+1. Ask your assistant to export data
+2. It generates a formatted .xlsx file
+3. Download directly or have it emailed to you
+
+## Example Requests
+- "Export all open RFIs to Excel"
+- "Create a budget spreadsheet for Terminal A"
+- "Export the punch list and email it to me"`,
+  },
+  {
     id: 'buildai-photo-log',
     name: 'Photo Log',
     description: 'Process construction site photos — EXIF metadata extraction, auto-tagging by location and trade, daily photo logs, and visual progress reports.',
