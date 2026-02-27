@@ -26,4 +26,12 @@ echo "   Cron:    ENABLED"
 echo ""
 
 # Start the gateway
-node "$SCRIPT_DIR/dist/entry.js" gateway start --port "$PORT"
+# Start via openclaw CLI (or npx fallback)
+if command -v openclaw &>/dev/null; then
+  openclaw gateway start --port "$PORT"
+elif command -v npx &>/dev/null; then
+  npx openclaw gateway start --port "$PORT"
+else
+  echo "❌ openclaw not found. Install with: npm install -g openclaw"
+  exit 1
+fi

@@ -130,7 +130,8 @@ export async function removeAgentFromConfig(agentId: string): Promise<void> {
 async function reloadEngine(): Promise<void> {
   try {
     // Find engine PID from the pidfile or by port
-    const result = execSync("ss -tlnp | grep ':18789' | grep -oP 'pid=\\K[0-9]+'", { encoding: 'utf-8', timeout: 3000 }).trim();
+    // Cross-platform: use lsof (macOS/Linux) instead of ss (Linux only)
+    const result = execSync("lsof -ti :18789 2>/dev/null || ss -tlnp 2>/dev/null | grep ':18789' | grep -oP 'pid=\\K[0-9]+'", { encoding: 'utf-8', timeout: 3000 }).trim().split('\n')[0];
     if (result) {
       const pid = parseInt(result, 10);
       if (!isNaN(pid)) {
