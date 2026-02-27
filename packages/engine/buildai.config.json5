@@ -62,9 +62,6 @@
     }
   },
   "channels": {
-    "web": {
-      "enabled": true
-    },
     "telegram": {
       "enabled": false
     },
