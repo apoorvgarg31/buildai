@@ -24,7 +24,7 @@
         },
         "identity": {
           "name": "BuildAI",
-          "emoji": "🏗️"
+          "emoji": "\ud83c\udfd7\ufe0f"
         }
       },
       {
@@ -36,7 +36,7 @@
         },
         "identity": {
           "name": "BuildAI",
-          "emoji": "🏗️"
+          "emoji": "\ud83c\udfd7\ufe0f"
         },
         "heartbeat": {
           "every": "30m",
@@ -68,16 +68,36 @@
     "enabled": false
   },
   "channels": {
-    "web": { "enabled": true },
-    "telegram": { "enabled": false },
-    "discord": { "enabled": false },
-    "whatsapp": { "enabled": false },
-    "slack": { "enabled": false },
-    "signal": { "enabled": false },
-    "imessage": { "enabled": false },
-    "line": { "enabled": false },
-    "googlechat": { "enabled": false },
-    "msteams": { "enabled": false }
+    "web": {
+      "enabled": true
+    },
+    "telegram": {
+      "enabled": false
+    },
+    "discord": {
+      "enabled": false
+    },
+    "whatsapp": {
+      "enabled": false
+    },
+    "slack": {
+      "enabled": false
+    },
+    "signal": {
+      "enabled": false
+    },
+    "imessage": {
+      "enabled": false
+    },
+    "line": {
+      "enabled": false
+    },
+    "googlechat": {
+      "enabled": false
+    },
+    "msteams": {
+      "enabled": false
+    }
   },
   "canvasHost": {
     "enabled": false
@@ -103,7 +123,9 @@
       "buildai-contract-parser",
       "buildai-schedule-import",
       "buildai-safety-checker",
-      "buildai-photo-log"
+      "buildai-photo-log",
+      "buildai-email",
+      "buildai-excel-export"
     ]
   },
   "plugins": {
