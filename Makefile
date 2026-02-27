@@ -4,6 +4,7 @@ SHELL := /usr/bin/env bash
 # Fix \r line endings on any platform (idempotent, safe to run always)
 fix-line-endings:
 	@find scripts packages/engine -name '*.sh' -type f -exec perl -pi -e 's/\r\n/\n/g; s/\r/\n/g' {} +
+	@find . -maxdepth 3 -name '*.env*' -type f -exec perl -pi -e 's/\r\n/\n/g; s/\r/\n/g' {} +
 
 setup: fix-line-endings
 	npm install
