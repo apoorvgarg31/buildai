@@ -186,7 +186,7 @@ export class GatewayClient {
   private async _doConnect(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       const url = GATEWAY_URL;
-      const ws = new WebSocket(url);
+      const ws = new WebSocket(url, { headers: { origin: 'http://localhost:3000' } });
       this.ws = ws;
 
       const connectTimeout = setTimeout(() => {
