@@ -1,3 +1,4 @@
+SHELL := /usr/bin/env bash
 .PHONY: setup start stop restart status logs lint test test-backend build security-check
 
 setup:
