@@ -1,11 +1,15 @@
 SHELL := /usr/bin/env bash
-.PHONY: setup start stop restart status logs lint test test-backend build security-check
+.PHONY: setup start stop restart status logs lint test test-backend build security-check fix-line-endings
 
-setup:
+# Fix \r line endings on any platform (idempotent, safe to run always)
+fix-line-endings:
+	@find scripts packages/engine -name '*.sh' -type f -exec perl -pi -e 's/\r\n/\n/g; s/\r/\n/g' {} +
+
+setup: fix-line-endings
 	npm install
 	@if [ ! -f packages/web/.env.local ]; then cp .env.example packages/web/.env.local; echo "Created packages/web/.env.local from .env.example"; fi
 
-start:
+start: fix-line-endings
 	bash scripts/dev-start.sh
 
 stop:
