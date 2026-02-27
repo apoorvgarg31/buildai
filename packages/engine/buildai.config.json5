@@ -61,12 +61,6 @@
       "enabled": true
     }
   },
-  "nodeHost": {
-    "enabled": false
-  },
-  "discovery": {
-    "enabled": false
-  },
   "channels": {
     "web": {
       "enabled": true
