@@ -1,42 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile } from 'fs/promises';
-import { join } from 'path';
 
 /**
- * GET /api/procore/callback — OAuth callback, exchanges code for tokens
+ * GET /api/procore/callback — OAuth callback, exchanges code for tokens.
+ * Stores per-user tokens in SQLite (not a global file).
  */
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code');
+  const stateParam = request.nextUrl.searchParams.get('state');
   const error = request.nextUrl.searchParams.get('error');
 
   if (error) {
-    return new NextResponse(
-      `<html><body style="font-family:system-ui;background:#0f172a;color:#f1f5f9;display:flex;justify-content:center;align-items:center;height:100vh;margin:0">
-        <div style="text-align:center">
-          <h1 style="color:#ef4444">❌ Procore Authorization Failed</h1>
-          <p>${error}</p>
-          <a href="/admin/connections" style="color:#818cf8">← Back to Connections</a>
-        </div>
-      </body></html>`,
-      { headers: { 'Content-Type': 'text/html' } }
-    );
+    return htmlResponse('error', `Procore Authorization Failed: ${error}`);
   }
 
-  if (!code) {
-    return NextResponse.json({ error: 'No authorization code received' }, { status: 400 });
+  if (!code || !stateParam) {
+    return htmlResponse('error', 'Missing authorization code or state');
   }
 
-  const clientId = process.env.PROCORE_CLIENT_ID;
-  const clientSecret = process.env.PROCORE_CLIENT_SECRET;
-  const redirectUri = process.env.PROCORE_REDIRECT_URI || 'http://localhost:3000/api/procore/callback';
+  // Decode state to get userId + connectionId
+  let state: { userId: string; connectionId: string };
+  try {
+    state = JSON.parse(Buffer.from(stateParam, 'base64url').toString());
+  } catch {
+    return htmlResponse('error', 'Invalid state parameter');
+  }
+
+  const { getDb } = await import('@/lib/admin-db-server');
+  const db = getDb();
+
+  // Get connection config for client_id/secret
+  const conn = db.prepare('SELECT * FROM connections WHERE id = ?').get(state.connectionId) as Record<string, string> | undefined;
+  if (!conn) {
+    return htmlResponse('error', 'Connection not found');
+  }
+
+  const config = JSON.parse(conn.config || '{}');
+  const clientId = config.clientId;
+  const clientSecret = config.clientSecret;
+  const baseUrl = config.oauthBaseUrl || 'https://login.procore.com';
+  const redirectUri = `${request.nextUrl.origin}/api/procore/callback`;
 
   if (!clientId || !clientSecret) {
-    return NextResponse.json({ error: 'Procore OAuth not configured' }, { status: 500 });
+    return htmlResponse('error', 'Connection missing client_id or client_secret');
   }
 
   try {
     // Exchange code for tokens
-    const tokenResponse = await fetch('https://sandbox.procore.com/oauth/token', {
+    const tokenResponse = await fetch(`${baseUrl}/oauth/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -51,43 +61,45 @@ export async function GET(request: NextRequest) {
     const tokens = await tokenResponse.json();
 
     if (tokens.error) {
-      return new NextResponse(
-        `<html><body style="font-family:system-ui;background:#0f172a;color:#f1f5f9;display:flex;justify-content:center;align-items:center;height:100vh;margin:0">
-          <div style="text-align:center">
-            <h1 style="color:#ef4444">❌ Token Exchange Failed</h1>
-            <p>${tokens.error_description || tokens.error}</p>
-            <a href="/admin/connections" style="color:#818cf8">← Back to Connections</a>
-          </div>
-        </body></html>`,
-        { headers: { 'Content-Type': 'text/html' } }
-      );
+      return htmlResponse('error', `Token exchange failed: ${tokens.error_description || tokens.error}`);
     }
 
-    // Save tokens to file (used by the engine skill)
-    const tokenPath = join(process.cwd(), '..', '..', '.procore-tokens.json');
-    await writeFile(tokenPath, JSON.stringify(tokens, null, 2));
+    // Store per-user tokens
+    const expiresAt = Math.floor(Date.now() / 1000) + (tokens.expires_in || 7200);
 
-    // Also save to engine skill directory for direct access
-    const skillTokenPath = join(process.cwd(), '..', 'engine', '.procore-tokens.json');
-    try {
-      await writeFile(skillTokenPath, JSON.stringify(tokens, null, 2));
-    } catch {
-      // Skill path might not exist, that's fine — root tokens are the source of truth
-    }
-
-    return new NextResponse(
-      `<html><body style="font-family:system-ui;background:#0f172a;color:#f1f5f9;display:flex;justify-content:center;align-items:center;height:100vh;margin:0">
-        <div style="text-align:center">
-          <h1 style="color:#22c55e">✅ Procore Connected!</h1>
-          <p>OAuth tokens saved successfully.</p>
-          <p style="color:#94a3b8">Token type: ${tokens.token_type} | Expires in: ${Math.round(tokens.expires_in / 3600)}h</p>
-          <a href="/admin/connections" style="color:#818cf8;text-decoration:none;padding:8px 24px;border:1px solid #818cf8;border-radius:8px;display:inline-block;margin-top:16px">← Back to Connections</a>
-        </div>
-      </body></html>`,
-      { headers: { 'Content-Type': 'text/html' } }
+    db.prepare(`
+      INSERT OR REPLACE INTO user_tokens (user_id, connection_id, access_token, refresh_token, token_type, expires_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      state.userId,
+      state.connectionId,
+      tokens.access_token,
+      tokens.refresh_token || null,
+      tokens.token_type || 'Bearer',
+      expiresAt,
     );
-  } catch (err: unknown) {
+
+    return htmlResponse('success', 'Procore Connected! You can close this window and return to the chat.');
+  } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
-    return NextResponse.json({ error: 'Token exchange failed', details: message }, { status: 500 });
+    return htmlResponse('error', `Token exchange failed: ${message}`);
   }
+}
+
+function htmlResponse(type: 'success' | 'error', message: string) {
+  const icon = type === 'success' ? '✅' : '❌';
+  const color = type === 'success' ? '#22c55e' : '#ef4444';
+  return new NextResponse(
+    `<!DOCTYPE html>
+<html><head><title>Procore ${type === 'success' ? 'Connected' : 'Error'}</title></head>
+<body style="font-family:system-ui;background:#fff;color:#171717;display:flex;justify-content:center;align-items:center;height:100vh;margin:0">
+  <div style="text-align:center;max-width:400px;padding:24px">
+    <div style="font-size:48px;margin-bottom:16px">${icon}</div>
+    <h1 style="color:${color};font-size:20px;margin:0 0 12px">${type === 'success' ? 'Connected!' : 'Error'}</h1>
+    <p style="color:#666;font-size:14px;line-height:1.5">${message}</p>
+    ${type === 'success' ? '<script>setTimeout(()=>window.close(),3000)</script>' : ''}
+  </div>
+</body></html>`,
+    { headers: { 'Content-Type': 'text/html' } }
+  );
 }

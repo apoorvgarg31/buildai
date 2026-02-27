@@ -70,6 +70,18 @@ function initSchema(db: Database.Database) {
       connection_id TEXT NOT NULL REFERENCES connections(id) ON DELETE CASCADE,
       PRIMARY KEY (agent_id, connection_id)
     );
+
+    CREATE TABLE IF NOT EXISTS user_tokens (
+      user_id TEXT NOT NULL,
+      connection_id TEXT NOT NULL REFERENCES connections(id) ON DELETE CASCADE,
+      access_token TEXT NOT NULL,
+      refresh_token TEXT,
+      token_type TEXT DEFAULT 'Bearer',
+      expires_at INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (user_id, connection_id)
+    );
   `);
 }
 

@@ -77,6 +77,17 @@ function resetDb() {
       connection_id TEXT NOT NULL REFERENCES connections(id) ON DELETE CASCADE,
       PRIMARY KEY (agent_id, connection_id)
     );
+    CREATE TABLE IF NOT EXISTS user_tokens (
+      user_id TEXT NOT NULL,
+      connection_id TEXT NOT NULL REFERENCES connections(id) ON DELETE CASCADE,
+      access_token TEXT NOT NULL,
+      refresh_token TEXT,
+      token_type TEXT DEFAULT 'Bearer',
+      expires_at INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (user_id, connection_id)
+    );
   `);
 }
 
@@ -215,6 +226,111 @@ describe('Admin Flow — Agent Assignment', () => {
     const data = await res.json();
 
     expect(data.agentId).toBeNull();
+  });
+});
+
+describe('Admin Flow — Procore Connection', () => {
+  beforeEach(() => {
+    resetDb();
+  });
+
+  it('procore connection stores clientId in config', () => {
+    testDb.prepare(
+      "INSERT INTO connections (id, name, type, config) VALUES (?, ?, ?, ?)"
+    ).run('conn-procore-1', 'Procore Production', 'procore', JSON.stringify({
+      clientId: 'abc123',
+      oauthBaseUrl: 'https://login.procore.com',
+    }));
+
+    const conn = testDb.prepare('SELECT * FROM connections WHERE id = ?').get('conn-procore-1') as Record<string, string>;
+    const config = JSON.parse(conn.config);
+    expect(config.clientId).toBe('abc123');
+    expect(config.oauthBaseUrl).toBe('https://login.procore.com');
+    expect(conn.type).toBe('procore');
+  });
+
+  it('per-user tokens are stored and retrieved correctly', () => {
+    // Create connection
+    testDb.prepare(
+      "INSERT INTO connections (id, name, type, config) VALUES (?, ?, ?, ?)"
+    ).run('conn-procore-1', 'Procore', 'procore', '{}');
+
+    // Store user token
+    testDb.prepare(`
+      INSERT INTO user_tokens (user_id, connection_id, access_token, refresh_token, expires_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run('user_001', 'conn-procore-1', 'tok_abc', 'ref_xyz', 9999999999);
+
+    const token = testDb.prepare(
+      'SELECT * FROM user_tokens WHERE user_id = ? AND connection_id = ?'
+    ).get('user_001', 'conn-procore-1') as Record<string, unknown>;
+
+    expect(token.access_token).toBe('tok_abc');
+    expect(token.refresh_token).toBe('ref_xyz');
+    expect(token.expires_at).toBe(9999999999);
+  });
+
+  it('different users have separate tokens for same connection', () => {
+    testDb.prepare(
+      "INSERT INTO connections (id, name, type, config) VALUES (?, ?, ?, ?)"
+    ).run('conn-procore-1', 'Procore', 'procore', '{}');
+
+    testDb.prepare(`
+      INSERT INTO user_tokens (user_id, connection_id, access_token, refresh_token, expires_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run('user_001', 'conn-procore-1', 'tok_user1', 'ref_user1', 9999999999);
+
+    testDb.prepare(`
+      INSERT INTO user_tokens (user_id, connection_id, access_token, refresh_token, expires_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run('user_002', 'conn-procore-1', 'tok_user2', 'ref_user2', 9999999999);
+
+    const t1 = testDb.prepare('SELECT access_token FROM user_tokens WHERE user_id = ?').get('user_001') as Record<string, string>;
+    const t2 = testDb.prepare('SELECT access_token FROM user_tokens WHERE user_id = ?').get('user_002') as Record<string, string>;
+
+    expect(t1.access_token).toBe('tok_user1');
+    expect(t2.access_token).toBe('tok_user2');
+  });
+
+  it('token upsert replaces existing token', () => {
+    testDb.prepare(
+      "INSERT INTO connections (id, name, type, config) VALUES (?, ?, ?, ?)"
+    ).run('conn-procore-1', 'Procore', 'procore', '{}');
+
+    // Insert initial
+    testDb.prepare(`
+      INSERT INTO user_tokens (user_id, connection_id, access_token, refresh_token, expires_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run('user_001', 'conn-procore-1', 'old_token', 'old_ref', 1000);
+
+    // Upsert new
+    testDb.prepare(`
+      INSERT OR REPLACE INTO user_tokens (user_id, connection_id, access_token, refresh_token, expires_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run('user_001', 'conn-procore-1', 'new_token', 'new_ref', 2000);
+
+    const token = testDb.prepare('SELECT * FROM user_tokens WHERE user_id = ? AND connection_id = ?').get('user_001', 'conn-procore-1') as Record<string, unknown>;
+    expect(token.access_token).toBe('new_token');
+    expect(token.expires_at).toBe(2000);
+
+    const count = (testDb.prepare('SELECT COUNT(*) as cnt FROM user_tokens').get() as { cnt: number }).cnt;
+    expect(count).toBe(1);
+  });
+
+  it('deleting connection cascades to user_tokens', () => {
+    testDb.prepare(
+      "INSERT INTO connections (id, name, type, config) VALUES (?, ?, ?, ?)"
+    ).run('conn-procore-1', 'Procore', 'procore', '{}');
+
+    testDb.prepare(`
+      INSERT INTO user_tokens (user_id, connection_id, access_token, refresh_token, expires_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run('user_001', 'conn-procore-1', 'tok', 'ref', 9999999999);
+
+    testDb.prepare('DELETE FROM connections WHERE id = ?').run('conn-procore-1');
+
+    const count = (testDb.prepare('SELECT COUNT(*) as cnt FROM user_tokens').get() as { cnt: number }).cnt;
+    expect(count).toBe(0);
   });
 });
 

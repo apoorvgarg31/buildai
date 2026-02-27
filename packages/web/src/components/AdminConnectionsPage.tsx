@@ -47,11 +47,16 @@ export default function AdminConnectionsPage() {
   // Form state
   const [formName, setFormName] = useState("");
   const [formType, setFormType] = useState("database");
+  // Database fields
   const [formHost, setFormHost] = useState("");
   const [formPort, setFormPort] = useState("5432");
   const [formDbName, setFormDbName] = useState("");
   const [formUsername, setFormUsername] = useState("");
   const [formPassword, setFormPassword] = useState("");
+  // Procore fields
+  const [formClientId, setFormClientId] = useState("");
+  const [formClientSecret, setFormClientSecret] = useState("");
+  const [formOauthBaseUrl, setFormOauthBaseUrl] = useState("https://login.procore.com");
 
   const fetchConnections = useCallback(async () => {
     try {
@@ -65,19 +70,27 @@ export default function AdminConnectionsPage() {
 
   const handleAdd = async () => {
     try {
+      let config: Record<string, string>;
+      let secrets: Record<string, string>;
+
+      if (formType === 'procore') {
+        config = { clientId: formClientId, oauthBaseUrl: formOauthBaseUrl };
+        secrets = { clientSecret: formClientSecret };
+      } else {
+        config = { host: formHost, port: formPort, dbName: formDbName };
+        secrets = { username: formUsername, password: formPassword };
+      }
+
       const res = await fetch("/api/admin/connections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: formName,
-          type: formType,
-          config: { host: formHost, port: formPort, dbName: formDbName },
-          secrets: { username: formUsername, password: formPassword },
-        }),
+        body: JSON.stringify({ name: formName, type: formType, config, secrets }),
       });
       if (res.ok) {
         setShowAddModal(false);
-        setFormName(""); setFormHost(""); setFormPort("5432"); setFormDbName(""); setFormUsername(""); setFormPassword("");
+        setFormName(""); setFormHost(""); setFormPort("5432"); setFormDbName("");
+        setFormUsername(""); setFormPassword("");
+        setFormClientId(""); setFormClientSecret(""); setFormOauthBaseUrl("https://login.procore.com");
         fetchConnections();
       }
     } catch (err) {
@@ -163,14 +176,29 @@ export default function AdminConnectionsPage() {
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-3 mb-4">
-                    <div>
-                      <p className="text-[11px] text-[#666]">Host</p>
-                      <p className="text-[12px] text-[#333] font-mono">{config.host || "local socket"}</p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] text-[#666]">Database</p>
-                      <p className="text-[12px] text-[#333] font-mono">{config.dbName || config.companyId || "-"}</p>
-                    </div>
+                    {conn.type === 'procore' ? (
+                      <>
+                        <div>
+                          <p className="text-[11px] text-[#666]">Client ID</p>
+                          <p className="text-[12px] text-[#333] font-mono">{config.clientId ? '••••' + config.clientId.slice(-4) : '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] text-[#666]">Environment</p>
+                          <p className="text-[12px] text-[#333]">{config.oauthBaseUrl?.includes('sandbox') ? 'Sandbox' : 'Production'}</p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <p className="text-[11px] text-[#666]">Host</p>
+                          <p className="text-[12px] text-[#333] font-mono">{config.host || "local socket"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] text-[#666]">Database</p>
+                          <p className="text-[12px] text-[#333] font-mono">{config.dbName || config.companyId || "-"}</p>
+                        </div>
+                      </>
+                    )}
                   </div>
                   <div className="flex items-center justify-between pt-3 border-t border-black/5">
                     <span className="text-[11px] text-[#666]">{conn.has_secret ? "🔑 Credentials stored" : "No credentials"}</span>
@@ -213,35 +241,62 @@ export default function AdminConnectionsPage() {
                   <option value="llm">LLM Provider</option>
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Host</label>
-                  <input type="text" value={formHost} onChange={(e) => setFormHost(e.target.value)} placeholder="localhost (empty for local)"
-                    className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20 font-mono text-[12px]" />
-                </div>
-                <div>
-                  <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Port</label>
-                  <input type="text" value={formPort} onChange={(e) => setFormPort(e.target.value)} placeholder="5432"
-                    className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20 font-mono text-[12px]" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Database Name</label>
-                <input type="text" value={formDbName} onChange={(e) => setFormDbName(e.target.value)} placeholder="buildai_demo"
-                  className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20 font-mono text-[12px]" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Username</label>
-                  <input type="text" value={formUsername} onChange={(e) => setFormUsername(e.target.value)} placeholder="(empty for peer auth)"
-                    className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20" />
-                </div>
-                <div>
-                  <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Password</label>
-                  <input type="password" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} placeholder="••••••••"
-                    className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20" />
-                </div>
-              </div>
+              {formType === 'procore' ? (
+                <>
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Client ID</label>
+                    <input type="text" value={formClientId} onChange={(e) => setFormClientId(e.target.value)} placeholder="Your Procore app's Client ID"
+                      className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20 font-mono text-[12px]" />
+                  </div>
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Client Secret</label>
+                    <input type="password" value={formClientSecret} onChange={(e) => setFormClientSecret(e.target.value)} placeholder="••••••••"
+                      className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20 font-mono text-[12px]" />
+                  </div>
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Environment</label>
+                    <select value={formOauthBaseUrl} onChange={(e) => setFormOauthBaseUrl(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] focus:outline-none focus:border-[#171717]/20">
+                      <option value="https://login.procore.com">Production</option>
+                      <option value="https://login-sandbox-monthly.procore.com">Monthly Sandbox</option>
+                      <option value="https://login-sandbox.procore.com">Dev Sandbox</option>
+                    </select>
+                  </div>
+                  <p className="text-[10px] text-[#b4b4b4]">Users will authorize via OAuth when they first use the agent. Admin only sets app credentials here.</p>
+                </>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Host</label>
+                      <input type="text" value={formHost} onChange={(e) => setFormHost(e.target.value)} placeholder="localhost (empty for local)"
+                        className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20 font-mono text-[12px]" />
+                    </div>
+                    <div>
+                      <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Port</label>
+                      <input type="text" value={formPort} onChange={(e) => setFormPort(e.target.value)} placeholder="5432"
+                        className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20 font-mono text-[12px]" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Database Name</label>
+                    <input type="text" value={formDbName} onChange={(e) => setFormDbName(e.target.value)} placeholder="buildai_demo"
+                      className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20 font-mono text-[12px]" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Username</label>
+                      <input type="text" value={formUsername} onChange={(e) => setFormUsername(e.target.value)} placeholder="(empty for peer auth)"
+                        className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20" />
+                    </div>
+                    <div>
+                      <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Password</label>
+                      <input type="password" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} placeholder="••••••••"
+                        className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20" />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
             <div className="flex justify-end gap-2 mt-6">
               <button onClick={() => setShowAddModal(false)} className="px-4 py-2 text-[13px] text-[#8e8e8e] hover:text-[#171717] transition-colors rounded-lg hover:bg-black/[0.04]">Cancel</button>
