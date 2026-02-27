@@ -209,11 +209,7 @@ export class GatewayClient {
               platform: 'web',
               mode: 'webchat',
             },
-            device: {
-              id: 'buildai-web-' + (process.env.HOSTNAME || 'local'),
-              name: 'BuildAI Web App',
-              platform: 'web',
-            },
+
             auth: {
               token: GATEWAY_TOKEN,
             },
