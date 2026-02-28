@@ -195,28 +195,8 @@ export class GatewayClient {
       }, 10_000);
 
       ws.on('open', () => {
-        // Send connect handshake
-        const connectFrame = {
-          type: 'req',
-          id: 'connect-' + Date.now(),
-          method: 'connect',
-          params: {
-            minProtocol: 3,
-            maxProtocol: 3,
-            client: {
-              id: 'webchat',
-              version: '1.0.0',
-              platform: 'web',
-              mode: 'webchat',
-            },
-
-            auth: {
-              token: GATEWAY_TOKEN,
-            },
-          },
-        };
-        this._connectId = connectFrame.id;
-        ws.send(JSON.stringify(connectFrame));
+        // Wait for connect.challenge event from gateway before sending connect
+        // (the challenge arrives as the first message after open)
       });
 
       ws.on('message', (rawData: WebSocket.Data) => {
@@ -225,6 +205,43 @@ export class GatewayClient {
           frame = JSON.parse(rawData.toString()) as GatewayFrame;
         } catch {
           return; // ignore malformed frames
+        }
+
+        // Handle connect.challenge — sign and send connect
+        if (frame.type === 'event' && (frame as GatewayEvent).event === 'connect.challenge') {
+          const challenge = (frame as GatewayEvent).payload as { nonce?: string } | undefined;
+          const nonce = challenge?.nonce || '';
+
+          // Dynamic import to avoid bundling crypto in client
+          import('./device-identity').then(({ buildDeviceConnectParams }) => {
+            const deviceParams = buildDeviceConnectParams(nonce, GATEWAY_TOKEN || null);
+            const connectFrame = {
+              type: 'req',
+              id: 'connect-' + Date.now(),
+              method: 'connect',
+              params: {
+                minProtocol: 3,
+                maxProtocol: 3,
+                client: {
+                  id: deviceParams.clientId,
+                  version: '1.0.0',
+                  platform: deviceParams.platform,
+                  mode: deviceParams.clientMode,
+                },
+                auth: {
+                  token: GATEWAY_TOKEN,
+                },
+                device: deviceParams.device,
+                role: deviceParams.role,
+                scopes: deviceParams.scopes,
+              },
+            };
+            this._connectId = connectFrame.id;
+            ws.send(JSON.stringify(connectFrame));
+          }).catch((err) => {
+            reject(new Error(`Device identity error: ${err.message}`));
+          });
+          return;
         }
 
         // Handle connect response
