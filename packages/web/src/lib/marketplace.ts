@@ -423,6 +423,35 @@ Export any project data to professionally formatted Excel spreadsheets.
 - "Export the punch list and email it to me"`,
   },
   {
+    id: 'buildai-ppt-generator',
+    name: 'PPT Generator',
+    description: 'Generate PowerPoint (.pptx) decks from outlines, project updates, meeting notes, and uploaded document context. Outputs ready-to-download presentation files.',
+    category: 'Communication',
+    icon: '📽️',
+    vendor: 'BuildAI',
+    version: '1.0.0',
+    tags: ['ppt', 'pptx', 'presentation', 'slides', 'deck', 'reporting'],
+    readme: `# PPT Generator
+
+Generate polished PowerPoint decks directly from chat.
+
+## What You Can Do
+- **Project Update Decks** — Weekly/monthly status presentations
+- **Executive Briefs** — Leadership-ready summaries
+- **Meeting Decks** — Agendas, decisions, and action items
+- **Investor / Client Decks** — Narrative + metrics + roadmap
+- **Image Slides** — Include generated or uploaded images in slides
+
+## Output
+- Produces `.pptx` files in agent artifacts
+- Files appear in BuildAI Artifacts UI for download
+
+## Example Requests
+- "Create a 10-slide project status deck for Terminal A"
+- "Turn these meeting notes into a concise executive deck"
+- "Generate an investor update presentation with next-quarter roadmap"`,
+  },
+  {
     id: 'buildai-photo-log',
     name: 'Photo Log',
     description: 'Process construction site photos — EXIF metadata extraction, auto-tagging by location and trade, daily photo logs, and visual progress reports.',

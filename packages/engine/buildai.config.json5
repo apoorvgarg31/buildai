@@ -122,7 +122,8 @@
       "buildai-safety-checker",
       "buildai-photo-log",
       "buildai-email",
-      "buildai-excel-export"
+      "buildai-excel-export",
+      "buildai-ppt-generator"
     ]
   },
   "plugins": {
