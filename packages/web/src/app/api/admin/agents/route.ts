@@ -29,11 +29,19 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    await requireAdmin();
+    const actor = await requireAdmin();
     const body = await request.json();
     const { name, userId, model, apiKey, connectionIds } = body;
     const { userId: currentUserId } = await auth();
     const assignedUserId = userId || currentUserId || undefined;
+
+    const { getDb } = await import('@/lib/admin-db-server');
+    const db = getDb();
+    const assignedUser = assignedUserId
+      ? db.prepare('SELECT org_id FROM users WHERE id = ? LIMIT 1').get(assignedUserId) as { org_id?: string | null } | undefined
+      : undefined;
+    const agentOrgId = assignedUser?.org_id || actor.orgId || null;
+
     if (!name) {
       return NextResponse.json({ error: 'name is required' }, { status: 400 });
     }
@@ -58,6 +66,7 @@ export async function POST(request: NextRequest) {
     const agent = createAgent({
       name,
       userId: assignedUserId,
+      orgId: agentOrgId,
       model,
       apiKey,
       workspaceDir,
@@ -66,9 +75,8 @@ export async function POST(request: NextRequest) {
 
     // Auto-assign creator (or provided userId) to this agent for immediate chat usability.
     if (assignedUserId) {
-      const { getDb } = await import('@/lib/admin-db-server');
-      const db = getDb();
-      db.prepare("UPDATE users SET agent_id = ?, updated_at = datetime('now') WHERE id = ?").run(agent.id, assignedUserId);
+      db.prepare("UPDATE users SET agent_id = ?, org_id = COALESCE(org_id, ?), updated_at = datetime('now') WHERE id = ?")
+        .run(agent.id, agentOrgId, assignedUserId);
     }
 
     return NextResponse.json(agent, { status: 201 });

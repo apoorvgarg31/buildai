@@ -7,6 +7,7 @@ export interface RequestActor {
   agentId: string | null;
   email: string;
   isSuperadmin: boolean;
+  orgId: string | null;
 }
 
 export function isConfiguredSuperadmin(userId: string, email: string): boolean {
@@ -22,11 +23,11 @@ export async function getRequestActor(): Promise<RequestActor | null> {
 
   const db = getDb();
   const row = db.prepare(`
-    SELECT id, role, agent_id, email
+    SELECT id, role, agent_id, email, org_id
     FROM users
     WHERE id = ?
     LIMIT 1
-  `).get(userId) as { id: string; role?: string; agent_id?: string | null; email?: string } | undefined;
+  `).get(userId) as { id: string; role?: string; agent_id?: string | null; email?: string; org_id?: string | null } | undefined;
 
   if (!row) return null;
 
@@ -37,6 +38,7 @@ export async function getRequestActor(): Promise<RequestActor | null> {
     agentId: row.agent_id || null,
     email,
     isSuperadmin: isConfiguredSuperadmin(userId, email),
+    orgId: row.org_id || null,
   };
 }
 
@@ -70,6 +72,45 @@ export async function requireSuperadmin(): Promise<RequestActor> {
   return actor;
 }
 
+export function actorOrgIds(actor: RequestActor): string[] {
+  const db = getDb();
+  const rows = db.prepare(
+    'SELECT organization_id FROM organization_memberships WHERE user_id = ? ORDER BY organization_id'
+  ).all(actor.userId) as Array<{ organization_id: string }>;
+
+  const orgIds = new Set(rows.map((r) => r.organization_id));
+  if (actor.orgId) orgIds.add(actor.orgId);
+  return Array.from(orgIds);
+}
+
+export function requireActorOrgMembership(actor: RequestActor, orgId: string): void {
+  if (!orgId) throw new Error('ORG_REQUIRED');
+  if (!actorOrgIds(actor).includes(orgId)) {
+    throw new Error('FORBIDDEN_ORG_MEMBERSHIP');
+  }
+}
+
+export function getAgentOrgId(agentId: string): string | null {
+  const db = getDb();
+  const row = db.prepare('SELECT org_id FROM agents WHERE id = ? LIMIT 1').get(agentId) as { org_id?: string | null } | undefined;
+  return row?.org_id || null;
+}
+
 export function canAccessAgent(actor: RequestActor, agentId: string): boolean {
+  const agentOrgId = getAgentOrgId(agentId);
+  // Backward-compatible path for legacy/fresh setups without org assignment.
+  if (!agentOrgId) {
+    return actor.role === 'admin' || actor.agentId === agentId;
+  }
+
+  const sameOrg = actorOrgIds(actor).includes(agentOrgId);
+  if (!sameOrg) return false;
+
   return actor.role === 'admin' || actor.agentId === agentId;
+}
+
+export function assertCanAccessAgent(actor: RequestActor, agentId: string): void {
+  if (!canAccessAgent(actor, agentId)) {
+    throw new Error('FORBIDDEN_ORG_MISMATCH');
+  }
 }

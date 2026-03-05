@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid agentId' }, { status: 400 });
     }
     if (!canAccessAgent(actor, agentId)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return NextResponse.json({ error: 'Forbidden', reason: 'ORG_MISMATCH' }, { status: 403 });
     }
 
     const files = {
@@ -57,7 +57,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid agentId' }, { status: 400 });
     }
     if (!canAccessAgent(actor, agentId)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return NextResponse.json({ error: 'Forbidden', reason: 'ORG_MISMATCH' }, { status: 403 });
     }
     if (!ALLOWED_FILES.includes(body.file)) {
       return NextResponse.json({ error: 'Invalid file target' }, { status: 400 });

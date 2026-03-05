@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireSuperadmin } from '@/lib/api-guard';
+import { requireActorOrgMembership, requireSuperadmin } from '@/lib/api-guard';
 import { getDb } from '@/lib/admin-db-server';
 import { upsertOrganizationMembership, writeAuditEvent } from '@/lib/admin-db';
 import crypto from 'crypto';
@@ -10,8 +10,9 @@ function errorResponse(code: string, message: string, status: number, details?: 
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireSuperadmin();
+    const actor = await requireSuperadmin();
     const { id } = await params;
+    requireActorOrgMembership(actor, id);
     const db = getDb();
     const rows = db.prepare(`
       SELECT m.organization_id, m.user_id, m.role, m.created_at, m.updated_at, u.email, u.name
@@ -24,6 +25,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   } catch (err) {
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') return errorResponse('unauthenticated', 'Not authenticated', 401);
     if (err instanceof Error && (err.message === 'FORBIDDEN' || err.message === 'FORBIDDEN_SUPERADMIN')) return errorResponse('insufficient_role', 'Forbidden', 403);
+    if (err instanceof Error && err.message === 'FORBIDDEN_ORG_MEMBERSHIP') return errorResponse('forbidden_org_membership', 'Forbidden', 403, { reason: 'ORG_MEMBERSHIP_REQUIRED' });
     console.error('List org members error:', err);
     return errorResponse('internal_error', 'Failed to list organization members', 500);
   }
@@ -33,6 +35,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     const actor = await requireSuperadmin();
     const { id } = await params;
+    requireActorOrgMembership(actor, id);
     const body = await request.json();
     const userId = typeof body?.userId === 'string' ? body.userId : '';
     const role = body?.role === 'owner' || body?.role === 'admin' || body?.role === 'member' ? body.role : 'member';
@@ -54,6 +57,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   } catch (err) {
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') return errorResponse('unauthenticated', 'Not authenticated', 401);
     if (err instanceof Error && (err.message === 'FORBIDDEN' || err.message === 'FORBIDDEN_SUPERADMIN')) return errorResponse('insufficient_role', 'Forbidden', 403);
+    if (err instanceof Error && err.message === 'FORBIDDEN_ORG_MEMBERSHIP') return errorResponse('forbidden_org_membership', 'Forbidden', 403, { reason: 'ORG_MEMBERSHIP_REQUIRED' });
     console.error('Upsert org member error:', err);
     return errorResponse('internal_error', 'Failed to upsert organization member', 500);
   }

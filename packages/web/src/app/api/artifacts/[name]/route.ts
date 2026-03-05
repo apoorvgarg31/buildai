@@ -32,7 +32,7 @@ function getMimeType(ext: string): string {
 function validateAccess(request: NextRequest, agentId: string | null, actor: Awaited<ReturnType<typeof requireSignedIn>>) {
   if (!agentId) return NextResponse.json({ error: "agentId is required" }, { status: 400 });
   if (!isValidAgentId(agentId)) return NextResponse.json({ error: "Invalid agentId" }, { status: 400 });
-  if (!canAccessAgent(actor, agentId)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!canAccessAgent(actor, agentId)) return NextResponse.json({ error: "Forbidden", reason: "ORG_MISMATCH" }, { status: 403 });
   return null;
 }
 
@@ -44,10 +44,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const denied = validateAccess(request, agentId, actor);
     if (denied) return denied;
+    const checkedAgentId = agentId as string;
 
     if (!name) return NextResponse.json({ error: "File name is required" }, { status: 400 });
 
-    const artifactsDir = safeJoinWithin(getWorkspaceBase(), agentId, "artifacts");
+    const artifactsDir = safeJoinWithin(getWorkspaceBase(), checkedAgentId, "artifacts");
     if (!artifactsDir) return NextResponse.json({ error: "Invalid path" }, { status: 400 });
     const filePath = safeJoinWithin(artifactsDir, name);
     if (!filePath) return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
@@ -85,10 +86,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     const denied = validateAccess(request, agentId, actor);
     if (denied) return denied;
+    const checkedAgentId = agentId as string;
 
     if (!name) return NextResponse.json({ error: "File name is required" }, { status: 400 });
 
-    const artifactsDir = safeJoinWithin(getWorkspaceBase(), agentId, "artifacts");
+    const artifactsDir = safeJoinWithin(getWorkspaceBase(), checkedAgentId, "artifacts");
     if (!artifactsDir) return NextResponse.json({ error: "Invalid path" }, { status: 400 });
     const filePath = safeJoinWithin(artifactsDir, name);
     if (!filePath) return NextResponse.json({ error: "Invalid file path" }, { status: 400 });

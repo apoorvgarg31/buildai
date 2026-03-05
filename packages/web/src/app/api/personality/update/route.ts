@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid agentId' }, { status: 400 });
     }
     if (!canAccessAgent(actor, agentId)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return NextResponse.json({ error: 'Forbidden', reason: 'ORG_MISMATCH' }, { status: 403 });
     }
 
     const instruction = (body.instruction || '').trim();

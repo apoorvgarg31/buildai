@@ -26,6 +26,13 @@ function getDb(): Database.Database {
   return _db;
 }
 
+function ensureColumn(db: Database.Database, table: string, column: string, ddl: string) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (!cols.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  }
+}
+
 function initSchema(db: Database.Database) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -34,6 +41,7 @@ function initSchema(db: Database.Database) {
       name TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'user',
       agent_id TEXT,
+      org_id TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -57,6 +65,7 @@ function initSchema(db: Database.Database) {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       user_id TEXT,
+      org_id TEXT,
       model TEXT DEFAULT 'google/gemini-2.0-flash',
       api_key TEXT,
       workspace_dir TEXT NOT NULL,
@@ -125,6 +134,10 @@ function initSchema(db: Database.Database) {
       PRIMARY KEY (idempotency_key, route, method)
     );
   `);
+
+  // OA-3: safe schema upgrades for existing installs.
+  ensureColumn(db, 'users', 'org_id', 'org_id TEXT');
+  ensureColumn(db, 'agents', 'org_id', 'org_id TEXT');
 }
 
 // ── ID generation ──
@@ -173,6 +186,7 @@ export interface User {
   name: string;
   role: 'admin' | 'user';
   agent_id: string | null;
+  org_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -185,16 +199,16 @@ export function getUser(id: string): User | undefined {
   return getDb().prepare('SELECT * FROM users WHERE id = ?').get(id) as User | undefined;
 }
 
-export function createUser(data: { email: string; name: string; role?: string }): User {
+export function createUser(data: { email: string; name: string; role?: string; orgId?: string | null }): User {
   const id = genId('user');
   const role = data.role || 'user';
   getDb().prepare(
-    'INSERT INTO users (id, email, name, role) VALUES (?, ?, ?, ?)'
-  ).run(id, data.email, data.name, role);
+    'INSERT INTO users (id, email, name, role, org_id) VALUES (?, ?, ?, ?, ?)'
+  ).run(id, data.email, data.name, role, data.orgId || null);
   return getUser(id)!;
 }
 
-export function updateUser(id: string, data: Partial<{ email: string; name: string; role: string; agent_id: string | null }>): User | undefined {
+export function updateUser(id: string, data: Partial<{ email: string; name: string; role: string; agent_id: string | null; org_id: string | null }>): User | undefined {
   const user = getUser(id);
   if (!user) return undefined;
   const fields: string[] = [];
@@ -328,6 +342,7 @@ export interface Agent {
   id: string;
   name: string;
   user_id: string | null;
+  org_id: string | null;
   model: string;
   api_key: string | null;
   workspace_dir: string;
@@ -361,6 +376,7 @@ export function getAgent(id: string): Agent | undefined {
 export function createAgent(data: {
   name: string;
   userId?: string;
+  orgId?: string | null;
   model?: string;
   apiKey?: string;
   workspaceDir: string;
@@ -372,8 +388,8 @@ export function createAgent(data: {
   const db = getDb();
   const txn = db.transaction(() => {
     db.prepare(
-      'INSERT INTO agents (id, name, user_id, model, api_key, workspace_dir) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(id, data.name, data.userId || null, model, data.apiKey || null, data.workspaceDir);
+      'INSERT INTO agents (id, name, user_id, org_id, model, api_key, workspace_dir) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(id, data.name, data.userId || null, data.orgId || null, model, data.apiKey || null, data.workspaceDir);
 
     if (data.connectionIds?.length) {
       const stmt = db.prepare('INSERT INTO agent_connections (agent_id, connection_id) VALUES (?, ?)');
@@ -389,6 +405,7 @@ export function createAgent(data: {
 export function updateAgent(id: string, data: Partial<{
   name: string;
   userId: string | null;
+  orgId: string | null;
   model: string;
   apiKey: string | null;
   status: string;
@@ -403,6 +420,7 @@ export function updateAgent(id: string, data: Partial<{
     const values: unknown[] = [];
     if (data.name !== undefined) { fields.push('name = ?'); values.push(data.name); }
     if (data.userId !== undefined) { fields.push('user_id = ?'); values.push(data.userId); }
+    if (data.orgId !== undefined) { fields.push('org_id = ?'); values.push(data.orgId); }
     if (data.model !== undefined) { fields.push('model = ?'); values.push(data.model); }
     if (data.apiKey !== undefined) { fields.push('api_key = ?'); values.push(data.apiKey); }
     if (data.status !== undefined) { fields.push('status = ?'); values.push(data.status); }

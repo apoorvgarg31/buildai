@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 
     if (!agentId) return NextResponse.json({ error: "agentId is required" }, { status: 400 });
     if (!isValidAgentId(agentId)) return NextResponse.json({ error: "Invalid agentId" }, { status: 400 });
-    if (!canAccessAgent(actor, agentId)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!canAccessAgent(actor, agentId)) return NextResponse.json({ error: "Forbidden", reason: "ORG_MISMATCH" }, { status: 403 });
 
     const artifactsDir = safeJoinWithin(getWorkspaceBase(), agentId, "artifacts");
     if (!artifactsDir) return NextResponse.json({ error: "Invalid path" }, { status: 400 });

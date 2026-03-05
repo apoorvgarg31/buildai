@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createOrganization, getIdempotentResponse, listOrganizations, storeIdempotentResponse, upsertOrganizationMembership, writeAuditEvent } from '@/lib/admin-db';
-import { requireSuperadmin } from '@/lib/api-guard';
+import { actorOrgIds, requireSuperadmin } from '@/lib/api-guard';
 import crypto from 'crypto';
 
 function errorResponse(code: string, message: string, status: number, details?: unknown) {
@@ -9,8 +9,13 @@ function errorResponse(code: string, message: string, status: number, details?: 
 
 export async function GET() {
   try {
-    await requireSuperadmin();
-    return NextResponse.json(listOrganizations());
+    const actor = await requireSuperadmin();
+    const orgIds = actorOrgIds(actor);
+    if (orgIds.length === 0) {
+      return errorResponse('org_membership_required', 'Actor must belong to at least one organization', 403, { reason: 'ORG_MEMBERSHIP_REQUIRED' });
+    }
+    const orgs = listOrganizations().filter((org) => orgIds.includes(org.id));
+    return NextResponse.json(orgs);
   } catch (err) {
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') {
       return errorResponse('unauthenticated', 'Not authenticated', 401);
@@ -28,6 +33,11 @@ export async function POST(request: NextRequest) {
   const method = 'POST';
   try {
     const actor = await requireSuperadmin();
+    const existingOrgs = listOrganizations();
+    if (existingOrgs.length > 0 && actorOrgIds(actor).length === 0) {
+      return errorResponse('org_membership_required', 'Actor must belong to an organization', 403, { reason: 'ORG_MEMBERSHIP_REQUIRED' });
+    }
+
     const idempotencyKey = request.headers?.get('Idempotency-Key') || request.headers?.get('idempotency-key');
     if (idempotencyKey) {
       const existing = getIdempotentResponse(idempotencyKey, route, method);

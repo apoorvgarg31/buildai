@@ -11,17 +11,16 @@ vi.mock('@/lib/admin-db-server', () => ({
   getDb: getDbMock,
 }));
 
-describe('api-guard superadmin/authz behavior (OA-2)', () => {
+describe('api-guard superadmin/authz behavior (OA-2/OA-3)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  // AC-OA2-10: requireSuperadmin currently delegates to admin role policy (placeholder behavior).
   it('AC-OA2-10 requireSuperadmin allows admin actor', async () => {
     authMock.mockResolvedValue({ userId: 'u-admin' });
     getDbMock.mockReturnValue({
       prepare: () => ({
-        get: () => ({ id: 'u-admin', role: 'admin', agent_id: 'agent-1', email: 'admin@example.com' }),
+        get: () => ({ id: 'u-admin', role: 'admin', agent_id: 'agent-1', email: 'admin@example.com', org_id: null }),
       }),
     });
 
@@ -32,12 +31,11 @@ describe('api-guard superadmin/authz behavior (OA-2)', () => {
     expect(actor.role).toBe('admin');
   });
 
-  // AC-OA2-11: requireSuperadmin rejects non-admin users with FORBIDDEN.
   it('AC-OA2-11 requireSuperadmin rejects non-admin users', async () => {
     authMock.mockResolvedValue({ userId: 'u-user' });
     getDbMock.mockReturnValue({
       prepare: () => ({
-        get: () => ({ id: 'u-user', role: 'user', agent_id: null, email: 'user@example.com' }),
+        get: () => ({ id: 'u-user', role: 'user', agent_id: null, email: 'user@example.com', org_id: null }),
       }),
     });
 
@@ -45,19 +43,29 @@ describe('api-guard superadmin/authz behavior (OA-2)', () => {
     await expect(guard.requireSuperadmin()).rejects.toThrow('FORBIDDEN');
   });
 
-  // AC-OA2-12: requireSignedIn/requireSuperadmin reject missing auth with UNAUTHENTICATED.
   it('AC-OA2-12 requireSuperadmin rejects missing session', async () => {
     authMock.mockResolvedValue({ userId: null });
     const guard = await import('../src/lib/api-guard');
     await expect(guard.requireSuperadmin()).rejects.toThrow('UNAUTHENTICATED');
   });
 
-  // AC-OA2-13 / P5-US-03: canAccessAgent keeps tenant/resource guard semantics (admin all, user own only).
   it('AC-OA2-13 canAccessAgent preserves positive/negative access semantics', async () => {
     const guard = await import('../src/lib/api-guard');
 
-    expect(guard.canAccessAgent({ userId: 'a', role: 'admin', agentId: null, email: '' }, 'any-agent')).toBe(true);
-    expect(guard.canAccessAgent({ userId: 'u', role: 'user', agentId: 'agent-1', email: '' }, 'agent-1')).toBe(true);
-    expect(guard.canAccessAgent({ userId: 'u', role: 'user', agentId: 'agent-1', email: '' }, 'agent-2')).toBe(false);
+    getDbMock.mockReturnValue({
+      prepare: (sql: string) => {
+        if (sql.includes('FROM organization_memberships')) {
+          return { all: () => [] };
+        }
+        if (sql.includes('SELECT org_id FROM agents')) {
+          return { get: () => ({ org_id: null }) };
+        }
+        return { get: () => undefined, all: () => [] };
+      },
+    });
+
+    expect(guard.canAccessAgent({ userId: 'a', role: 'admin', agentId: null, email: '', isSuperadmin: false, orgId: null }, 'any-agent')).toBe(true);
+    expect(guard.canAccessAgent({ userId: 'u', role: 'user', agentId: 'agent-1', email: '', isSuperadmin: false, orgId: null }, 'agent-1')).toBe(true);
+    expect(guard.canAccessAgent({ userId: 'u', role: 'user', agentId: 'agent-1', email: '', isSuperadmin: false, orgId: null }, 'agent-2')).toBe(false);
   });
 });

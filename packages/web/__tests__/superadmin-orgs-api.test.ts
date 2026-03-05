@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   storeIdempotentResponse: vi.fn(),
   writeAuditEvent: vi.fn(),
   requireSuperadmin: vi.fn(),
+  actorOrgIds: vi.fn(),
 }));
 
 vi.mock('@/lib/admin-db', () => ({
@@ -22,6 +23,7 @@ vi.mock('@/lib/admin-db', () => ({
 
 vi.mock('@/lib/api-guard', () => ({
   requireSuperadmin: mocks.requireSuperadmin,
+  actorOrgIds: mocks.actorOrgIds,
 }));
 
 import { GET, POST } from '../src/app/api/superadmin/orgs/route';
@@ -30,6 +32,7 @@ describe('/api/superadmin/orgs (OA-1/OA-2 scaffolding)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getIdempotentResponse.mockReturnValue(null);
+    mocks.actorOrgIds.mockReturnValue(['org-1']);
   });
 
   // AC-OA2-01: Superadmin-only org listing endpoint is available for authorized actor.

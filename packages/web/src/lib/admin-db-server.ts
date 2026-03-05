@@ -10,6 +10,13 @@ const DB_PATH = path.resolve(process.cwd(), '../../data/buildai-admin.db');
 
 let _db: Database.Database | null = null;
 
+function ensureColumn(db: Database.Database, table: string, column: string, ddl: string) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (!cols.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  }
+}
+
 function initSchema(db: Database.Database) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -18,6 +25,7 @@ function initSchema(db: Database.Database) {
       name TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'user',
       agent_id TEXT,
+      org_id TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -41,6 +49,7 @@ function initSchema(db: Database.Database) {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       user_id TEXT,
+      org_id TEXT,
       model TEXT DEFAULT 'google/gemini-2.0-flash',
       api_key TEXT,
       workspace_dir TEXT NOT NULL,
@@ -109,6 +118,10 @@ function initSchema(db: Database.Database) {
       PRIMARY KEY (idempotency_key, route, method)
     );
   `);
+
+  // OA-3: safe schema upgrades for existing installs.
+  ensureColumn(db, 'users', 'org_id', 'org_id TEXT');
+  ensureColumn(db, 'agents', 'org_id', 'org_id TEXT');
 }
 
 export function getDb(): Database.Database {
