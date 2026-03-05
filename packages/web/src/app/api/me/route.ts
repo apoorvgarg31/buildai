@@ -38,9 +38,17 @@ export async function GET() {
       ).get(userId) as { id: string; email: string; name: string; role: string; agent_id: string | null };
     }
 
-    // Auto-heal assignment: if user has no assigned agent, pick the most recently created active agent.
-    if (!row!.agent_id) {
-      const fallbackAgent = db.prepare("SELECT id FROM agents WHERE status = 'active' ORDER BY created_at DESC LIMIT 1").get() as { id: string } | undefined;
+    // Auto-heal assignment:
+    // - if no assigned agent, or assigned agent has no API key,
+    //   pick the most recently created active agent that has an API key.
+    let needsReassign = !row!.agent_id;
+    if (row!.agent_id) {
+      const assigned = db.prepare("SELECT id, api_key FROM agents WHERE id = ?").get(row!.agent_id) as { id: string; api_key: string | null } | undefined;
+      if (!assigned || !assigned.api_key) needsReassign = true;
+    }
+
+    if (needsReassign) {
+      const fallbackAgent = db.prepare("SELECT id FROM agents WHERE status = 'active' AND api_key IS NOT NULL AND api_key != '' ORDER BY created_at DESC LIMIT 1").get() as { id: string } | undefined;
       if (fallbackAgent?.id) {
         db.prepare("UPDATE users SET agent_id = ?, updated_at = datetime('now') WHERE id = ?").run(fallbackAgent.id, userId);
         row = db.prepare(
