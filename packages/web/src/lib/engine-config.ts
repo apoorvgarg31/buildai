@@ -74,7 +74,7 @@ export async function addAgentToConfig(
       id: agentId,
       name: opts.name,
       workspace: opts.workspace,
-      model: { primary: opts.model || 'anthropic/claude-sonnet-4-20250514' },
+      model: { primary: opts.model || 'google/gemini-2.0-flash' },
       identity: { name: 'BuildAI', emoji: '🏗️' },
       heartbeat: {
         every: '30m',
@@ -92,7 +92,7 @@ export async function addAgentToConfig(
     const envDir = path.resolve(path.dirname(CONFIG_PATH), '../../data/agent-env');
     if (!fs.existsSync(envDir)) fs.mkdirSync(envDir, { recursive: true });
     const envPath = path.join(envDir, `${agentId}.env`);
-    const provider = (opts.model || 'anthropic/claude-sonnet-4-20250514').split('/')[0];
+    const provider = (opts.model || 'google/gemini-2.0-flash').split('/')[0];
     const envLines: string[] = [];
     if (provider === 'anthropic') {
       envLines.push(`ANTHROPIC_API_KEY=${opts.apiKey}`);

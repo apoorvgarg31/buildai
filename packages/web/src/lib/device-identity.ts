@@ -112,7 +112,7 @@ export function buildDeviceConnectParams(nonce: string, token: string | null) {
   const signedAtMs = Date.now();
   const role = 'operator';
   const scopes = ['operator.admin'];
-  const clientId = 'buildai-webchat';
+  const clientId = 'webchat';
   const clientMode = 'webchat';
   const platform = 'web';
 

@@ -38,6 +38,17 @@ export async function GET() {
       ).get(userId) as { id: string; email: string; name: string; role: string; agent_id: string | null };
     }
 
+    // Auto-heal assignment: if user has no assigned agent, pick the most recently created active agent.
+    if (!row!.agent_id) {
+      const fallbackAgent = db.prepare("SELECT id FROM agents WHERE status = 'active' ORDER BY created_at DESC LIMIT 1").get() as { id: string } | undefined;
+      if (fallbackAgent?.id) {
+        db.prepare("UPDATE users SET agent_id = ?, updated_at = datetime('now') WHERE id = ?").run(fallbackAgent.id, userId);
+        row = db.prepare(
+          'SELECT id, email, name, role, agent_id FROM users WHERE id = ?'
+        ).get(userId) as { id: string; email: string; name: string; role: string; agent_id: string | null };
+      }
+    }
+
     return NextResponse.json({
       userId: row!.id,
       email: row!.email,

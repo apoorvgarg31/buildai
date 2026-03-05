@@ -30,7 +30,7 @@ export default function AdminAgentsPage() {
 
   // Form state
   const [formName, setFormName] = useState("");
-  const [formModel, setFormModel] = useState("anthropic/claude-sonnet-4-20250514");
+  const [formModel, setFormModel] = useState("google/gemini-2.0-flash");
   const [formApiKey, setFormApiKey] = useState("");
   const [selectedConnections, setSelectedConnections] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
@@ -190,9 +190,9 @@ export default function AdminAgentsPage() {
                 <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Model</label>
                 <select value={formModel} onChange={(e) => setFormModel(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] focus:outline-none focus:border-[#171717]/20">
-                  <option value="anthropic/claude-sonnet-4-20250514">Claude Sonnet 4 (Recommended)</option>
+                  <option value="google/gemini-2.0-flash">Gemini 2.0 Flash (Recommended)</option>
+                  <option value="anthropic/claude-sonnet-4-20250514">Claude Sonnet 4</option>
                   <option value="anthropic/claude-opus-4-6">Claude Opus 4</option>
-                  <option value="google/gemini-2.0-flash">Gemini 2.0 Flash</option>
                   <option value="openai/gpt-4o">GPT-4o</option>
                 </select>
               </div>

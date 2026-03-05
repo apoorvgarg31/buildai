@@ -41,7 +41,7 @@ function initSchema(db: Database.Database) {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       user_id TEXT,
-      model TEXT DEFAULT 'anthropic/claude-sonnet-4-20250514',
+      model TEXT DEFAULT 'google/gemini-2.0-flash',
       api_key TEXT,
       workspace_dir TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'active',

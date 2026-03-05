@@ -4,6 +4,7 @@ import { provisionWorkspace } from '@/lib/workspace-provisioner';
 import { addAgentToConfig } from '@/lib/engine-config';
 import { provisionSkills } from '@/lib/skill-provisioner';
 import { requireAdmin } from '@/lib/api-guard';
+import { auth } from '@clerk/nextjs/server';
 
 export async function GET() {
   try {
@@ -31,6 +32,8 @@ export async function POST(request: NextRequest) {
     await requireAdmin();
     const body = await request.json();
     const { name, userId, model, apiKey, connectionIds } = body;
+    const { userId: currentUserId } = await auth();
+    const assignedUserId = userId || currentUserId || undefined;
     if (!name) {
       return NextResponse.json({ error: 'name is required' }, { status: 400 });
     }
@@ -45,18 +48,25 @@ export async function POST(request: NextRequest) {
     await addAgentToConfig(agentId, {
       name,
       workspace: workspaceDir,
-      model: model || 'anthropic/claude-sonnet-4-20250514',
+      model: model || 'google/gemini-2.0-flash',
       apiKey: apiKey || undefined,
     });
 
     const agent = createAgent({
       name,
-      userId,
+      userId: assignedUserId,
       model,
       apiKey,
       workspaceDir,
       connectionIds,
     });
+
+    // Auto-assign creator (or provided userId) to this agent for immediate chat usability.
+    if (assignedUserId) {
+      const { getDb } = await import('@/lib/admin-db-server');
+      const db = getDb();
+      db.prepare("UPDATE users SET agent_id = ?, updated_at = datetime('now') WHERE id = ?").run(agent.id, assignedUserId);
+    }
 
     return NextResponse.json(agent, { status: 201 });
   } catch (err) {

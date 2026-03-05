@@ -117,6 +117,17 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
       });
   }, []);
 
+  // If agent assignment arrives after initial render, bind the session to that agent.
+  // This prevents fallback to generic `webchat:*` sessions (which can hit wrong/default agent model).
+  useEffect(() => {
+    if (!agentId) return;
+    const expected = `agent:${agentId}:webchat:default`;
+    if (sessionId !== expected && messages.length === 0) {
+      setSessionId(expected);
+      setHasOnboarded(false);
+    }
+  }, [agentId, sessionId, messages.length]);
+
   // Load chat history from engine on mount, fall back to welcome message
   useEffect(() => {
     if (hasOnboarded) return;
