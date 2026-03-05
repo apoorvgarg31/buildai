@@ -13,6 +13,7 @@ interface NavItem {
 const adminNav: NavItem[] = [
   { name: "Dashboard", icon: "📊", page: "dashboard" },
   { name: "Chat", icon: "💬", page: "chat" },
+  { name: "Artifacts", icon: "🗂️", page: "artifacts" },
   { name: "Users", icon: "👥", page: "users" },
   { name: "Agents", icon: "🤖", page: "agents" },
   { name: "Connections", icon: "🔗", page: "connections" },
@@ -22,6 +23,7 @@ const adminNav: NavItem[] = [
 
 const userNav: NavItem[] = [
   { name: "Chat", icon: "💬", page: "chat" },
+  { name: "Artifacts", icon: "🗂️", page: "artifacts" },
   { name: "Automation", icon: "🗓️", page: "schedule" },
   { name: "Watchlist", icon: "👀", page: "watchlist" },
   { name: "Personality", icon: "✨", page: "personality" },
@@ -30,8 +32,8 @@ const userNav: NavItem[] = [
   { name: "Settings", icon: "⚙️", page: "settings" },
 ];
 
-export type UserPage = "chat" | "schedule" | "watchlist" | "personality" | "marketplace" | "usage" | "settings";
-export type AdminPage = "dashboard" | "users" | "agents" | "connections" | "settings";
+export type UserPage = "chat" | "artifacts" | "schedule" | "watchlist" | "personality" | "marketplace" | "usage" | "settings";
+export type AdminPage = "dashboard" | "artifacts" | "users" | "agents" | "connections" | "settings";
 export type Page = UserPage | AdminPage;
 
 interface SidebarProps {

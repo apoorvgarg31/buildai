@@ -16,6 +16,7 @@ import SettingsPage from "@/components/SettingsPage";
 import PersonalityStudio from "@/components/PersonalityStudio";
 import WatchlistPage from "@/components/WatchlistPage";
 import SchedulePage from "@/components/SchedulePage";
+import ArtifactsPage from "@/components/ArtifactsPage";
 
 export default function Home() {
   const { user, isLoaded } = useCurrentUser();
@@ -44,6 +45,8 @@ export default function Home() {
     switch (activePage) {
       case "chat":
         return <ChatArea agentId={user.agentId} />;
+      case "artifacts":
+        return <ArtifactsPage agentId={user.agentId} />;
       case "schedule":
         return <SchedulePage />;
       case "watchlist":

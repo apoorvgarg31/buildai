@@ -29,15 +29,22 @@ function getMimeType(ext: string): string {
   return MIME_MAP[ext.toLowerCase()] || "application/octet-stream";
 }
 
+function validateAccess(request: NextRequest, agentId: string | null, actor: Awaited<ReturnType<typeof requireSignedIn>>) {
+  if (!agentId) return NextResponse.json({ error: "agentId is required" }, { status: 400 });
+  if (!isValidAgentId(agentId)) return NextResponse.json({ error: "Invalid agentId" }, { status: 400 });
+  if (!canAccessAgent(actor, agentId)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  return null;
+}
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ name: string }> }) {
   try {
     const actor = await requireSignedIn();
     const { name } = await params;
     const agentId = request.nextUrl.searchParams.get("agentId");
 
-    if (!agentId) return NextResponse.json({ error: "agentId is required" }, { status: 400 });
-    if (!isValidAgentId(agentId)) return NextResponse.json({ error: "Invalid agentId" }, { status: 400 });
-    if (!canAccessAgent(actor, agentId)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const denied = validateAccess(request, agentId, actor);
+    if (denied) return denied;
+
     if (!name) return NextResponse.json({ error: "File name is required" }, { status: 400 });
 
     const artifactsDir = safeJoinWithin(getWorkspaceBase(), agentId, "artifacts");
@@ -67,5 +74,36 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
     console.error("Artifacts download error:", err);
     return NextResponse.json({ error: "Failed to download artifact" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ name: string }> }) {
+  try {
+    const actor = await requireSignedIn();
+    const { name } = await params;
+    const agentId = request.nextUrl.searchParams.get("agentId");
+
+    const denied = validateAccess(request, agentId, actor);
+    if (denied) return denied;
+
+    if (!name) return NextResponse.json({ error: "File name is required" }, { status: 400 });
+
+    const artifactsDir = safeJoinWithin(getWorkspaceBase(), agentId, "artifacts");
+    if (!artifactsDir) return NextResponse.json({ error: "Invalid path" }, { status: 400 });
+    const filePath = safeJoinWithin(artifactsDir, name);
+    if (!filePath) return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
+    if (!fs.existsSync(filePath)) return NextResponse.json({ error: "File not found" }, { status: 404 });
+
+    const stat = fs.statSync(filePath);
+    if (!stat.isFile()) return NextResponse.json({ error: "Not a file" }, { status: 400 });
+
+    fs.unlinkSync(filePath);
+    return NextResponse.json({ success: true, name });
+  } catch (err) {
+    if (err instanceof Error && err.message === "UNAUTHENTICATED") {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+    console.error("Artifacts delete error:", err);
+    return NextResponse.json({ error: "Failed to delete artifact" }, { status: 500 });
   }
 }
