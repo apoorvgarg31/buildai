@@ -20,7 +20,8 @@ import ArtifactsPage from "@/components/ArtifactsPage";
 
 export default function Home() {
   const { user, isLoaded } = useCurrentUser();
-  const [activePage, setActivePage] = useState<Page>("dashboard");
+  const [mode, setMode] = useState<"user" | "admin">("user");
+  const [activePage, setActivePage] = useState<Page>("chat");
 
   if (!isLoaded) {
     return (
@@ -41,44 +42,45 @@ export default function Home() {
   }
 
   const renderPage = () => {
-    // Shared pages (both admin and user)
-    switch (activePage) {
-      case "chat":
-        return <ChatArea agentId={user.agentId} />;
-      case "artifacts":
-        return <ArtifactsPage agentId={user.agentId} />;
-      case "schedule":
-        return <SchedulePage />;
-      case "watchlist":
-        return <WatchlistPage agentId={user.agentId} />;
-      case "personality":
-        return <PersonalityStudio agentId={user.agentId} />;
-      case "marketplace":
-        return <MarketplacePage />;
-      case "usage":
-        return <UsagePage />;
-      case "settings":
-        return user.role === "admin" ? <AdminSettingsPage /> : <SettingsPage />;
-    }
-
-    // Admin-only pages
-    if (user.role === "admin") {
+    // User mode pages (admins can use these too)
+    if (mode === "user" || user.role !== "admin") {
       switch (activePage) {
-        case "dashboard":
-          return <AdminDashboard user={user} />;
-        case "users":
-          return <AdminUsersPage />;
-        case "agents":
-          return <AdminAgentsPage />;
-        case "connections":
-          return <AdminConnectionsPage />;
+        case "chat":
+          return <ChatArea agentId={user.agentId} />;
+        case "artifacts":
+          return <ArtifactsPage agentId={user.agentId} />;
+        case "schedule":
+          return <SchedulePage />;
+        case "watchlist":
+          return <WatchlistPage agentId={user.agentId} />;
+        case "personality":
+          return <PersonalityStudio agentId={user.agentId} />;
+        case "marketplace":
+          return <MarketplacePage />;
+        case "usage":
+          return <UsagePage />;
+        case "settings":
+          return <SettingsPage />;
         default:
-          return <AdminDashboard user={user} />;
+          return <ChatArea agentId={user.agentId} />;
       }
     }
 
-    // Default for users
-    return <ChatArea agentId={user.agentId} />;
+    // Admin mode pages
+    switch (activePage) {
+      case "dashboard":
+        return <AdminDashboard user={user} />;
+      case "users":
+        return <AdminUsersPage />;
+      case "agents":
+        return <AdminAgentsPage />;
+      case "connections":
+        return <AdminConnectionsPage />;
+      case "settings":
+        return <AdminSettingsPage />;
+      default:
+        return <AdminDashboard user={user} />;
+    }
   };
 
   return (
@@ -87,6 +89,13 @@ export default function Home() {
         user={user}
         activePage={activePage}
         onNavigate={setActivePage}
+        mode={mode}
+        onToggleMode={() => {
+          if (user.role !== "admin") return;
+          const nextMode = mode === "admin" ? "user" : "admin";
+          setMode(nextMode);
+          setActivePage(nextMode === "admin" ? "dashboard" : "chat");
+        }}
       />
       <main className="flex-1 min-w-0">
         {renderPage()}

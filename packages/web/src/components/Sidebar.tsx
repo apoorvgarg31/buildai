@@ -33,20 +33,23 @@ const userNav: NavItem[] = [
 ];
 
 export type UserPage = "chat" | "artifacts" | "schedule" | "watchlist" | "personality" | "marketplace" | "usage" | "settings";
-export type AdminPage = "dashboard" | "artifacts" | "users" | "agents" | "connections" | "settings";
+export type AdminPage = "dashboard" | "users" | "agents" | "connections";
 export type Page = UserPage | AdminPage;
 
 interface SidebarProps {
   user: BuildAIUser;
   activePage?: Page;
   onNavigate?: (page: Page) => void;
+  mode?: "user" | "admin";
+  onToggleMode?: () => void;
 }
 
-export default function Sidebar({ user, activePage, onNavigate }: SidebarProps) {
+export default function Sidebar({ user, activePage, onNavigate, mode = "user", onToggleMode }: SidebarProps) {
   const { signOut } = useClerk();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const navigation = user.role === "admin" ? adminNav : userNav;
-  const defaultPage: Page = user.role === "admin" ? "dashboard" : "chat";
+  const isAdminView = user.role === "admin" && mode === "admin";
+  const navigation = isAdminView ? adminNav : userNav;
+  const defaultPage: Page = isAdminView ? "dashboard" : "chat";
   const currentPage = activePage ?? defaultPage;
 
   const sidebarContent = (
@@ -59,7 +62,7 @@ export default function Sidebar({ user, activePage, onNavigate }: SidebarProps) 
         <div>
           <p className="text-sm font-semibold text-[#171717] leading-none">BuildAI</p>
           <p className="text-[10px] text-[#8e8e8e] mt-0.5">
-            {user.role === "admin" ? "Admin Console" : "PM Assistant"}
+            {isAdminView ? "Admin Console" : "PM Assistant"}
           </p>
         </div>
       </div>
@@ -85,8 +88,22 @@ export default function Sidebar({ user, activePage, onNavigate }: SidebarProps) 
         ))}
       </nav>
 
+      {/* Admin/User mode switch */}
+      {user.role === "admin" && (
+        <div className="px-2 pt-3 border-t border-black/5">
+          <button
+            onClick={onToggleMode}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs border border-black/10 hover:bg-black/[0.04]"
+            title="Switch between user mode and admin mode"
+          >
+            <span>{isAdminView ? "🛡️ Admin mode" : "👤 User mode"}</span>
+            <span className="text-[#8e8e8e]">Switch</span>
+          </button>
+        </div>
+      )}
+
       {/* User */}
-      <div className="px-2 py-3 border-t border-black/5">
+      <div className="px-2 py-3">
         <div className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-black/[0.04] transition-colors">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold ${
             user.role === "admin"
