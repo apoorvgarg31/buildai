@@ -87,12 +87,14 @@ export async function addAgentToConfig(
 
   writeConfig(config);
 
-  // Write agent-specific env file with API key if provided
+  // Write agent-specific credentials if API key is provided.
   if (opts.apiKey) {
+    const provider = (opts.model || 'google/gemini-2.0-flash').split('/')[0];
+
+    // 1) Legacy env file (kept for compatibility)
     const envDir = path.resolve(path.dirname(CONFIG_PATH), '../../data/agent-env');
     if (!fs.existsSync(envDir)) fs.mkdirSync(envDir, { recursive: true });
     const envPath = path.join(envDir, `${agentId}.env`);
-    const provider = (opts.model || 'google/gemini-2.0-flash').split('/')[0];
     const envLines: string[] = [];
     if (provider === 'anthropic') {
       envLines.push(`ANTHROPIC_API_KEY=${opts.apiKey}`);
@@ -101,11 +103,40 @@ export async function addAgentToConfig(
     } else if (provider === 'google') {
       envLines.push(`GEMINI_API_KEY=${opts.apiKey}`);
     } else {
-      // Generic fallback
       envLines.push(`LLM_API_KEY=${opts.apiKey}`);
     }
     fs.writeFileSync(envPath, envLines.join('\n') + '\n', 'utf-8');
-    console.log(`[engine-config] Wrote API key env for agent ${agentId} → ${envPath}`);
+
+    // 2) First-class OpenClaw auth store (what the agent runtime actually reads)
+    const stateDir = path.resolve(path.dirname(CONFIG_PATH), '.clawdbot-state');
+    const authDir = path.join(stateDir, 'agents', agentId, 'agent');
+    const authPath = path.join(authDir, 'auth-profiles.json');
+    if (!fs.existsSync(authDir)) fs.mkdirSync(authDir, { recursive: true });
+
+    type AuthFile = {
+      version: number;
+      profiles: Record<string, { type: string; provider: string; token?: string; access?: string; refresh?: string }>;
+    };
+
+    let authFile: AuthFile = { version: 1, profiles: {} };
+    try {
+      if (fs.existsSync(authPath)) {
+        authFile = JSON.parse(fs.readFileSync(authPath, 'utf-8')) as AuthFile;
+        if (!authFile.version) authFile.version = 1;
+        if (!authFile.profiles) authFile.profiles = {};
+      }
+    } catch {
+      authFile = { version: 1, profiles: {} };
+    }
+
+    authFile.profiles[`${provider}:default`] = {
+      type: 'token',
+      provider,
+      token: opts.apiKey,
+    };
+
+    fs.writeFileSync(authPath, JSON.stringify(authFile, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 });
+    console.log(`[engine-config] Wrote auth profile for agent ${agentId} (${provider}) → ${authPath}`);
   }
 
   await reloadEngine();

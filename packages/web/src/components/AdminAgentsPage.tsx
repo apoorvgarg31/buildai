@@ -33,6 +33,7 @@ export default function AdminAgentsPage() {
   const [formModel, setFormModel] = useState("google/gemini-2.0-flash");
   const [formApiKey, setFormApiKey] = useState("");
   const [selectedConnections, setSelectedConnections] = useState<string[]>([]);
+  const [formApiKey, setFormApiKey] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
 
@@ -223,7 +224,7 @@ export default function AdminAgentsPage() {
 
             <div className="flex justify-end gap-2 mt-6">
               <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-[13px] text-[#8e8e8e] hover:text-[#171717] transition-colors rounded-lg hover:bg-black/[0.04]">Cancel</button>
-              <button onClick={handleCreate} disabled={!formName || creating}
+              <button onClick={handleCreate} disabled={!formName || !formApiKey || creating}
                 className="px-4 py-2 bg-[#171717] hover:bg-[#333] text-white text-[13px] font-semibold rounded-lg transition-colors disabled:opacity-50">
                 {creating ? "Creating..." : "Create Agent"}
               </button>

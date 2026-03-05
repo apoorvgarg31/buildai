@@ -37,6 +37,9 @@ export async function POST(request: NextRequest) {
     if (!name) {
       return NextResponse.json({ error: 'name is required' }, { status: 400 });
     }
+    if (!apiKey) {
+      return NextResponse.json({ error: 'apiKey is required' }, { status: 400 });
+    }
 
     const agentId = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const workspaceDir = await provisionWorkspace(agentId);
