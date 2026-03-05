@@ -9,6 +9,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getGatewayClient } from '@/lib/gateway-client';
+import fs from 'fs';
+import path from 'path';
 
 export interface ChatRequest {
   message: string;
@@ -19,6 +21,35 @@ export interface ChatRequest {
 function resolveSessionKey(sessionId?: string): string {
   const id = sessionId || `buildai-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
   return id.startsWith('webchat:') || id.startsWith('agent:') ? id : `webchat:${id}`;
+}
+
+function parseAgentIdFromSessionKey(sessionKey: string): string | null {
+  const m = /^agent:([^:]+):/.exec(sessionKey);
+  return m?.[1] || null;
+}
+
+function listRecentArtifacts(agentId: string, startMs: number): Array<{ name: string; size: number; createdAt: string }> {
+  try {
+    const artifactsDir = path.resolve(process.cwd(), `../../workspaces/${agentId}/artifacts`);
+    if (!fs.existsSync(artifactsDir)) return [];
+    return fs
+      .readdirSync(artifactsDir)
+      .map((name) => {
+        const fp = path.join(artifactsDir, name);
+        const st = fs.statSync(fp);
+        if (!st.isFile()) return null;
+        return { name, size: st.size, createdAt: st.mtime.toISOString(), mtime: st.mtimeMs };
+      })
+      .filter(Boolean)
+      .filter((x) => (x as { mtime: number }).mtime >= startMs - 1000)
+      .map((x) => ({
+        name: (x as { name: string }).name,
+        size: (x as { size: number }).size,
+        createdAt: (x as { createdAt: string }).createdAt,
+      }));
+  } catch {
+    return [];
+  }
 }
 
 export async function POST(request: NextRequest): Promise<Response> {
@@ -47,6 +78,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       const stream = new ReadableStream({
         async start(controller) {
           try {
+            const startedAtMs = Date.now();
             const client = getGatewayClient();
             const result = await client.chatSendStream(
               sessionKey,
@@ -73,6 +105,16 @@ export async function POST(request: NextRequest): Promise<Response> {
               const finalDelta = JSON.stringify({ type: 'delta', text: result.response });
               controller.enqueue(encoder.encode(`data: ${finalDelta}\n\n`));
             }
+            // Emit generated artifacts for this turn (if any)
+            const agentId = parseAgentIdFromSessionKey(sessionKey);
+            if (agentId) {
+              const artifacts = listRecentArtifacts(agentId, startedAtMs);
+              if (artifacts.length > 0) {
+                const artifactEvt = JSON.stringify({ type: 'artifacts', artifacts });
+                controller.enqueue(encoder.encode(`data: ${artifactEvt}\n\n`));
+              }
+            }
+
             // Send done event
             const done = JSON.stringify({ type: 'done', sessionId: rawSessionId });
             controller.enqueue(encoder.encode(`data: ${done}\n\n`));

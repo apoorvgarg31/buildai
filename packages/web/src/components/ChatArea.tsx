@@ -22,6 +22,7 @@ async function sendChatMessageStream(
   onDelta: (text: string) => void,
   onThinking?: (text: string) => void,
   onTool?: (name: string) => void,
+  onArtifacts?: (artifacts: Array<{ name: string; size: number; createdAt: string }>) => void,
 ): Promise<{ sessionId: string }> {
   const res = await fetch("/api/chat", {
     method: "POST",
@@ -59,6 +60,8 @@ async function sendChatMessageStream(
           onThinking(data.text);
         } else if (data.type === "tool" && data.name && onTool) {
           onTool(data.name);
+        } else if (data.type === "artifacts" && Array.isArray(data.artifacts) && onArtifacts) {
+          onArtifacts(data.artifacts);
         } else if (data.type === "done") {
           returnedSessionId = data.sessionId || returnedSessionId;
         } else if (data.type === "error") {
@@ -90,6 +93,7 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
   );
   const [engineStatus, setEngineStatus] = useState<"mock" | "connected" | "checking">("checking");
   const [documents, setDocuments] = useState<UploadedDoc[]>([]);
+  const [artifacts, setArtifacts] = useState<Array<{ name: string; size: number; createdAt: string }>>([]);
   const [showDocPanel, setShowDocPanel] = useState(false);
   const [hasOnboarded, setHasOnboarded] = useState(false);
   const [visibleCount, setVisibleCount] = useState(120);
@@ -127,6 +131,17 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
       setHasOnboarded(false);
     }
   }, [agentId, sessionId, messages.length]);
+
+  // Load artifact history for the assigned agent.
+  useEffect(() => {
+    if (!agentId) return;
+    fetch(`/api/artifacts?agentId=${encodeURIComponent(agentId)}`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (Array.isArray(data)) setArtifacts(data);
+      })
+      .catch(() => undefined);
+  }, [agentId]);
 
   // Load chat history from engine on mount, fall back to welcome message
   useEffect(() => {
@@ -298,6 +313,16 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
           },
           (toolName) => {
             setActiveTools((prev) => (prev.includes(toolName) ? prev : [...prev, toolName]));
+          },
+          (newArtifacts) => {
+            setArtifacts((prev) => {
+              const existing = new Set(prev.map((a) => a.name));
+              const merged = [...prev];
+              for (const a of newArtifacts) {
+                if (!existing.has(a.name)) merged.unshift(a);
+              }
+              return merged;
+            });
           }
         );
 
@@ -322,6 +347,7 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
   );
 
   const docCount = documents.filter((d) => d.status === "done").length;
+  const artifactCount = artifacts.length;
 
   const visibleMessages = useMemo(() => {
     if (messages.length <= visibleCount) return messages;
@@ -492,6 +518,25 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
           </div>
           <div ref={messagesEndRef} />
         </div>
+
+        {artifactCount > 0 && agentId && (
+          <div className="px-4 py-2 border-t border-black/5 bg-[#fafafa]">
+            <div className="max-w-[680px] mx-auto">
+              <p className="text-[11px] text-[#8e8e8e] mb-1">Generated artifacts ({artifactCount})</p>
+              <div className="flex flex-wrap gap-2">
+                {artifacts.map((a) => (
+                  <a
+                    key={a.name}
+                    href={`/api/artifacts/${encodeURIComponent(a.name)}?agentId=${encodeURIComponent(agentId)}`}
+                    className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-white border border-[#e5e5e5] hover:border-[#b4b4b4] text-[#171717]"
+                  >
+                    {a.name}
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Input */}
         <ChatInput onSend={handleSend} onFilesAttached={addDocuments} disabled={isLoading} />
