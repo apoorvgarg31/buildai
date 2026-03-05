@@ -33,7 +33,6 @@ export default function AdminAgentsPage() {
   const [formModel, setFormModel] = useState("google/gemini-2.0-flash");
   const [formApiKey, setFormApiKey] = useState("");
   const [selectedConnections, setSelectedConnections] = useState<string[]>([]);
-  const [formApiKey, setFormApiKey] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
 
