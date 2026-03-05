@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
+import { isConfiguredSuperadmin } from '@/lib/api-guard';
 
 /**
  * GET /api/me — returns the current user's role + agent assignment.
@@ -62,6 +63,7 @@ export async function GET() {
       email: row!.email,
       name: row!.name,
       role: row!.role,
+      isSuperadmin: isConfiguredSuperadmin(row!.id, row!.email || ''),
       agentId: row!.agent_id || null,
     });
   } catch (err) {

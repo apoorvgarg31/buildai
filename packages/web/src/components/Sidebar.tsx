@@ -21,6 +21,12 @@ const adminNav: NavItem[] = [
   { name: "Settings", icon: "⚙️", page: "settings" },
 ];
 
+const superadminNav: NavItem[] = [
+  { name: "Organizations", icon: "🏢", page: "orgs" },
+  { name: "Users", icon: "👥", page: "users" },
+  { name: "Settings", icon: "⚙️", page: "settings" },
+];
+
 const userNav: NavItem[] = [
   { name: "Chat", icon: "💬", page: "chat" },
   { name: "Artifacts", icon: "🗂️", page: "artifacts" },
@@ -34,22 +40,24 @@ const userNav: NavItem[] = [
 
 export type UserPage = "chat" | "artifacts" | "schedule" | "watchlist" | "personality" | "marketplace" | "usage" | "settings";
 export type AdminPage = "dashboard" | "users" | "agents" | "connections";
-export type Page = UserPage | AdminPage;
+export type SuperadminPage = "orgs";
+export type Page = UserPage | AdminPage | SuperadminPage;
 
 interface SidebarProps {
   user: BuildAIUser;
   activePage?: Page;
   onNavigate?: (page: Page) => void;
-  mode?: "user" | "admin";
+  mode?: "user" | "admin" | "superadmin";
   onToggleMode?: () => void;
 }
 
 export default function Sidebar({ user, activePage, onNavigate, mode = "user", onToggleMode }: SidebarProps) {
   const { signOut } = useClerk();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const isSuperadminView = !!user.isSuperadmin && mode === "superadmin";
   const isAdminView = user.role === "admin" && mode === "admin";
-  const navigation = isAdminView ? adminNav : userNav;
-  const defaultPage: Page = isAdminView ? "dashboard" : "chat";
+  const navigation = isSuperadminView ? superadminNav : (isAdminView ? adminNav : userNav);
+  const defaultPage: Page = isSuperadminView ? "orgs" : (isAdminView ? "dashboard" : "chat");
   const currentPage = activePage ?? defaultPage;
 
   const sidebarContent = (
@@ -62,7 +70,7 @@ export default function Sidebar({ user, activePage, onNavigate, mode = "user", o
         <div>
           <p className="text-sm font-semibold text-[#171717] leading-none">BuildAI</p>
           <p className="text-[10px] text-[#8e8e8e] mt-0.5">
-            {isAdminView ? "Admin Console" : "PM Assistant"}
+            {isSuperadminView ? "Super Admin" : (isAdminView ? "Admin Console" : "PM Assistant")}
           </p>
         </div>
       </div>
@@ -89,14 +97,14 @@ export default function Sidebar({ user, activePage, onNavigate, mode = "user", o
       </nav>
 
       {/* Admin/User mode switch */}
-      {user.role === "admin" && (
+      {(user.role === "admin" || user.isSuperadmin) && (
         <div className="px-2 pt-3 border-t border-black/5">
           <button
             onClick={onToggleMode}
             className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs border border-black/10 hover:bg-black/[0.04]"
-            title="Switch between user mode and admin mode"
+            title="Switch mode"
           >
-            <span>{isAdminView ? "🛡️ Admin mode" : "👤 User mode"}</span>
+            <span>{isSuperadminView ? "🧠 Superadmin mode" : (isAdminView ? "🛡️ Admin mode" : "👤 User mode")}</span>
             <span className="text-[#8e8e8e]">Switch</span>
           </button>
         </div>

@@ -17,10 +17,11 @@ import PersonalityStudio from "@/components/PersonalityStudio";
 import WatchlistPage from "@/components/WatchlistPage";
 import SchedulePage from "@/components/SchedulePage";
 import ArtifactsPage from "@/components/ArtifactsPage";
+import SuperadminOrgsPage from "@/components/SuperadminOrgsPage";
 
 export default function Home() {
   const { user, isLoaded } = useCurrentUser();
-  const [mode, setMode] = useState<"user" | "admin">("user");
+  const [mode, setMode] = useState<"user" | "admin" | "superadmin">("user");
   const [activePage, setActivePage] = useState<Page>("chat");
 
   if (!isLoaded) {
@@ -42,6 +43,19 @@ export default function Home() {
   }
 
   const renderPage = () => {
+    if (mode === "superadmin" && user.isSuperadmin) {
+      switch (activePage) {
+        case "orgs":
+          return <SuperadminOrgsPage />;
+        case "users":
+          return <AdminUsersPage />;
+        case "settings":
+          return <AdminSettingsPage />;
+        default:
+          return <SuperadminOrgsPage />;
+      }
+    }
+
     // User mode pages (admins can use these too)
     if (mode === "user" || user.role !== "admin") {
       switch (activePage) {
@@ -91,10 +105,18 @@ export default function Home() {
         onNavigate={setActivePage}
         mode={mode}
         onToggleMode={() => {
-          if (user.role !== "admin") return;
-          const nextMode = mode === "admin" ? "user" : "admin";
+          const hasAdmin = user.role === "admin";
+          const hasSuper = !!user.isSuperadmin;
+          if (!hasAdmin && !hasSuper) return;
+
+          const order: Array<"user" | "admin" | "superadmin"> = hasSuper
+            ? (hasAdmin ? ["user", "admin", "superadmin"] : ["user", "superadmin"])
+            : ["user", "admin"];
+
+          const idx = order.indexOf(mode);
+          const nextMode = order[(idx + 1) % order.length];
           setMode(nextMode);
-          setActivePage(nextMode === "admin" ? "dashboard" : "chat");
+          setActivePage(nextMode === "admin" ? "dashboard" : nextMode === "superadmin" ? "orgs" : "chat");
         }}
       />
       <main className="flex-1 min-w-0">

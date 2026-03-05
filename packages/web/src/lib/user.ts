@@ -10,6 +10,7 @@ export interface BuildAIUser {
   email: string;
   name: string;
   role: Role;
+  isSuperadmin?: boolean;
   title: string;
   avatar: string;      // initials
   agentId?: string;    // assigned agent
@@ -35,6 +36,7 @@ export function useCurrentUser(): { user: BuildAIUser | null; isLoaded: boolean 
     email: string;
     name: string;
     role: Role;
+    isSuperadmin?: boolean;
     agentId: string | null;
   } | null>(null);
   const [meLoaded, setMeLoaded] = useState(false);
@@ -54,6 +56,7 @@ export function useCurrentUser(): { user: BuildAIUser | null; isLoaded: boolean 
             email: data.email || clerkUser.primaryEmailAddress?.emailAddress || '',
             name: data.name || clerkUser.fullName || clerkUser.firstName || 'User',
             role: data.role === 'admin' ? 'admin' : 'user',
+            isSuperadmin: !!data.isSuperadmin,
             agentId: data.agentId || null,
           });
         }
@@ -80,6 +83,7 @@ export function useCurrentUser(): { user: BuildAIUser | null; isLoaded: boolean 
       name: meData.name,
       role: meData.role,
       title,
+      isSuperadmin: !!meData.isSuperadmin,
       avatar: getInitials(meData.name),
       agentId: meData.agentId || undefined,
     },
