@@ -24,6 +24,7 @@ vi.mock('fs', () => ({
 vi.mock('@/lib/api-guard', () => ({
   requireSignedIn: vi.fn(async () => ({ userId: 'u1', role: 'user', agentId: 'agent-a', email: 'u@example.com' })),
   canAccessAgent: vi.fn(() => true),
+  getAgentOrgId: vi.fn(() => 'org-1'),
 }));
 
 vi.mock('@/lib/security', () => ({
@@ -32,6 +33,10 @@ vi.mock('@/lib/security', () => ({
     if (base.startsWith('/virtual/')) return `${base}/${parts.join('/')}`;
     return `/virtual/${parts.join('/')}`;
   }),
+}));
+
+vi.mock('@/lib/admin-db', () => ({
+  writeAuditEvent: vi.fn(),
 }));
 
 import { GET as listFiles } from '../src/app/api/files/route';
