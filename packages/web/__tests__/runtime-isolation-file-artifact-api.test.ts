@@ -41,6 +41,11 @@ vi.mock('@/lib/api-guard', () => ({
     orgId: 'org-a',
   })),
   canAccessAgent: vi.fn(() => true),
+  getAgentOrgId: vi.fn(() => 'org-a'),
+}));
+
+vi.mock('@/lib/admin-db', () => ({
+  writeAuditEvent: vi.fn(),
 }));
 
 import { GET as listFiles } from '../src/app/api/files/route';

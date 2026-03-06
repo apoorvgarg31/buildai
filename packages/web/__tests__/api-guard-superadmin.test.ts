@@ -14,6 +14,7 @@ vi.mock('@/lib/admin-db-server', () => ({
 describe('api-guard superadmin/authz behavior (OA-2/OA-3)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.BUILDAI_SUPERADMINS = 'admin@example.com';
   });
 
   it('AC-OA2-10 requireSuperadmin allows admin actor', async () => {
@@ -40,7 +41,7 @@ describe('api-guard superadmin/authz behavior (OA-2/OA-3)', () => {
     });
 
     const guard = await import('../src/lib/api-guard');
-    await expect(guard.requireSuperadmin()).rejects.toThrow('FORBIDDEN');
+    await expect(guard.requireSuperadmin()).rejects.toThrow('FORBIDDEN_SUPERADMIN');
   });
 
   it('AC-OA2-12 requireSuperadmin rejects missing session', async () => {

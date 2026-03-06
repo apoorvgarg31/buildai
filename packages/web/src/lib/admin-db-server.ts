@@ -89,7 +89,7 @@ function initSchema(db: Database.Database) {
     CREATE TABLE IF NOT EXISTS organization_memberships (
       organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner','admin','member')),
+      role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner','admin','maintainer','reviewer','member','auditor')),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       PRIMARY KEY (organization_id, user_id)

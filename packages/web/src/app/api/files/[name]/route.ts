@@ -1,64 +1,45 @@
-import { NextRequest, NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
-import { canAccessAgent, requireSignedIn } from '@/lib/api-guard';
+import { NextRequest, NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
+import { canAccessAgent, getAgentOrgId, requireSignedIn } from '@/lib/api-guard';
 import { isValidAgentId, safeJoinWithin } from '@/lib/security';
+import { apiError } from '@/lib/api-error';
+import { writeAuditEvent } from '@/lib/admin-db';
 
-function getWorkspaceBase(): string {
-  return path.resolve(process.cwd(), "../../workspaces");
-}
+function getWorkspaceBase(): string { return path.resolve(process.cwd(), '../../workspaces'); }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ name: string }> }
-) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ name: string }> }) {
   try {
     const actor = await requireSignedIn();
     const { name } = await params;
-    const agentId = request.nextUrl.searchParams.get("agentId");
+    const agentId = request.nextUrl.searchParams.get('agentId');
 
-    if (!agentId) {
-      return NextResponse.json({ error: "agentId is required" }, { status: 400 });
-    }
-    if (!isValidAgentId(agentId)) {
-      return NextResponse.json({ error: "Invalid agentId" }, { status: 400 });
-    }
+    if (!agentId) return apiError('validation_error', 'agentId is required', 400);
+    if (!isValidAgentId(agentId)) return apiError('validation_error', 'Invalid agentId', 400);
     if (!canAccessAgent(actor, agentId)) {
-      return NextResponse.json({ error: "Forbidden", reason: "ORG_MISMATCH" }, { status: 403 });
+      writeAuditEvent({ actorUserId: actor.userId, action: 'file.delete.denied', entityType: 'file', entityId: `${agentId}:${name}`, orgId: getAgentOrgId(agentId) || undefined, metadata: { reason: 'ORG_MISMATCH' } });
+      return apiError('forbidden_org_membership', 'Forbidden', 403, { reason: 'ORG_MISMATCH' });
     }
 
-    if (!name) {
-      return NextResponse.json({ error: "File name is required" }, { status: 400 });
-    }
+    if (!name) return apiError('validation_error', 'File name is required', 400);
 
-    const filesDir = safeJoinWithin(getWorkspaceBase(), agentId, "files");
-    if (!filesDir) {
-      return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
-    }
+    const filesDir = safeJoinWithin(getWorkspaceBase(), agentId, 'files');
+    if (!filesDir) return apiError('validation_error', 'Invalid file path', 400);
     const filePath = safeJoinWithin(filesDir, name);
-    if (!filePath) {
-      return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
-    }
-
-    if (!fs.existsSync(filePath)) {
-      return NextResponse.json({ error: "File not found" }, { status: 404 });
-    }
+    if (!filePath) return apiError('validation_error', 'Invalid file path', 400);
+    if (!fs.existsSync(filePath)) return apiError('not_found', 'File not found', 404);
 
     fs.unlinkSync(filePath);
 
     const ext = path.extname(name);
     const baseName = path.basename(name, ext);
     const extractionPath = path.join(filesDir, `${baseName}.extracted.json`);
-    if (fs.existsSync(extractionPath)) {
-      fs.unlinkSync(extractionPath);
-    }
+    if (fs.existsSync(extractionPath)) fs.unlinkSync(extractionPath);
 
     return NextResponse.json({ success: true, name });
   } catch (err) {
-    if (err instanceof Error && err.message === 'UNAUTHENTICATED') {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-    console.error("Delete error:", err);
-    return NextResponse.json({ error: "Failed to delete file" }, { status: 500 });
+    if (err instanceof Error && err.message === 'UNAUTHENTICATED') return apiError('unauthenticated', 'Not authenticated', 401);
+    console.error('Delete error:', err);
+    return apiError('internal_error', 'Failed to delete file', 500);
   }
 }

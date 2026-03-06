@@ -1,5 +1,14 @@
 SHELL := /usr/bin/env bash
-.PHONY: setup start stop restart status logs lint test test-backend build security-check fix-line-endings
+.PHONY: help setup start stop reset restart status logs lint test test-backend build security-check fix-line-endings
+
+help:
+	@echo "BuildAI local dev commands"
+	@echo "  make setup        Install deps and create web env file"
+	@echo "  make start        Start BuildAI engine + web app"
+	@echo "  make stop         Stop local BuildAI services"
+	@echo "  make reset        Stop services and wipe local runtime state/cache/log/data for a fresh start"
+	@echo "  make status       Show running status"
+	@echo "  make logs         Tail recent service logs"
 
 # Fix \r line endings on any platform (idempotent, safe to run always)
 fix-line-endings:
@@ -15,6 +24,9 @@ start: fix-line-endings
 
 stop:
 	bash scripts/dev-stop.sh
+
+reset:
+	bash scripts/dev-reset.sh
 
 restart: stop start
 

@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireActorOrgMembership, requireSuperadmin } from '@/lib/api-guard';
+import { getActorRoleInOrg, requireActorOrgMembership, requireOrgPermission, requireSuperadmin } from '@/lib/api-guard';
 import { getDb } from '@/lib/admin-db-server';
 import { upsertOrganizationMembership, writeAuditEvent } from '@/lib/admin-db';
-import crypto from 'crypto';
-
-function errorResponse(code: string, message: string, status: number, details?: unknown) {
-  return NextResponse.json({ code, message, details, requestId: crypto.randomUUID() }, { status });
-}
+import { apiError } from '@/lib/api-error';
+import { checkMutationPolicy } from '@/lib/policy';
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -23,11 +20,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     `).all(id);
     return NextResponse.json(rows);
   } catch (err) {
-    if (err instanceof Error && err.message === 'UNAUTHENTICATED') return errorResponse('unauthenticated', 'Not authenticated', 401);
-    if (err instanceof Error && (err.message === 'FORBIDDEN' || err.message === 'FORBIDDEN_SUPERADMIN')) return errorResponse('insufficient_role', 'Forbidden', 403);
-    if (err instanceof Error && err.message === 'FORBIDDEN_ORG_MEMBERSHIP') return errorResponse('forbidden_org_membership', 'Forbidden', 403, { reason: 'ORG_MEMBERSHIP_REQUIRED' });
-    console.error('List org members error:', err);
-    return errorResponse('internal_error', 'Failed to list organization members', 500);
+    if (err instanceof Error && err.message === 'UNAUTHENTICATED') return apiError('unauthenticated', 'Not authenticated', 401);
+    if (err instanceof Error && (err.message === 'FORBIDDEN' || err.message === 'FORBIDDEN_SUPERADMIN')) return apiError('insufficient_role', 'Forbidden', 403);
+    if (err instanceof Error && err.message === 'FORBIDDEN_ORG_MEMBERSHIP') return apiError('policy_blocked', 'Policy blocked this action', 403, { reason: 'ORG_MEMBERSHIP_REQUIRED' });
+    return apiError('internal_error', 'Failed to list organization members', 500);
   }
 }
 
@@ -35,30 +31,38 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     const actor = await requireSuperadmin();
     const { id } = await params;
-    requireActorOrgMembership(actor, id);
+    requireOrgPermission(actor, id, 'org.members.manage');
+
+    const policy = checkMutationPolicy({ action: 'superadmin.org.membership.upsert', actor, orgId: id, subjectType: 'organization_membership' });
+    if (!policy.allowed) {
+      writeAuditEvent({ actorUserId: actor.userId, action: 'org.membership.upsert.policy_blocked', entityType: 'organization_membership', orgId: id, metadata: policy.details });
+      return apiError('policy_blocked', 'Policy blocked this action', 403, policy.details);
+    }
+
     const body = await request.json();
     const userId = typeof body?.userId === 'string' ? body.userId : '';
-    const role = body?.role === 'owner' || body?.role === 'admin' || body?.role === 'member' ? body.role : 'member';
+    const role = (['owner', 'admin', 'maintainer', 'reviewer', 'member', 'auditor'] as const).includes(body?.role)
+      ? body.role
+      : 'member';
 
-    if (!userId) return errorResponse('validation_error', 'userId is required', 400);
+    if (!userId) return apiError('validation_error', 'userId is required', 400);
 
     const membership = upsertOrganizationMembership({ organizationId: id, userId, role });
 
-    writeAuditEvent({
-      actorUserId: actor.userId,
-      action: 'org.membership.upsert',
-      entityType: 'organization_membership',
-      entityId: `${id}:${userId}`,
-      orgId: id,
-      metadata: { role },
-    });
+    writeAuditEvent({ actorUserId: actor.userId, action: 'org.membership.upsert', entityType: 'organization_membership', entityId: `${id}:${userId}`, orgId: id, metadata: { role, actorRole: getActorRoleInOrg(actor, id) } });
 
     return NextResponse.json(membership, { status: 201 });
   } catch (err) {
-    if (err instanceof Error && err.message === 'UNAUTHENTICATED') return errorResponse('unauthenticated', 'Not authenticated', 401);
-    if (err instanceof Error && (err.message === 'FORBIDDEN' || err.message === 'FORBIDDEN_SUPERADMIN')) return errorResponse('insufficient_role', 'Forbidden', 403);
-    if (err instanceof Error && err.message === 'FORBIDDEN_ORG_MEMBERSHIP') return errorResponse('forbidden_org_membership', 'Forbidden', 403, { reason: 'ORG_MEMBERSHIP_REQUIRED' });
-    console.error('Upsert org member error:', err);
-    return errorResponse('internal_error', 'Failed to upsert organization member', 500);
+    const { id } = await params;
+    if (err instanceof Error && err.message === 'UNAUTHENTICATED') return apiError('unauthenticated', 'Not authenticated', 401);
+    if (err instanceof Error && (err.message === 'FORBIDDEN' || err.message === 'FORBIDDEN_SUPERADMIN' || err.message === 'FORBIDDEN_ORG_ROLE')) {
+      writeAuditEvent({ action: 'org.membership.upsert.denied', entityType: 'organization_membership', orgId: id, metadata: { reason: err.message } });
+      return apiError('insufficient_role', 'Forbidden', 403);
+    }
+    if (err instanceof Error && err.message === 'FORBIDDEN_ORG_MEMBERSHIP') {
+      writeAuditEvent({ action: 'org.membership.upsert.denied', entityType: 'organization_membership', orgId: id, metadata: { reason: 'ORG_MEMBERSHIP_REQUIRED' } });
+      return apiError('policy_blocked', 'Policy blocked this action', 403, { reason: 'ORG_MEMBERSHIP_REQUIRED' });
+    }
+    return apiError('internal_error', 'Failed to upsert organization member', 500);
   }
 }

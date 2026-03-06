@@ -105,7 +105,7 @@ function initSchema(db: Database.Database) {
     CREATE TABLE IF NOT EXISTS organization_memberships (
       organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner','admin','member')),
+      role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner','admin','maintainer','reviewer','member','auditor')),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       PRIMARY KEY (organization_id, user_id)
@@ -460,7 +460,7 @@ export interface Organization {
 export interface OrganizationMembership {
   organization_id: string;
   user_id: string;
-  role: 'owner' | 'admin' | 'member';
+  role: 'owner' | 'admin' | 'maintainer' | 'reviewer' | 'member' | 'auditor';
   created_at: string;
   updated_at: string;
 }
@@ -503,7 +503,7 @@ export function createOrganization(data: {
 export function upsertOrganizationMembership(data: {
   organizationId: string;
   userId: string;
-  role: 'owner' | 'admin' | 'member';
+  role: 'owner' | 'admin' | 'maintainer' | 'reviewer' | 'member' | 'auditor';
 }): OrganizationMembership {
   const db = getDb();
   db.prepare(`
