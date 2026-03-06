@@ -28,6 +28,11 @@ Thumbs.db
 *.log
 npm-debug.log*
 
+# Local runtime/process artifacts
+.run/
+packages/engine/.clawdbot-state/
+packages/engine/.clawdbot-home/
+
 # Test coverage
 coverage/
 .nyc_output/
@@ -46,10 +51,9 @@ workspaces/*/skills/*/.env
 # Local engine config overrides (machine-specific)
 packages/engine/buildai.config.local.json5
 
-# Admin DB (generated)
-data/*.db
-data/*.db-shm
-data/*.db-wal
+# Admin DB / local data (generated)
+data/*
+!data/.gitkeep
 
 # Generated agent workspaces (only templates should be committed)
 workspaces/*/
