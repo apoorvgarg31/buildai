@@ -10,6 +10,7 @@ import AdminUsersPage from "@/components/AdminUsersPage";
 import AdminAgentsPage from "@/components/AdminAgentsPage";
 import AdminConnectionsPage from "@/components/AdminConnectionsPage";
 import AdminSettingsPage from "@/components/AdminSettingsPage";
+import AdminOrgSkillsPage from "@/components/AdminOrgSkillsPage";
 import MarketplacePage from "@/components/MarketplacePage";
 import UsagePage from "@/components/UsagePage";
 import SettingsPage from "@/components/SettingsPage";
@@ -84,12 +85,20 @@ export default function Home() {
     switch (activePage) {
       case "dashboard":
         return <AdminDashboard user={user} />;
+      case "chat":
+        return <ChatArea agentId={user.agentId} />;
+      case "artifacts":
+        return <ArtifactsPage agentId={user.agentId} />;
       case "users":
         return <AdminUsersPage />;
       case "agents":
         return <AdminAgentsPage />;
       case "connections":
         return <AdminConnectionsPage />;
+      case "org-skills":
+        return <AdminOrgSkillsPage />;
+      case "marketplace":
+        return <MarketplacePage />;
       case "settings":
         return <AdminSettingsPage />;
       default:

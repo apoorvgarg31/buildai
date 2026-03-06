@@ -5,6 +5,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NextRequest } from 'next/server';
 
+vi.mock('../src/lib/api-guard', () => ({
+  requireSignedIn: vi.fn(async () => ({
+    userId: 'user-1',
+    role: 'user',
+    agentId: 'agent-1',
+    email: 'u@example.com',
+    isSuperadmin: false,
+    orgId: 'org-1',
+  })),
+  assertCanAccessAgent: vi.fn(() => undefined),
+}));
+
+vi.mock('../src/lib/admin-db', () => ({
+  writeAuditEvent: vi.fn(),
+}));
+
 vi.mock('../src/lib/gateway-client', () => {
   const mockClient = {
     isConnected: true,
@@ -69,7 +85,7 @@ describe('/api/chat', () => {
       const response = await POST(req as unknown as NextRequest);
       const data = await response.json();
 
-      expect(data.sessionId).toBe('test-session-123');
+      expect(data.sessionId).toBe('webchat:user-1:test-session-123');
       expect(data.timestamp).toBeDefined();
       expect(new Date(data.timestamp).toISOString()).toBe(data.timestamp);
     });

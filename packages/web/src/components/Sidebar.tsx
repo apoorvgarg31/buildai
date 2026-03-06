@@ -17,6 +17,7 @@ const adminNav: NavItem[] = [
   { name: "Users", icon: "👥", page: "users" },
   { name: "Agents", icon: "🤖", page: "agents" },
   { name: "Connections", icon: "🔗", page: "connections" },
+  { name: "Org Skills", icon: "🧩", page: "org-skills" },
   { name: "Marketplace", icon: "🛍️", page: "marketplace" },
   { name: "Settings", icon: "⚙️", page: "settings" },
 ];
@@ -39,7 +40,7 @@ const userNav: NavItem[] = [
 ];
 
 export type UserPage = "chat" | "artifacts" | "schedule" | "watchlist" | "personality" | "marketplace" | "usage" | "settings";
-export type AdminPage = "dashboard" | "users" | "agents" | "connections";
+export type AdminPage = "dashboard" | "users" | "agents" | "connections" | "org-skills";
 export type SuperadminPage = "orgs";
 export type Page = UserPage | AdminPage | SuperadminPage;
 

@@ -8,6 +8,22 @@ const mockClient = {
   chatSendStream: mockChatSendStream,
 };
 
+vi.mock('../src/lib/api-guard', () => ({
+  requireSignedIn: vi.fn(async () => ({
+    userId: 'user-1',
+    role: 'user',
+    agentId: 'agent-1',
+    email: 'u@example.com',
+    isSuperadmin: false,
+    orgId: 'org-1',
+  })),
+  assertCanAccessAgent: vi.fn(() => undefined),
+}));
+
+vi.mock('../src/lib/admin-db', () => ({
+  writeAuditEvent: vi.fn(),
+}));
+
 vi.mock('../src/lib/gateway-client', () => ({
   getGatewayClient: vi.fn(() => mockClient),
 }));

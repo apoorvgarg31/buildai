@@ -9,6 +9,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getGatewayClient } from '@/lib/gateway-client';
+import { assertCanAccessAgent, requireSignedIn } from '@/lib/api-guard';
+import { apiError } from '@/lib/api-error';
+import { writeAuditEvent } from '@/lib/admin-db';
 import fs from 'fs';
 import path from 'path';
 
@@ -18,14 +21,46 @@ export interface ChatRequest {
   stream?: boolean;
 }
 
-function resolveSessionKey(sessionId?: string): string {
-  const id = sessionId || `buildai-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-  return id.startsWith('webchat:') || id.startsWith('agent:') ? id : `webchat:${id}`;
+function randomSuffix(): string {
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 }
 
 function parseAgentIdFromSessionKey(sessionKey: string): string | null {
   const m = /^agent:([^:]+):/.exec(sessionKey);
   return m?.[1] || null;
+}
+
+function resolveSessionKey(rawSessionId: string | undefined, userId: string): string {
+  const id = (rawSessionId || '').trim();
+  if (!id) return `webchat:${userId}:${randomSuffix()}`;
+
+  // Keep explicit engine session keys if provided, but normalize generic webchat ids
+  if (id.startsWith('agent:')) return id;
+  if (id.startsWith('webchat:')) {
+    const parts = id.split(':');
+    // Force webchat sessions into per-user namespace to block cross-user/session abuse
+    if (parts.length >= 3) {
+      return parts[1] === userId ? id : `webchat:${userId}:${parts.slice(2).join(':')}`;
+    }
+    return `webchat:${userId}:${parts.slice(1).join(':') || randomSuffix()}`;
+  }
+
+  return `webchat:${userId}:${id}`;
+}
+
+function canUseSessionKey(sessionKey: string, actor: Awaited<ReturnType<typeof requireSignedIn>>): boolean {
+  const agentId = parseAgentIdFromSessionKey(sessionKey);
+  if (agentId) {
+    try {
+      assertCanAccessAgent(actor, agentId);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // webchat sessions are strictly namespaced per user
+  return sessionKey.startsWith(`webchat:${actor.userId}:`);
 }
 
 function listRecentArtifacts(agentId: string, startMs: number): Array<{ name: string; size: number; createdAt: string }> {
@@ -53,27 +88,39 @@ function listRecentArtifacts(agentId: string, startMs: number): Array<{ name: st
 }
 
 export async function POST(request: NextRequest): Promise<Response> {
+  let actor: Awaited<ReturnType<typeof requireSignedIn>> | null = null;
   try {
+    actor = await requireSignedIn();
     const body = (await request.json()) as ChatRequest;
 
     if (!body.message || typeof body.message !== 'string') {
-      return NextResponse.json({ error: 'Missing or invalid "message" field' }, { status: 400 });
+      return apiError('validation_error', 'Missing or invalid "message" field', 400);
     }
 
     const message = body.message.trim();
     if (message.length === 0) {
-      return NextResponse.json({ error: 'Message cannot be empty' }, { status: 400 });
+      return apiError('validation_error', 'Message cannot be empty', 400);
     }
     if (message.length > 10000) {
-      return NextResponse.json({ error: 'Message too long (max 10000 characters)' }, { status: 400 });
+      return apiError('validation_error', 'Message too long (max 10000 characters)', 400);
     }
 
-    const rawSessionId = body.sessionId || `buildai-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-    const sessionKey = resolveSessionKey(rawSessionId);
+    const sessionKey = resolveSessionKey(body.sessionId, actor.userId);
+    if (!canUseSessionKey(sessionKey, actor)) {
+      writeAuditEvent({
+        actorUserId: actor.userId,
+        action: 'chat.send.denied',
+        entityType: 'chat_session',
+        entityId: sessionKey,
+        orgId: actor.orgId || undefined,
+        metadata: { reason: 'SESSION_OWNERSHIP_VIOLATION' },
+      });
+      return apiError('forbidden_session', 'Forbidden', 403, { reason: 'SESSION_OWNERSHIP_VIOLATION' });
+    }
+
     const useStream = body.stream !== false; // default to streaming
 
     if (useStream) {
-      // SSE streaming response
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         async start(controller) {
@@ -84,7 +131,6 @@ export async function POST(request: NextRequest): Promise<Response> {
               sessionKey,
               message,
               (delta) => {
-                // Send delta as SSE event (gateway sends cumulative text)
                 const data = JSON.stringify({ type: 'delta', text: delta });
                 controller.enqueue(encoder.encode(`data: ${data}\n\n`));
               },
@@ -99,13 +145,12 @@ export async function POST(request: NextRequest): Promise<Response> {
                 }
               },
             );
-            // Always send the final full text as the last delta
-            // (gateway throttles deltas to 150ms, so the last delta may be truncated)
+
             if (result.response) {
               const finalDelta = JSON.stringify({ type: 'delta', text: result.response });
               controller.enqueue(encoder.encode(`data: ${finalDelta}\n\n`));
             }
-            // Emit generated artifacts for this turn (if any)
+
             const agentId = parseAgentIdFromSessionKey(sessionKey);
             if (agentId) {
               const artifacts = listRecentArtifacts(agentId, startedAtMs);
@@ -115,8 +160,7 @@ export async function POST(request: NextRequest): Promise<Response> {
               }
             }
 
-            // Send done event
-            const done = JSON.stringify({ type: 'done', sessionId: rawSessionId });
+            const done = JSON.stringify({ type: 'done', sessionId: sessionKey });
             controller.enqueue(encoder.encode(`data: ${done}\n\n`));
             controller.close();
           } catch (err) {
@@ -132,30 +176,41 @@ export async function POST(request: NextRequest): Promise<Response> {
         headers: {
           'Content-Type': 'text/event-stream',
           'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
+          Connection: 'keep-alive',
         },
       });
     }
 
-    // Non-streaming: wait for full response
     const client = getGatewayClient();
     const result = await client.chatSend(sessionKey, message);
 
     return NextResponse.json({
       response: result.response,
-      sessionId: rawSessionId,
+      sessionId: sessionKey,
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHENTICATED') {
+      return apiError('unauthenticated', 'Not authenticated', 401);
+    }
+
     console.error('Chat API error:', err);
-    return NextResponse.json(
-      { error: 'Failed to reach AI engine. Please try again.' },
-      { status: 502 },
-    );
+    return apiError('chat_gateway_error', 'Failed to reach AI engine. Please try again.', 502, {
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 
 export async function GET(): Promise<NextResponse> {
+  try {
+    await requireSignedIn();
+  } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHENTICATED') {
+      return apiError('unauthenticated', 'Not authenticated', 401);
+    }
+    return apiError('internal_error', 'Failed to validate user', 500);
+  }
+
   let engineConnected = false;
   try {
     const client = getGatewayClient();

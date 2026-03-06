@@ -21,12 +21,15 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  let actor: Awaited<ReturnType<typeof requireAdmin>> | null = null;
+  let body: unknown;
+
   try {
-    const actor = await requireAdmin();
-    const body = await request.json();
-    const orgId = typeof body?.orgId === 'string' ? body.orgId : actor.orgId;
-    const skillId = typeof body?.skillId === 'string' ? body.skillId : '';
-    const required = body?.required !== false;
+    actor = await requireAdmin();
+    body = await request.json();
+    const orgId = typeof (body as { orgId?: unknown })?.orgId === 'string' ? (body as { orgId: string }).orgId : actor.orgId;
+    const skillId = typeof (body as { skillId?: unknown })?.skillId === 'string' ? (body as { skillId: string }).skillId : '';
+    const required = (body as { required?: unknown })?.required !== false;
 
     if (!orgId) return apiError('validation_error', 'orgId is required', 400);
     if (!skillId) return apiError('validation_error', 'skillId is required', 400);
@@ -37,20 +40,31 @@ export async function POST(request: NextRequest) {
     writeAuditEvent({ actorUserId: actor.userId, action: 'org.skill.assignment.upsert', entityType: 'org_skill_assignment', entityId: `${orgId}:${skillId}`, orgId, metadata: { required } });
     return NextResponse.json(assignment, { status: 201 });
   } catch (err) {
+    const parsedBody = (body && typeof body === 'object') ? body as { orgId?: unknown } : {};
+    const targetOrgId = typeof parsedBody.orgId === 'string' ? parsedBody.orgId : actor?.orgId || undefined;
+
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') return apiError('unauthenticated', 'Not authenticated', 401);
-    if (err instanceof Error && (err.message === 'FORBIDDEN' || err.message === 'FORBIDDEN_ORG_ROLE' || err.message === 'FORBIDDEN_ORG_MEMBERSHIP')) {
-      return apiError('insufficient_role', 'Forbidden', 403);
+    if (err instanceof Error && err.message === 'FORBIDDEN_ORG_ROLE') {
+      writeAuditEvent({ actorUserId: actor?.userId, action: 'org.skill.assignment.upsert.policy_blocked', entityType: 'org_skill_assignment', orgId: targetOrgId, metadata: { reason: err.message } });
+      return apiError('policy_blocked', 'Request blocked by policy', 403, { reason: err.message });
+    }
+    if (err instanceof Error && (err.message === 'FORBIDDEN' || err.message === 'FORBIDDEN_ORG_MEMBERSHIP')) {
+      writeAuditEvent({ actorUserId: actor?.userId, action: 'org.skill.assignment.upsert.denied', entityType: 'org_skill_assignment', orgId: targetOrgId, metadata: { reason: err.message } });
+      return apiError('policy_blocked', 'Request blocked by policy', 403, { reason: err.message });
     }
     return apiError('internal_error', 'Failed to assign org skill', 500);
   }
 }
 
 export async function DELETE(request: NextRequest) {
+  let actor: Awaited<ReturnType<typeof requireAdmin>> | null = null;
+  let body: unknown;
+
   try {
-    const actor = await requireAdmin();
-    const body = await request.json();
-    const orgId = typeof body?.orgId === 'string' ? body.orgId : actor.orgId;
-    const skillId = typeof body?.skillId === 'string' ? body.skillId : '';
+    actor = await requireAdmin();
+    body = await request.json();
+    const orgId = typeof (body as { orgId?: unknown })?.orgId === 'string' ? (body as { orgId: string }).orgId : actor.orgId;
+    const skillId = typeof (body as { skillId?: unknown })?.skillId === 'string' ? (body as { skillId: string }).skillId : '';
 
     if (!orgId) return apiError('validation_error', 'orgId is required', 400);
     if (!skillId) return apiError('validation_error', 'skillId is required', 400);
@@ -60,9 +74,17 @@ export async function DELETE(request: NextRequest) {
     writeAuditEvent({ actorUserId: actor.userId, action: 'org.skill.assignment.delete', entityType: 'org_skill_assignment', entityId: `${orgId}:${skillId}`, orgId });
     return NextResponse.json({ ok });
   } catch (err) {
+    const parsedBody = (body && typeof body === 'object') ? body as { orgId?: unknown } : {};
+    const targetOrgId = typeof parsedBody.orgId === 'string' ? parsedBody.orgId : actor?.orgId || undefined;
+
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') return apiError('unauthenticated', 'Not authenticated', 401);
-    if (err instanceof Error && (err.message === 'FORBIDDEN' || err.message === 'FORBIDDEN_ORG_ROLE' || err.message === 'FORBIDDEN_ORG_MEMBERSHIP')) {
-      return apiError('insufficient_role', 'Forbidden', 403);
+    if (err instanceof Error && err.message === 'FORBIDDEN_ORG_ROLE') {
+      writeAuditEvent({ actorUserId: actor?.userId, action: 'org.skill.assignment.delete.policy_blocked', entityType: 'org_skill_assignment', orgId: targetOrgId, metadata: { reason: err.message } });
+      return apiError('policy_blocked', 'Request blocked by policy', 403, { reason: err.message });
+    }
+    if (err instanceof Error && (err.message === 'FORBIDDEN' || err.message === 'FORBIDDEN_ORG_MEMBERSHIP')) {
+      writeAuditEvent({ actorUserId: actor?.userId, action: 'org.skill.assignment.delete.denied', entityType: 'org_skill_assignment', orgId: targetOrgId, metadata: { reason: err.message } });
+      return apiError('policy_blocked', 'Request blocked by policy', 403, { reason: err.message });
     }
     return apiError('internal_error', 'Failed to remove org skill assignment', 500);
   }
