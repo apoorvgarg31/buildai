@@ -18,8 +18,8 @@ export async function GET() {
 
     // Check if user already exists
     let row = db.prepare(
-      'SELECT id, email, name, role, agent_id FROM users WHERE id = ?'
-    ).get(userId) as { id: string; email: string; name: string; role: string; agent_id: string | null } | undefined;
+      'SELECT id, email, name, role, agent_id, org_id FROM users WHERE id = ?'
+    ).get(userId) as { id: string; email: string; name: string; role: string; agent_id: string | null; org_id: string | null } | undefined;
 
     if (!row) {
       // Auto-provision: first user ever = admin, rest = user
@@ -35,8 +35,8 @@ export async function GET() {
       ).run(userId, email, name, role);
 
       row = db.prepare(
-        'SELECT id, email, name, role, agent_id FROM users WHERE id = ?'
-      ).get(userId) as { id: string; email: string; name: string; role: string; agent_id: string | null };
+        'SELECT id, email, name, role, agent_id, org_id FROM users WHERE id = ?'
+      ).get(userId) as { id: string; email: string; name: string; role: string; agent_id: string | null; org_id: string | null };
     }
 
     // Auto-heal assignment:
@@ -53,8 +53,8 @@ export async function GET() {
       if (fallbackAgent?.id) {
         db.prepare("UPDATE users SET agent_id = ?, updated_at = datetime('now') WHERE id = ?").run(fallbackAgent.id, userId);
         row = db.prepare(
-          'SELECT id, email, name, role, agent_id FROM users WHERE id = ?'
-        ).get(userId) as { id: string; email: string; name: string; role: string; agent_id: string | null };
+          'SELECT id, email, name, role, agent_id, org_id FROM users WHERE id = ?'
+        ).get(userId) as { id: string; email: string; name: string; role: string; agent_id: string | null; org_id: string | null };
       }
     }
 
@@ -65,6 +65,7 @@ export async function GET() {
       role: row!.role,
       isSuperadmin: isConfiguredSuperadmin(row!.id, row!.email || ''),
       agentId: row!.agent_id || null,
+      orgId: row!.org_id || null,
     });
   } catch (err) {
     console.error('GET /api/me error:', err);

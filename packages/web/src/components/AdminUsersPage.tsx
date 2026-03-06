@@ -8,6 +8,7 @@ interface User {
   name: string;
   role: string;
   agent_id: string | null;
+  org_id: string | null;
   created_at: string;
 }
 
@@ -16,38 +17,92 @@ interface Agent {
   name: string;
 }
 
+interface Org {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+interface Me {
+  role: "admin" | "user";
+  isSuperadmin: boolean;
+  orgId: string | null;
+}
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [orgs, setOrgs] = useState<Org[]>([]);
+  const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [formName, setFormName] = useState("");
   const [formEmail, setFormEmail] = useState("");
   const [formRole, setFormRole] = useState("user");
+  const [formOrgId, setFormOrgId] = useState("");
+  const [formOrgRole, setFormOrgRole] = useState<"admin" | "member">("member");
 
   const fetchData = useCallback(async () => {
     try {
-      const [usersRes, agentsRes] = await Promise.all([
+      const [meRes, usersRes, agentsRes] = await Promise.all([
+        fetch("/api/me"),
         fetch("/api/admin/users"),
         fetch("/api/admin/agents"),
       ]);
+
+      let meData: Me | null = null;
+      if (meRes.ok) {
+        meData = await meRes.json();
+        setMe(meData);
+      }
+
       if (usersRes.ok) setUsers(await usersRes.json());
       if (agentsRes.ok) setAgents(await agentsRes.json());
-    } catch { /* ignore */ }
-    finally { setLoading(false); }
-  }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+      if (meData?.isSuperadmin) {
+        const orgRes = await fetch("/api/superadmin/orgs");
+        if (orgRes.ok) {
+          const data = await orgRes.json();
+          const nextOrgs = Array.isArray(data) ? data : [];
+          setOrgs(nextOrgs);
+          if (!formOrgId && nextOrgs[0]?.id) setFormOrgId(nextOrgs[0].id);
+        }
+      } else if (meData?.orgId) {
+        setFormOrgId(meData.orgId);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  }, [formOrgId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleAdd = async () => {
+    const payload: Record<string, unknown> = {
+      name: formName,
+      email: formEmail,
+      role: formRole,
+      orgRole: formOrgRole,
+    };
+
+    if (me?.isSuperadmin && formOrgId) payload.orgId = formOrgId;
+
     const res = await fetch("/api/admin/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: formName, email: formEmail, role: formRole }),
+      body: JSON.stringify(payload),
     });
+
     if (res.ok) {
       setShowAddModal(false);
-      setFormName(""); setFormEmail("");
+      setFormName("");
+      setFormEmail("");
+      setFormRole("user");
+      setFormOrgRole("member");
       fetchData();
     }
   };
@@ -67,8 +122,6 @@ export default function AdminUsersPage() {
     fetchData();
   };
 
-  // Agent display is handled directly in the assignment dropdown.
-
   return (
     <div className="flex flex-col h-full bg-white">
       <header className="flex items-center justify-between pl-14 pr-6 lg:px-6 h-14 border-b border-black/5">
@@ -78,7 +131,10 @@ export default function AdminUsersPage() {
             {loading ? "Loading..." : `${users.length} user${users.length !== 1 ? "s" : ""}`}
           </p>
         </div>
-        <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#171717] hover:bg-[#333] text-white text-[13px] font-semibold transition-colors">
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#171717] hover:bg-[#333] text-white text-[13px] font-semibold transition-colors"
+        >
           <span>+</span> Add User
         </button>
       </header>
@@ -92,13 +148,14 @@ export default function AdminUsersPage() {
             <button onClick={() => setShowAddModal(true)} className="mt-2 text-[#171717] hover:text-amber-300 text-sm">Add your first user</button>
           </div>
         ) : (
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-5xl mx-auto">
             <div className="rounded-xl border border-black/5 overflow-hidden">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-black/5">
                     <th className="text-left px-5 py-3 text-[11px] font-medium text-[#8e8e8e] uppercase tracking-wider">User</th>
-                    <th className="text-left px-5 py-3 text-[11px] font-medium text-[#8e8e8e] uppercase tracking-wider">Role</th>
+                    <th className="text-left px-5 py-3 text-[11px] font-medium text-[#8e8e8e] uppercase tracking-wider">Platform Role</th>
+                    <th className="text-left px-5 py-3 text-[11px] font-medium text-[#8e8e8e] uppercase tracking-wider">Org</th>
                     <th className="text-left px-5 py-3 text-[11px] font-medium text-[#8e8e8e] uppercase tracking-wider">Assigned Agent</th>
                     <th className="text-right px-5 py-3 text-[11px] font-medium text-[#8e8e8e] uppercase tracking-wider">Actions</th>
                   </tr>
@@ -126,6 +183,7 @@ export default function AdminUsersPage() {
                           {user.role}
                         </span>
                       </td>
+                      <td className="px-5 py-3 text-[12px] text-[#666]">{user.org_id || "—"}</td>
                       <td className="px-5 py-3">
                         <select
                           value={user.agent_id || ""}
@@ -160,19 +218,42 @@ export default function AdminUsersPage() {
               <div>
                 <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Name</label>
                 <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Jane Smith"
-                  className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20" />
+                  className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717]" />
               </div>
               <div>
                 <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Email</label>
                 <input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="jane@company.com"
-                  className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20" />
+                  className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717]" />
               </div>
               <div>
-                <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Role</label>
+                <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Platform Role</label>
                 <select value={formRole} onChange={(e) => setFormRole(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] focus:outline-none focus:border-[#171717]/20">
-                  <option value="user">User (PM)</option>
+                  className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717]">
+                  <option value="user">User</option>
                   <option value="admin">Admin</option>
+                </select>
+              </div>
+              {me?.isSuperadmin && (
+                <div>
+                  <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Organization</label>
+                  <select
+                    value={formOrgId}
+                    onChange={(e) => setFormOrgId(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717]"
+                  >
+                    <option value="">No org</option>
+                    {orgs.map((org) => (
+                      <option key={org.id} value={org.id}>{org.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Org Role</label>
+                <select value={formOrgRole} onChange={(e) => setFormOrgRole(e.target.value === "admin" ? "admin" : "member")}
+                  className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717]">
+                  <option value="admin">admin</option>
+                  <option value="member">member</option>
                 </select>
               </div>
             </div>

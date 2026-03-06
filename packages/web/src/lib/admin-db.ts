@@ -493,6 +493,38 @@ export function getOrganization(id: string): Organization | undefined {
   return getDb().prepare('SELECT * FROM organizations WHERE id = ?').get(id) as Organization | undefined;
 }
 
+export function updateOrganization(id: string, data: { name?: string; slug?: string }): Organization | undefined {
+  const existing = getOrganization(id);
+  if (!existing) return undefined;
+
+  const nextName = (data.name ?? existing.name).trim();
+  const nextSlug = (data.slug ?? existing.slug)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  if (!nextName) throw new Error('INVALID_ORG_NAME');
+  if (!nextSlug) throw new Error('INVALID_ORG_SLUG');
+
+  getDb().prepare(
+    'UPDATE organizations SET name = ?, slug = ?, updated_at = datetime(\'now\') WHERE id = ?'
+  ).run(nextName, nextSlug, id);
+
+  return getOrganization(id);
+}
+
+export function deleteOrganization(id: string): boolean {
+  const res = getDb().prepare('DELETE FROM organizations WHERE id = ?').run(id);
+  return res.changes > 0;
+}
+
+export function listOrganizationMemberships(orgId: string): OrganizationMembership[] {
+  return getDb().prepare(
+    'SELECT * FROM organization_memberships WHERE organization_id = ? ORDER BY created_at DESC'
+  ).all(orgId) as OrganizationMembership[];
+}
+
 export function createOrganization(data: {
   name: string;
   slug?: string;

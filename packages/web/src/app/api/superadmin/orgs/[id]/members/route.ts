@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getActorRoleInOrg, requireActorOrgMembership, requireOrgPermission, requireSuperadmin } from '@/lib/api-guard';
+import { getActorRoleInOrg, requireSuperadmin } from '@/lib/api-guard';
 import { getDb } from '@/lib/admin-db-server';
 import { upsertOrganizationMembership, writeAuditEvent } from '@/lib/admin-db';
 import { apiError } from '@/lib/api-error';
@@ -7,9 +7,8 @@ import { checkMutationPolicy } from '@/lib/policy';
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const actor = await requireSuperadmin();
+    await requireSuperadmin();
     const { id } = await params;
-    requireActorOrgMembership(actor, id);
     const db = getDb();
     const rows = db.prepare(`
       SELECT m.organization_id, m.user_id, m.role, m.created_at, m.updated_at, u.email, u.name
@@ -27,11 +26,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   }
 }
 
-export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
   try {
     const actor = await requireSuperadmin();
-    const { id } = await params;
-    requireOrgPermission(actor, id, 'org.members.manage');
 
     const policy = checkMutationPolicy({ action: 'superadmin.org.membership.upsert', actor, orgId: id, subjectType: 'organization_membership' });
     if (!policy.allowed) {
@@ -41,9 +39,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const body = await request.json();
     const userId = typeof body?.userId === 'string' ? body.userId : '';
-    const role = (['owner', 'admin', 'maintainer', 'reviewer', 'member', 'auditor'] as const).includes(body?.role)
-      ? body.role
-      : 'member';
+    const role = body?.role === 'admin' ? 'admin' : 'member';
 
     if (!userId) return apiError('validation_error', 'userId is required', 400);
 
@@ -53,7 +49,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     return NextResponse.json(membership, { status: 201 });
   } catch (err) {
-    const { id } = await params;
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') return apiError('unauthenticated', 'Not authenticated', 401);
     if (err instanceof Error && (err.message === 'FORBIDDEN' || err.message === 'FORBIDDEN_SUPERADMIN' || err.message === 'FORBIDDEN_ORG_ROLE')) {
       writeAuditEvent({ action: 'org.membership.upsert.denied', entityType: 'organization_membership', orgId: id, metadata: { reason: err.message } });

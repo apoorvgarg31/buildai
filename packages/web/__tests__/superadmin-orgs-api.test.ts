@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   storeIdempotentResponse: vi.fn(),
   writeAuditEvent: vi.fn(),
   requireSuperadmin: vi.fn(),
-  actorOrgIds: vi.fn(),
+  getDb: vi.fn(),
 }));
 
 vi.mock('@/lib/admin-db', () => ({
@@ -23,7 +23,10 @@ vi.mock('@/lib/admin-db', () => ({
 
 vi.mock('@/lib/api-guard', () => ({
   requireSuperadmin: mocks.requireSuperadmin,
-  actorOrgIds: mocks.actorOrgIds,
+}));
+
+vi.mock('@/lib/admin-db-server', () => ({
+  getDb: mocks.getDb,
 }));
 
 import { GET, POST } from '../src/app/api/superadmin/orgs/route';
@@ -32,7 +35,9 @@ describe('/api/superadmin/orgs (OA-1/OA-2 scaffolding)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getIdempotentResponse.mockReturnValue(null);
-    mocks.actorOrgIds.mockReturnValue(['org-1']);
+    mocks.getDb.mockReturnValue({
+      prepare: () => ({ all: () => [] }),
+    });
   });
 
   // AC-OA2-01: Superadmin-only org listing endpoint is available for authorized actor.
@@ -44,7 +49,9 @@ describe('/api/superadmin/orgs (OA-1/OA-2 scaffolding)', () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data).toEqual([{ id: 'org-1', name: 'Acme', slug: 'acme' }]);
+    expect(data).toEqual([
+      expect.objectContaining({ id: 'org-1', name: 'Acme', slug: 'acme' }),
+    ]);
     expect(mocks.requireSuperadmin).toHaveBeenCalledTimes(1);
   });
 
@@ -72,8 +79,8 @@ describe('/api/superadmin/orgs (OA-1/OA-2 scaffolding)', () => {
     expect(mocks.createOrganization).not.toHaveBeenCalled();
   });
 
-  // AC-OA2-04: POST creates org and bootstraps owner membership.
-  it('AC-OA2-04 POST creates org and bootstraps owner membership', async () => {
+  // AC-OA2-04: POST creates org and bootstraps admin membership.
+  it('AC-OA2-04 POST creates org and bootstraps admin membership', async () => {
     mocks.requireSuperadmin.mockResolvedValue({ userId: 'admin-1', role: 'admin' });
     mocks.createOrganization.mockReturnValue({ id: 'org-1', name: 'Acme', slug: 'acme', created_by_user_id: 'admin-1' });
 
@@ -89,12 +96,12 @@ describe('/api/superadmin/orgs (OA-1/OA-2 scaffolding)', () => {
     expect(mocks.upsertOrganizationMembership).toHaveBeenCalledWith({
       organizationId: 'org-1',
       userId: 'user-77',
-      role: 'owner',
+      role: 'admin',
     });
   });
 
-  // AC-OA2-05: Owner bootstrap falls back to actor when ownerUserId omitted.
-  it('AC-OA2-05 POST bootstraps actor as owner when ownerUserId is absent', async () => {
+  // AC-OA2-05: Bootstrap falls back to actor as org admin when ownerUserId omitted.
+  it('AC-OA2-05 POST bootstraps actor as admin when ownerUserId is absent', async () => {
     mocks.requireSuperadmin.mockResolvedValue({ userId: 'admin-1', role: 'admin' });
     mocks.createOrganization.mockReturnValue({ id: 'org-2', name: 'No Owner', slug: 'no-owner' });
 
@@ -105,7 +112,7 @@ describe('/api/superadmin/orgs (OA-1/OA-2 scaffolding)', () => {
     expect(mocks.upsertOrganizationMembership).toHaveBeenCalledWith({
       organizationId: 'org-2',
       userId: 'admin-1',
-      role: 'owner',
+      role: 'admin',
     });
   });
 

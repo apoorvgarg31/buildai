@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { listUsers, createUser } from '@/lib/admin-db';
+import { createUser, listUsers, upsertOrganizationMembership } from '@/lib/admin-db';
 import { requireAdmin } from '@/lib/api-guard';
 
 export async function GET() {
@@ -20,13 +20,29 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    await requireAdmin();
+    const actor = await requireAdmin();
     const body = await request.json();
     const { email, name, role } = body;
     if (!email || !name) {
       return NextResponse.json({ error: 'email and name are required' }, { status: 400 });
     }
-    const user = createUser({ email, name, role });
+
+    const orgId = actor.isSuperadmin
+      ? (typeof body?.orgId === 'string' ? body.orgId : null)
+      : (actor.orgId || null);
+
+    const orgRole = body?.orgRole === 'admin' ? 'admin' : 'member';
+
+    const user = createUser({ email, name, role, orgId });
+
+    if (orgId) {
+      upsertOrganizationMembership({
+        organizationId: orgId,
+        userId: user.id,
+        role: orgRole,
+      });
+    }
+
     return NextResponse.json(user, { status: 201 });
   } catch (err) {
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') {
