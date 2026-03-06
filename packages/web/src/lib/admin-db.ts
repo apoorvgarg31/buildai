@@ -133,6 +133,26 @@ function initSchema(db: Database.Database) {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       PRIMARY KEY (idempotency_key, route, method)
     );
+
+    CREATE TABLE IF NOT EXISTS org_skill_assignments (
+      org_id TEXT NOT NULL,
+      skill_id TEXT NOT NULL,
+      required INTEGER NOT NULL DEFAULT 1,
+      assigned_by_user_id TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (org_id, skill_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_skill_installs (
+      user_id TEXT NOT NULL,
+      org_id TEXT,
+      skill_id TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT 'public',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (user_id, org_id, skill_id)
+    );
   `);
 
   // OA-3: safe schema upgrades for existing installs.
@@ -552,4 +572,65 @@ export function storeIdempotentResponse(key: string, route: string, method: stri
   getDb().prepare(
     'INSERT OR REPLACE INTO api_idempotency (idempotency_key, route, method, response_json, status_code) VALUES (?, ?, ?, ?, ?)'
   ).run(key, route, method, JSON.stringify(response), statusCode);
+}
+
+export interface OrgSkillAssignment {
+  org_id: string;
+  skill_id: string;
+  required: number;
+  assigned_by_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function listOrgSkillAssignments(orgId: string): OrgSkillAssignment[] {
+  return getDb().prepare('SELECT * FROM org_skill_assignments WHERE org_id = ? ORDER BY created_at DESC').all(orgId) as OrgSkillAssignment[];
+}
+
+export function upsertOrgSkillAssignment(data: { orgId: string; skillId: string; required?: boolean; assignedByUserId?: string }): OrgSkillAssignment {
+  const db = getDb();
+  db.prepare(`
+    INSERT INTO org_skill_assignments (org_id, skill_id, required, assigned_by_user_id)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(org_id, skill_id)
+    DO UPDATE SET required = excluded.required, assigned_by_user_id = excluded.assigned_by_user_id, updated_at = datetime('now')
+  `).run(data.orgId, data.skillId, data.required === false ? 0 : 1, data.assignedByUserId || null);
+  return db.prepare('SELECT * FROM org_skill_assignments WHERE org_id = ? AND skill_id = ?').get(data.orgId, data.skillId) as OrgSkillAssignment;
+}
+
+export function deleteOrgSkillAssignment(orgId: string, skillId: string): boolean {
+  const res = getDb().prepare('DELETE FROM org_skill_assignments WHERE org_id = ? AND skill_id = ?').run(orgId, skillId);
+  return res.changes > 0;
+}
+
+export interface UserSkillInstall {
+  user_id: string;
+  org_id: string | null;
+  skill_id: string;
+  source: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function listUserSkillInstalls(userId: string, orgId?: string | null): UserSkillInstall[] {
+  if (orgId === undefined) {
+    return getDb().prepare('SELECT * FROM user_skill_installs WHERE user_id = ? ORDER BY created_at DESC').all(userId) as UserSkillInstall[];
+  }
+  return getDb().prepare('SELECT * FROM user_skill_installs WHERE user_id = ? AND org_id IS ? ORDER BY created_at DESC').all(userId, orgId) as UserSkillInstall[];
+}
+
+export function upsertUserSkillInstall(data: { userId: string; orgId?: string | null; skillId: string; source?: string }): UserSkillInstall {
+  const db = getDb();
+  db.prepare(`
+    INSERT INTO user_skill_installs (user_id, org_id, skill_id, source)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(user_id, org_id, skill_id)
+    DO UPDATE SET source = excluded.source, updated_at = datetime('now')
+  `).run(data.userId, data.orgId || null, data.skillId, data.source || 'public');
+  return db.prepare('SELECT * FROM user_skill_installs WHERE user_id = ? AND org_id IS ? AND skill_id = ?').get(data.userId, data.orgId || null, data.skillId) as UserSkillInstall;
+}
+
+export function deleteUserSkillInstall(userId: string, orgId: string | null, skillId: string): boolean {
+  const res = getDb().prepare('DELETE FROM user_skill_installs WHERE user_id = ? AND org_id IS ? AND skill_id = ?').run(userId, orgId, skillId);
+  return res.changes > 0;
 }

@@ -117,6 +117,26 @@ function initSchema(db: Database.Database) {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       PRIMARY KEY (idempotency_key, route, method)
     );
+
+    CREATE TABLE IF NOT EXISTS org_skill_assignments (
+      org_id TEXT NOT NULL,
+      skill_id TEXT NOT NULL,
+      required INTEGER NOT NULL DEFAULT 1,
+      assigned_by_user_id TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (org_id, skill_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_skill_installs (
+      user_id TEXT NOT NULL,
+      org_id TEXT,
+      skill_id TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT 'public',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (user_id, org_id, skill_id)
+    );
   `);
 
   // OA-3: safe schema upgrades for existing installs.

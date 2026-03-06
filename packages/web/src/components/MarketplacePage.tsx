@@ -13,6 +13,12 @@ interface Skill {
   tags: string[];
   readme: string;
   installed?: boolean;
+  assignedByOrg?: boolean;
+  requiredByOrg?: boolean;
+  installedByUser?: boolean;
+  effectiveSource?: 'org_assigned' | 'user_installed_public' | 'public';
+  removableByUser?: boolean;
+  installablePublic?: boolean;
 }
 
 export default function MarketplacePage() {
@@ -22,16 +28,33 @@ export default function MarketplacePage() {
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [agentId, setAgentId] = useState<string | null>(null);
+  const [busySkillId, setBusySkillId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch("/api/marketplace/skills")
+  const refreshSkills = () => {
+    const qs = agentId ? `?agentId=${encodeURIComponent(agentId)}` : '';
+    fetch(`/api/marketplace/skills${qs}`)
       .then((r) => r.json())
       .then((data) => {
         setSkills(data.skills || []);
         setCategories(data.categories || []);
       })
       .catch(console.error);
+  };
+
+  useEffect(() => {
+    fetch('/api/me')
+      .then((r) => r.json())
+      .then((me) => {
+        const aid = me?.agentId || null;
+        setAgentId(aid);
+      })
+      .catch(() => setAgentId(null));
   }, []);
+
+  useEffect(() => {
+    refreshSkills();
+  }, [agentId]);
 
   const filtered = skills.filter((s) => {
     const matchesCategory = activeCategory === "All" || s.category === activeCategory;
@@ -44,12 +67,45 @@ export default function MarketplacePage() {
   });
 
   const copyInstallUrl = (skill: Skill) => {
-    // Generate install URL — agent will exchange token at this endpoint
     const url = `${window.location.origin}/api/marketplace/skills/${skill.id}/install`;
     navigator.clipboard.writeText(url).then(() => {
       setCopiedId(skill.id);
       setTimeout(() => setCopiedId(null), 2000);
     });
+  };
+
+  const installSkill = async (skill: Skill) => {
+    if (!agentId) return;
+    setBusySkillId(skill.id);
+    try {
+      const res = await fetch(`/api/marketplace/skills/${skill.id}/install`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId }),
+      });
+      if (!res.ok) throw new Error('Install failed');
+      refreshSkills();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBusySkillId(null);
+    }
+  };
+
+  const uninstallSkill = async (skill: Skill) => {
+    if (!agentId) return;
+    setBusySkillId(skill.id);
+    try {
+      const res = await fetch(`/api/marketplace/skills/${skill.id}?agentId=${encodeURIComponent(agentId)}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('Remove failed');
+      refreshSkills();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBusySkillId(null);
+    }
   };
 
   return (
@@ -128,22 +184,58 @@ export default function MarketplacePage() {
                 {skill.description}
               </p>
 
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#f0f0f0] text-[#666]">
                     {skill.category}
                   </span>
+                  {skill.assignedByOrg && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#e8f0ff] text-[#2457d6]">
+                      Assigned by Organization
+                    </span>
+                  )}
+                  {skill.installedByUser && !skill.assignedByOrg && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#eaf8ec] text-[#1f7a35]">
+                      Installed by You
+                    </span>
+                  )}
                 </div>
                 {skill.version !== "0.1.0" && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      copyInstallUrl(skill);
-                    }}
-                    className="px-3 py-1 rounded-lg text-[11px] font-medium bg-[#171717] text-white hover:bg-[#333] transition-colors"
-                  >
-                    {copiedId === skill.id ? "✓ Copied" : "Copy Install URL"}
-                  </button>
+                  <div className="flex items-center gap-1">
+                    {skill.installablePublic && !skill.installedByUser && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          installSkill(skill);
+                        }}
+                        disabled={busySkillId === skill.id || !agentId}
+                        className="px-3 py-1 rounded-lg text-[11px] font-medium bg-[#171717] text-white hover:bg-[#333] transition-colors disabled:opacity-50"
+                      >
+                        {busySkillId === skill.id ? 'Installing...' : 'Install'}
+                      </button>
+                    )}
+                    {skill.removableByUser && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          uninstallSkill(skill);
+                        }}
+                        disabled={busySkillId === skill.id}
+                        className="px-3 py-1 rounded-lg text-[11px] font-medium border border-[#d0d0d0] text-[#555] hover:bg-[#f6f6f6] transition-colors disabled:opacity-50"
+                      >
+                        Remove
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        copyInstallUrl(skill);
+                      }}
+                      className="px-3 py-1 rounded-lg text-[11px] font-medium bg-[#f4f4f4] text-[#444] hover:bg-[#e5e5e5] transition-colors"
+                    >
+                      {copiedId === skill.id ? "✓ Copied" : "Copy URL"}
+                    </button>
+                  </div>
                 )}
               </div>
             </div>

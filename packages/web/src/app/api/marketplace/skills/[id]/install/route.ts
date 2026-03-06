@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyInstallToken, getMarketplaceSkill, packageSkill } from '@/lib/marketplace';
 import fs from 'fs';
 import path from 'path';
-import { canAccessAgent, requireSignedIn } from '@/lib/api-guard';
+import { canAccessAgent, getAgentOrgId, requireSignedIn } from '@/lib/api-guard';
 import { isValidAgentId, safeJoinWithin } from '@/lib/security';
+import { upsertUserSkillInstall } from '@/lib/admin-db';
+import { apiError } from '@/lib/api-error';
 
 const WORKSPACES_BASE = path.resolve(process.cwd(), '../../workspaces');
 const SKILLS_SOURCE = path.resolve(process.cwd(), '../../packages/engine/skills');
@@ -23,26 +25,16 @@ export async function POST(
     }
 
     const token = body.token;
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Missing install token. Get one from the marketplace UI.' },
-        { status: 401 }
-      );
-    }
+    let payload: { skillId: string; agentId: string } | null = null;
 
-    const payload = verifyInstallToken(token);
-    if (!payload) {
-      return NextResponse.json(
-        { error: 'Invalid or expired install token. Generate a new one from the marketplace.' },
-        { status: 403 }
-      );
-    }
-
-    if (payload.skillId !== id) {
-      return NextResponse.json(
-        { error: 'Token does not match the requested skill.' },
-        { status: 403 }
-      );
+    if (token) {
+      payload = verifyInstallToken(token);
+      if (!payload) {
+        return apiError('forbidden', 'Invalid or expired install token. Generate a new one from the marketplace.', 403);
+      }
+      if (payload.skillId !== id) {
+        return apiError('forbidden', 'Token does not match the requested skill.', 403);
+      }
     }
 
     const skill = getMarketplaceSkill(id);
@@ -50,23 +42,21 @@ export async function POST(
       return NextResponse.json({ error: 'Skill not found' }, { status: 404 });
     }
 
-    const agentId = payload.agentId;
+    const actor = await requireSignedIn();
+
+    const agentId = payload?.agentId || body.agentId || actor.agentId;
     if (!agentId) {
-      return NextResponse.json(
-        { error: 'Missing agentId. Specify which agent to install the skill for.' },
-        { status: 400 }
-      );
+      return apiError('validation_error', 'Missing agentId. Specify which agent to install the skill for.', 400);
     }
-    if (body.agentId && body.agentId !== agentId) {
-      return NextResponse.json({ error: 'agentId mismatch with token.' }, { status: 403 });
+    if (payload?.agentId && body.agentId && body.agentId !== payload.agentId) {
+      return apiError('forbidden', 'agentId mismatch with token.', 403);
     }
     if (!isValidAgentId(agentId)) {
-      return NextResponse.json({ error: 'Invalid agentId.' }, { status: 400 });
+      return apiError('validation_error', 'Invalid agentId.', 400);
     }
 
-    const actor = await requireSignedIn();
     if (!canAccessAgent(actor, agentId)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return apiError('forbidden_org_membership', 'Forbidden', 403, { reason: 'ORG_MISMATCH' });
     }
 
     const sourceDir = path.join(SKILLS_SOURCE, id);
@@ -84,6 +74,13 @@ export async function POST(
 
     fs.mkdirSync(destDir, { recursive: true });
     copyDirSync(sourceDir, destDir);
+
+    upsertUserSkillInstall({
+      userId: actor.userId,
+      orgId: getAgentOrgId(agentId),
+      skillId: id,
+      source: 'public',
+    });
 
     return NextResponse.json({
       success: true,

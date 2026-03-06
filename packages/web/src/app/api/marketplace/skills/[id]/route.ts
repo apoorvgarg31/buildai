@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMarketplaceSkill, generateInstallToken } from '@/lib/marketplace';
-import { canAccessAgent, requireSignedIn } from '@/lib/api-guard';
-import { isValidAgentId } from '@/lib/security';
+import { canAccessAgent, getAgentOrgId, requireSignedIn } from '@/lib/api-guard';
+import { isValidAgentId, safeJoinWithin } from '@/lib/security';
+import { deleteUserSkillInstall, listOrgSkillAssignments } from '@/lib/admin-db';
+import { apiError } from '@/lib/api-error';
+import fs from 'fs';
+import path from 'path';
 
 /**
  * GET /api/marketplace/skills/:id
@@ -44,9 +48,43 @@ export async function GET(
     });
   } catch (err) {
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return apiError('unauthenticated', 'Not authenticated', 401);
     }
     console.error('Marketplace skill detail error:', err);
-    return NextResponse.json({ error: 'Failed to get skill details' }, { status: 500 });
+    return apiError('internal_error', 'Failed to get skill details', 500);
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const actor = await requireSignedIn();
+    const agentId = request.nextUrl.searchParams.get('agentId') || actor.agentId;
+    if (!agentId) return apiError('validation_error', 'agentId is required', 400);
+    if (!isValidAgentId(agentId)) return apiError('validation_error', 'Invalid agentId', 400);
+    if (!canAccessAgent(actor, agentId)) return apiError('forbidden_org_membership', 'Forbidden', 403, { reason: 'ORG_MISMATCH' });
+
+    const orgId = getAgentOrgId(agentId);
+    if (orgId) {
+      const orgRequired = listOrgSkillAssignments(orgId).find((s) => s.skill_id === id && s.required === 1);
+      if (orgRequired) {
+        return apiError('policy_blocked', 'Cannot remove required org-assigned skill', 403, { reason: 'REQUIRED_ORG_SKILL' });
+      }
+    }
+
+    const removed = deleteUserSkillInstall(actor.userId, orgId, id);
+
+    const skillsDir = safeJoinWithin(path.resolve(process.cwd(), '../../workspaces'), agentId, 'skills', id);
+    if (skillsDir && fs.existsSync(skillsDir)) {
+      fs.rmSync(skillsDir, { recursive: true, force: true });
+    }
+
+    return NextResponse.json({ ok: removed || true });
+  } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHENTICATED') return apiError('unauthenticated', 'Not authenticated', 401);
+    return apiError('internal_error', 'Failed to remove skill', 500);
   }
 }

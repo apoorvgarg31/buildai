@@ -13,7 +13,7 @@ export async function GET() {
     const actor = await requireAdmin();
     const orgIds = new Set(actorOrgIds(actor));
     const agents = listAgents()
-      .filter((a) => !a.org_id || actor.isSuperadmin || orgIds.has(a.org_id))
+      .filter((a) => actor.isSuperadmin ? true : (!!a.org_id && orgIds.has(a.org_id)))
       .map(a => ({ ...a, api_key: a.api_key ? '••••' + a.api_key.slice(-4) : null }));
     return NextResponse.json(agents);
   } catch (err) {
