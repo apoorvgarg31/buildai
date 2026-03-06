@@ -3,7 +3,11 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-export CLAWDBOT_CONFIG_PATH="$(pwd)/buildai.config.json5"
+if [ -f "$(pwd)/buildai.config.local.json5" ]; then
+  export CLAWDBOT_CONFIG_PATH="$(pwd)/buildai.config.local.json5"
+else
+  export CLAWDBOT_CONFIG_PATH="$(pwd)/buildai.config.json5"
+fi
 export CLAWDBOT_STATE_DIR="$(pwd)/.clawdbot-state"
 export CLAWDBOT_ALLOW_MULTI_GATEWAY=1
 export CLAWDBOT_SKIP_BROWSER_CONTROL_SERVER=1

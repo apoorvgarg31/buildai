@@ -78,6 +78,17 @@ Stop everything with:
 make stop
 ```
 
+### Local config overrides (recommended)
+
+To avoid git conflicts on machine-specific engine settings, create a local override file:
+
+```bash
+cp packages/engine/buildai.config.local.example.json5 packages/engine/buildai.config.local.json5
+```
+
+`make start` / `make dev` will automatically prefer `buildai.config.local.json5` when present.
+This file is gitignored, so your local changes won't block `git pull`.
+
 For full developer workflow, see `docs/DEVELOPER_SETUP.md`.
 
 ### Engine Setup (Advanced)

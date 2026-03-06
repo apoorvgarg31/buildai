@@ -1,0 +1,20 @@
+// Local-only BuildAI engine config override.
+//
+// Usage:
+// 1) Copy this file to `buildai.config.local.json5`
+// 2) Edit values you want for your machine
+// 3) Start BuildAI as usual (`make start` / `make dev`)
+//
+// The start scripts automatically prefer `buildai.config.local.json5`
+// when present. The `.local` file is gitignored.
+
+{
+  // Start from the tracked config and override only what you need.
+  // JSON5 include support is handled by OpenClaw config loader.
+  "$include": "./buildai.config.json5",
+
+  // Example overrides:
+  // "gateway": { "port": 18789 },
+  // "channels": { "telegram": { "enabled": false } },
+  // "agents": { "defaults": { "model": { "primary": "google/gemini-2.0-flash" } } },
+}

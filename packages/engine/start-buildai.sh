@@ -10,8 +10,15 @@ PORT="${1:-18789}"
 # Source BuildAI environment overrides
 source "$SCRIPT_DIR/.env.buildai"
 
-# Point to BuildAI config
-export CLAWDBOT_CONFIG_PATH="$SCRIPT_DIR/buildai.config.json5"
+# Point to BuildAI config (prefer local override file when present)
+DEFAULT_CONFIG_PATH="$SCRIPT_DIR/buildai.config.json5"
+LOCAL_CONFIG_PATH="$SCRIPT_DIR/buildai.config.local.json5"
+
+if [[ -f "$LOCAL_CONFIG_PATH" ]]; then
+  export CLAWDBOT_CONFIG_PATH="$LOCAL_CONFIG_PATH"
+else
+  export CLAWDBOT_CONFIG_PATH="$DEFAULT_CONFIG_PATH"
+fi
 
 # Seed auth profiles for local BuildAI agents so UI works out-of-the-box.
 # This copies an existing auth-profiles.json from a known main-agent location

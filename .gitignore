@@ -43,6 +43,9 @@ coverage/
 packages/engine/skills/*/.env
 workspaces/*/skills/*/.env
 
+# Local engine config overrides (machine-specific)
+packages/engine/buildai.config.local.json5
+
 # Admin DB (generated)
 data/*.db
 data/*.db-shm
