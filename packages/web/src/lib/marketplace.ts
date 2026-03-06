@@ -443,7 +443,7 @@ Generate polished PowerPoint decks directly from chat.
 - **Image Slides** — Include generated or uploaded images in slides
 
 ## Output
-- Produces `.pptx` files in agent artifacts
+- Produces .pptx files in agent artifacts
 - Files appear in BuildAI Artifacts UI for download
 
 ## Example Requests
