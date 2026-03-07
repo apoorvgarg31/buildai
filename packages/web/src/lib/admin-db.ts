@@ -394,6 +394,7 @@ export function getAgent(id: string): Agent | undefined {
 }
 
 export function createAgent(data: {
+  id?: string;
   name: string;
   userId?: string;
   orgId?: string | null;
@@ -402,7 +403,8 @@ export function createAgent(data: {
   workspaceDir: string;
   connectionIds?: string[];
 }): Agent {
-  const id = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || genId('agent');
+  const id = (data.id || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || genId('agent'));
+
   const model = data.model || 'google/gemini-2.0-flash';
 
   const db = getDb();

@@ -106,6 +106,7 @@ export async function GET() {
         const existingDbAgent = db.prepare('SELECT id FROM agents WHERE id = ?').get(agentIdBase) as { id: string } | undefined;
         if (!existingDbAgent) {
           createAgent({
+            id: agentIdBase,
             name: agentDisplayName,
             userId,
             orgId: row.org_id,
