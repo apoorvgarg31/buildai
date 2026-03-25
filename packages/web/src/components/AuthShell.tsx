@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 interface AuthShellProps {
@@ -58,24 +57,6 @@ export default function AuthShell({ mode, children }: AuthShellProps) {
       <div className="mira-beam mira-beam-c" />
 
       <div className="relative mx-auto flex min-h-screen max-w-[1520px] flex-col px-5 py-6 sm:px-8 lg:px-10">
-        <header className="flex items-center justify-between rounded-full border border-[#dce9f7] bg-white/72 px-4 py-3 shadow-[0_14px_40px_rgba(173,201,232,0.16)] backdrop-blur-xl sm:px-6">
-          <div className="flex items-center gap-3">
-            <div className="mira-logo-ring flex h-11 w-11 items-center justify-center rounded-2xl border border-[#d8e6f8] bg-[linear-gradient(180deg,#ffffff,#edf5ff)] text-sm font-semibold tracking-[0.32em] text-slate-700 shadow-[0_10px_30px_rgba(113,163,227,0.14)]">
-              M
-            </div>
-            <div>
-              <p className="text-[0.65rem] uppercase tracking-[0.32em] text-slate-400">Mira evolves</p>
-              <p className="text-sm font-medium text-slate-700">Mira</p>
-            </div>
-          </div>
-          <Link
-            href={content.ctaHref}
-            className="rounded-full border border-[#d7e8fb] bg-white/82 px-4 py-2 text-xs font-medium text-slate-700 transition duration-300 hover:border-[#bfdaf6] hover:bg-white hover:text-slate-900"
-          >
-            {content.ctaLabel}
-          </Link>
-        </header>
-
         <main className="relative flex flex-1 items-center py-6 lg:py-10">
           <div className="grid w-full gap-8 lg:grid-cols-[1.16fr_0.84fr] lg:gap-10 xl:gap-14">
             <section className="relative overflow-hidden rounded-[2.25rem] border border-[#dce9f7] bg-white/74 p-6 shadow-[0_34px_120px_rgba(158,190,226,0.16)] backdrop-blur-2xl sm:p-8 lg:p-10 xl:p-12">
