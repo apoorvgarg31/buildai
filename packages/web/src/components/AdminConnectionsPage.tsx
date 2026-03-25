@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { EmptyState, PageShell, SectionCard } from "./MiraShell";
 
 interface Connection {
   id: string;
@@ -27,14 +28,14 @@ const typeLabels: Record<string, string> = {
   procore: "PMIS",
   documents: "Documents",
   p6: "Scheduling",
-  unifier: "Cost Management",
-  llm: "LLM Provider",
+  unifier: "Cost management",
+  llm: "LLM provider",
 };
 
-const statusConfig: Record<string, { bg: string; text: string; border: string; dot: string; label: string }> = {
-  connected: { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20", dot: "bg-emerald-400", label: "Connected" },
-  pending: { bg: "bg-[#171717]/10", text: "text-[#171717]", border: "border-amber-500/20", dot: "bg-amber-400", label: "Pending" },
-  error: { bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/20", dot: "bg-red-400", label: "Error" },
+const statusConfig: Record<string, string> = {
+  connected: "bg-emerald-100 text-emerald-700",
+  pending: "bg-amber-100 text-amber-700",
+  error: "bg-rose-100 text-rose-700",
 };
 
 export default function AdminConnectionsPage() {
@@ -43,17 +44,13 @@ export default function AdminConnectionsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<string | null>(null);
-
-  // Form state
   const [formName, setFormName] = useState("");
   const [formType, setFormType] = useState("database");
-  // Database fields
   const [formHost, setFormHost] = useState("");
   const [formPort, setFormPort] = useState("5432");
   const [formDbName, setFormDbName] = useState("");
   const [formUsername, setFormUsername] = useState("");
   const [formPassword, setFormPassword] = useState("");
-  // Procore fields
   const [formClientId, setFormClientId] = useState("");
   const [formClientSecret, setFormClientSecret] = useState("");
   const [formOauthBaseUrl, setFormOauthBaseUrl] = useState("https://login.procore.com");
@@ -62,18 +59,23 @@ export default function AdminConnectionsPage() {
     try {
       const res = await fetch("/api/admin/connections");
       if (res.ok) setConnections(await res.json());
-    } catch { /* ignore */ }
-    finally { setLoading(false); }
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  useEffect(() => { fetchConnections(); }, [fetchConnections]);
+  useEffect(() => {
+    fetchConnections();
+  }, [fetchConnections]);
 
   const handleAdd = async () => {
     try {
       let config: Record<string, string>;
       let secrets: Record<string, string>;
 
-      if (formType === 'procore') {
+      if (formType === "procore") {
         config = { clientId: formClientId, oauthBaseUrl: formOauthBaseUrl };
         secrets = { clientSecret: formClientSecret };
       } else {
@@ -88,9 +90,15 @@ export default function AdminConnectionsPage() {
       });
       if (res.ok) {
         setShowAddModal(false);
-        setFormName(""); setFormHost(""); setFormPort("5432"); setFormDbName("");
-        setFormUsername(""); setFormPassword("");
-        setFormClientId(""); setFormClientSecret(""); setFormOauthBaseUrl("https://login.procore.com");
+        setFormName("");
+        setFormHost("");
+        setFormPort("5432");
+        setFormDbName("");
+        setFormUsername("");
+        setFormPassword("");
+        setFormClientId("");
+        setFormClientSecret("");
+        setFormOauthBaseUrl("https://login.procore.com");
         fetchConnections();
       }
     } catch (err) {
@@ -105,7 +113,7 @@ export default function AdminConnectionsPage() {
       const res = await fetch(`/api/admin/connections/${id}/test`, { method: "POST" });
       const data = await res.json();
       setTestResult(data.ok ? `✅ ${data.message}` : `❌ ${data.message}`);
-      fetchConnections(); // refresh status
+      fetchConnections();
     } catch (err) {
       setTestResult(`❌ Network error: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -122,117 +130,105 @@ export default function AdminConnectionsPage() {
   const connectedCount = connections.filter((c) => c.status === "connected").length;
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      <header className="flex items-center justify-between pl-14 pr-6 lg:px-6 h-14 border-b border-black/5">
-        <div>
-          <h2 className="text-sm font-semibold text-[#171717]">Connections</h2>
-          <p className="text-[11px] text-[#8e8e8e]">
-            {loading ? "Loading..." : `${connections.length} integrations · ${connectedCount} connected`}
-          </p>
-        </div>
-        <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#171717] hover:bg-[#333] text-white text-[13px] font-semibold transition-colors">
-          <span>+</span> Add Connection
-        </button>
-      </header>
+    <PageShell
+      title="Connections"
+      subtitle="Wire Mira into PMIS, schedules, databases, and document systems with a polished control layer."
+      eyebrow="Admin workspace"
+      actions={<button onClick={() => setShowAddModal(true)} className="mira-button-primary px-4 py-2 text-xs font-semibold">Add connection</button>}
+    >
+      <div className="mx-auto max-w-6xl space-y-4">
+        {testResult && (
+          <SectionCard className={testResult.startsWith("✅") ? "border-emerald-200 bg-emerald-50/80" : "border-rose-200 bg-rose-50/80"}>
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className={testResult.startsWith("✅") ? "text-emerald-700" : "text-rose-700"}>{testResult}</span>
+              <button onClick={() => setTestResult(null)} className="text-slate-500">✕</button>
+            </div>
+          </SectionCard>
+        )}
 
-      {testResult && (
-        <div className={`mx-6 mt-3 px-4 py-2.5 rounded-lg text-[13px] font-medium flex items-center justify-between ${
-          testResult.startsWith("✅") ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"
-        }`}>
-          <span>{testResult}</span>
-          <button onClick={() => setTestResult(null)} className="ml-3 hover:opacity-70">✕</button>
-        </div>
-      )}
-
-      <div className="flex-1 overflow-y-auto px-6 py-5">
         {loading ? (
-          <div className="flex items-center justify-center h-32 text-[#8e8e8e] text-sm">Loading connections...</div>
+          <SectionCard><p className="text-sm text-slate-500">Loading connections…</p></SectionCard>
         ) : connections.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 text-[#8e8e8e] text-sm">
-            <p>No connections yet</p>
-            <button onClick={() => setShowAddModal(true)} className="mt-2 text-[#171717] hover:text-amber-300 text-sm">Add your first connection</button>
-          </div>
+          <EmptyState icon="⟷" title="No integrations yet" description="Add your first connection to bring live systems and project data into Mira." hint="Admin setup" />
         ) : (
-          <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             {connections.map((conn) => {
               const config = JSON.parse(conn.config || "{}");
-              const sc = statusConfig[conn.status] || statusConfig.pending;
-              const isTesting = testingId === conn.id;
               return (
-                <div key={conn.id} className="rounded-xl border bg-[#f9f9f9] border-black/5 hover:border-[#e5e5e5] p-5 transition-colors">
-                  <div className="flex items-start justify-between mb-3">
+                <SectionCard key={conn.id} className="space-y-4">
+                  <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-black/[0.04] border border-black/5 flex items-center justify-center text-xl">
-                        {typeIcons[conn.type] || "🔗"}
-                      </div>
+                      <div className="mira-icon-chip text-xl">{typeIcons[conn.type] || "🔗"}</div>
                       <div>
-                        <h3 className="text-[14px] font-semibold text-[#171717]">{conn.name}</h3>
-                        <p className="text-[11px] text-[#8e8e8e]">{typeLabels[conn.type] || conn.type}</p>
+                        <h3 className="text-base font-semibold tracking-[-0.03em] text-slate-950">{conn.name}</h3>
+                        <p className="mt-1 text-xs text-slate-500">{typeLabels[conn.type] || conn.type}</p>
                       </div>
                     </div>
-                    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border ${sc.bg} ${sc.text} ${sc.border}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
-                      {sc.label}
-                    </span>
+                    <span className={`mira-pill ${statusConfig[conn.status] || "bg-slate-100 text-slate-600"}`}>{conn.status}</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    {conn.type === 'procore' ? (
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {conn.type === "procore" ? (
                       <>
-                        <div>
-                          <p className="text-[11px] text-[#666]">Client ID</p>
-                          <p className="text-[12px] text-[#333] font-mono">{config.clientId ? '••••' + config.clientId.slice(-4) : '-'}</p>
+                        <div className="mira-surface-muted rounded-[1.1rem] px-4 py-3">
+                          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-slate-400">Client ID</p>
+                          <p className="mt-2 font-mono text-sm text-slate-700">{config.clientId ? "••••" + config.clientId.slice(-4) : "-"}</p>
                         </div>
-                        <div>
-                          <p className="text-[11px] text-[#666]">Environment</p>
-                          <p className="text-[12px] text-[#333]">{config.oauthBaseUrl?.includes('sandbox') ? 'Sandbox' : 'Production'}</p>
+                        <div className="mira-surface-muted rounded-[1.1rem] px-4 py-3">
+                          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-slate-400">Environment</p>
+                          <p className="mt-2 text-sm text-slate-700">{config.oauthBaseUrl?.includes("sandbox") ? "Sandbox" : "Production"}</p>
                         </div>
                       </>
                     ) : (
                       <>
-                        <div>
-                          <p className="text-[11px] text-[#666]">Host</p>
-                          <p className="text-[12px] text-[#333] font-mono">{config.host || "local socket"}</p>
+                        <div className="mira-surface-muted rounded-[1.1rem] px-4 py-3">
+                          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-slate-400">Host</p>
+                          <p className="mt-2 font-mono text-sm text-slate-700">{config.host || "local socket"}</p>
                         </div>
-                        <div>
-                          <p className="text-[11px] text-[#666]">Database</p>
-                          <p className="text-[12px] text-[#333] font-mono">{config.dbName || config.companyId || "-"}</p>
+                        <div className="mira-surface-muted rounded-[1.1rem] px-4 py-3">
+                          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-slate-400">Target</p>
+                          <p className="mt-2 font-mono text-sm text-slate-700">{config.dbName || config.companyId || "-"}</p>
                         </div>
                       </>
                     )}
                   </div>
-                  <div className="flex items-center justify-between pt-3 border-t border-black/5">
-                    <span className="text-[11px] text-[#666]">{conn.has_secret ? "🔑 Credentials stored" : "No credentials"}</span>
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => handleTest(conn.id)} disabled={isTesting}
-                        className={`px-2.5 py-1 text-[11px] rounded-md transition-colors font-medium ${isTesting ? "text-blue-400 bg-blue-500/10" : "text-[#8e8e8e] hover:text-[#171717] hover:bg-black/[0.04]"}`}>
-                        {isTesting ? "Testing..." : "Test"}
+
+                  <div className="flex items-center justify-between gap-3 border-t border-slate-200/60 pt-4">
+                    <p className="text-xs text-slate-500">{conn.has_secret ? "Credentials stored" : "No credentials stored"}</p>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => handleTest(conn.id)} disabled={testingId === conn.id} className="mira-button-secondary px-4 py-2 text-xs font-semibold disabled:opacity-50">
+                        {testingId === conn.id ? "Testing…" : "Test"}
                       </button>
-                      <button onClick={() => handleDelete(conn.id)} className="px-2.5 py-1 text-[11px] text-red-400 hover:text-red-300 rounded-md hover:bg-red-500/5 transition-colors font-medium">
+                      <button onClick={() => handleDelete(conn.id)} className="rounded-full border border-rose-200 bg-white px-4 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-50">
                         Delete
                       </button>
                     </div>
                   </div>
-                </div>
+                </SectionCard>
               );
             })}
           </div>
         )}
+
+        {!loading && connections.length > 0 && (
+          <p className="text-xs text-slate-500">{connections.length} integrations total · {connectedCount} connected</p>
+        )}
       </div>
 
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowAddModal(false)}>
-          <div className="w-full max-w-md bg-[#f9f9f9] border border-[#e5e5e5] rounded-2xl p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-[#171717] mb-4">Add Connection</h3>
-            <div className="space-y-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 px-4 backdrop-blur-sm" onClick={() => setShowAddModal(false)}>
+          <div className="mira-surface w-full max-w-xl rounded-[1.8rem] p-6" onClick={(e) => e.stopPropagation()}>
+            <p className="mira-eyebrow">New connection</p>
+            <h3 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-slate-950">Add an integration</h3>
+
+            <div className="mt-5 space-y-4">
               <div>
-                <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Connection Name</label>
-                <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Project Database"
-                  className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20" />
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Connection name</label>
+                <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Project Database" className="mira-input px-4 py-3 text-sm" />
               </div>
               <div>
-                <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Type</label>
-                <select value={formType} onChange={(e) => setFormType(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] focus:outline-none focus:border-[#171717]/20">
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Type</label>
+                <select value={formType} onChange={(e) => setFormType(e.target.value)} className="mira-select px-4 py-3 text-sm">
                   <option value="database">Database (PostgreSQL)</option>
                   <option value="procore">Procore (PMIS)</option>
                   <option value="p6">Primavera P6</option>
@@ -241,73 +237,65 @@ export default function AdminConnectionsPage() {
                   <option value="llm">LLM Provider</option>
                 </select>
               </div>
-              {formType === 'procore' ? (
+
+              {formType === "procore" ? (
                 <>
                   <div>
-                    <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Client ID</label>
-                    <input type="text" value={formClientId} onChange={(e) => setFormClientId(e.target.value)} placeholder="Your Procore app's Client ID"
-                      className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20 font-mono text-[12px]" />
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Client ID</label>
+                    <input type="text" value={formClientId} onChange={(e) => setFormClientId(e.target.value)} placeholder="Your Procore app client ID" className="mira-input px-4 py-3 font-mono text-sm" />
                   </div>
                   <div>
-                    <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Client Secret</label>
-                    <input type="password" value={formClientSecret} onChange={(e) => setFormClientSecret(e.target.value)} placeholder="••••••••"
-                      className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20 font-mono text-[12px]" />
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Client secret</label>
+                    <input type="password" value={formClientSecret} onChange={(e) => setFormClientSecret(e.target.value)} placeholder="••••••••" className="mira-input px-4 py-3 font-mono text-sm" />
                   </div>
                   <div>
-                    <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Environment</label>
-                    <select value={formOauthBaseUrl} onChange={(e) => setFormOauthBaseUrl(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] focus:outline-none focus:border-[#171717]/20">
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Environment</label>
+                    <select value={formOauthBaseUrl} onChange={(e) => setFormOauthBaseUrl(e.target.value)} className="mira-select px-4 py-3 text-sm">
                       <option value="https://login.procore.com">Production</option>
                       <option value="https://login-sandbox-monthly.procore.com">Monthly Sandbox</option>
                       <option value="https://login-sandbox.procore.com">Dev Sandbox</option>
                     </select>
                   </div>
-                  <p className="text-[10px] text-[#b4b4b4]">Users will authorize via OAuth when they first use the agent. Admin only sets app credentials here.</p>
                 </>
               ) : (
                 <>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Host</label>
-                      <input type="text" value={formHost} onChange={(e) => setFormHost(e.target.value)} placeholder="localhost (empty for local)"
-                        className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20 font-mono text-[12px]" />
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Host</label>
+                      <input type="text" value={formHost} onChange={(e) => setFormHost(e.target.value)} placeholder="localhost" className="mira-input px-4 py-3 font-mono text-sm" />
                     </div>
                     <div>
-                      <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Port</label>
-                      <input type="text" value={formPort} onChange={(e) => setFormPort(e.target.value)} placeholder="5432"
-                        className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20 font-mono text-[12px]" />
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Port</label>
+                      <input type="text" value={formPort} onChange={(e) => setFormPort(e.target.value)} placeholder="5432" className="mira-input px-4 py-3 font-mono text-sm" />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Database Name</label>
-                    <input type="text" value={formDbName} onChange={(e) => setFormDbName(e.target.value)} placeholder="buildai_demo"
-                      className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20 font-mono text-[12px]" />
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Database name</label>
+                    <input type="text" value={formDbName} onChange={(e) => setFormDbName(e.target.value)} placeholder="buildai_demo" className="mira-input px-4 py-3 font-mono text-sm" />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Username</label>
-                      <input type="text" value={formUsername} onChange={(e) => setFormUsername(e.target.value)} placeholder="(empty for peer auth)"
-                        className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20" />
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Username</label>
+                      <input type="text" value={formUsername} onChange={(e) => setFormUsername(e.target.value)} placeholder="db_user" className="mira-input px-4 py-3 text-sm" />
                     </div>
                     <div>
-                      <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Password</label>
-                      <input type="password" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} placeholder="••••••••"
-                        className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20" />
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Password</label>
+                      <input type="password" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} placeholder="••••••••" className="mira-input px-4 py-3 text-sm" />
                     </div>
                   </div>
                 </>
               )}
             </div>
-            <div className="flex justify-end gap-2 mt-6">
-              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 text-[13px] text-[#8e8e8e] hover:text-[#171717] transition-colors rounded-lg hover:bg-black/[0.04]">Cancel</button>
-              <button onClick={handleAdd} disabled={!formName || !formType}
-                className="px-4 py-2 bg-[#171717] hover:bg-[#333] text-white text-[13px] font-semibold rounded-lg transition-colors disabled:opacity-50">
-                Add Connection
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button onClick={() => setShowAddModal(false)} className="mira-button-secondary px-4 py-2 text-sm font-semibold">Cancel</button>
+              <button onClick={handleAdd} disabled={!formName || !formType} className="mira-button-primary px-4 py-2 text-sm font-semibold disabled:opacity-50">
+                Add connection
               </button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

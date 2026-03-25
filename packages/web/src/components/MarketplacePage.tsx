@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { EmptyState, PageShell, SectionCard } from "./MiraShell";
 
 interface Skill {
   id: string;
@@ -16,7 +17,7 @@ interface Skill {
   assignedByOrg?: boolean;
   requiredByOrg?: boolean;
   installedByUser?: boolean;
-  effectiveSource?: 'org_assigned' | 'user_installed_public' | 'public';
+  effectiveSource?: "org_assigned" | "user_installed_public" | "public";
   removableByUser?: boolean;
   installablePublic?: boolean;
 }
@@ -32,7 +33,7 @@ export default function MarketplacePage() {
   const [busySkillId, setBusySkillId] = useState<string | null>(null);
 
   const refreshSkills = () => {
-    const qs = agentId ? `?agentId=${encodeURIComponent(agentId)}` : '';
+    const qs = agentId ? `?agentId=${encodeURIComponent(agentId)}` : "";
     fetch(`/api/marketplace/skills${qs}`)
       .then((r) => r.json())
       .then((data) => {
@@ -43,7 +44,7 @@ export default function MarketplacePage() {
   };
 
   useEffect(() => {
-    fetch('/api/me')
+    fetch("/api/me")
       .then((r) => r.json())
       .then((me) => {
         const aid = me?.agentId || null;
@@ -79,11 +80,11 @@ export default function MarketplacePage() {
     setBusySkillId(skill.id);
     try {
       const res = await fetch(`/api/marketplace/skills/${skill.id}/install`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ agentId }),
       });
-      if (!res.ok) throw new Error('Install failed');
+      if (!res.ok) throw new Error("Install failed");
       refreshSkills();
     } catch (e) {
       console.error(e);
@@ -97,9 +98,9 @@ export default function MarketplacePage() {
     setBusySkillId(skill.id);
     try {
       const res = await fetch(`/api/marketplace/skills/${skill.id}?agentId=${encodeURIComponent(agentId)}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
-      if (!res.ok) throw new Error('Remove failed');
+      if (!res.ok) throw new Error("Remove failed");
       refreshSkills();
     } catch (e) {
       console.error(e);
@@ -109,243 +110,162 @@ export default function MarketplacePage() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      {/* Header */}
-      <header className="flex items-center justify-between pl-14 pr-6 lg:px-6 h-14 border-b border-black/5 shrink-0">
-        <div>
-          <h1 className="text-sm font-semibold text-[#171717]">Marketplace</h1>
-          <p className="text-[11px] text-[#8e8e8e]">{skills.length} skills available</p>
-        </div>
-      </header>
-
-      <div className="flex-1 overflow-y-auto">
-        {/* Search + Filters */}
-        <div className="px-6 pt-5 pb-3 space-y-3">
-          <input
-            type="text"
-            placeholder="Search skills..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full max-w-md px-3 py-2 text-sm border border-[#e5e5e5] rounded-lg bg-white text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/30 transition-colors"
-          />
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <button
-              onClick={() => setActiveCategory("All")}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                activeCategory === "All"
-                  ? "bg-[#171717] text-white"
-                  : "bg-[#f4f4f4] text-[#666] hover:bg-[#e5e5e5]"
-              }`}
-            >
-              All
-            </button>
-            {categories.map((cat) => (
+    <PageShell
+      title="Marketplace"
+      subtitle="Browse public, user-installed, and org-assigned skills in the same premium Mira system."
+      eyebrow="Skill marketplace"
+      actions={<button onClick={refreshSkills} className="mira-button-secondary px-4 py-2 text-xs font-semibold">Refresh</button>}
+    >
+      <div className="mx-auto max-w-6xl space-y-5">
+        <SectionCard>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <input
+              type="text"
+              placeholder="Search skills..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="mira-input max-w-xl px-4 py-3 text-sm"
+            />
+            <div className="flex flex-wrap items-center gap-2">
               <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  activeCategory === cat
-                    ? "bg-[#171717] text-white"
-                    : "bg-[#f4f4f4] text-[#666] hover:bg-[#e5e5e5]"
-                }`}
+                onClick={() => setActiveCategory("All")}
+                className={`rounded-full px-4 py-2 text-xs font-semibold ${activeCategory === "All" ? "bg-slate-950 text-white" : "bg-white text-slate-600 border border-slate-200"}`}
               >
-                {cat}
+                All
               </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Skill Grid */}
-        <div className="px-6 pb-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((skill) => (
-            <div
-              key={skill.id}
-              className="group border border-[#e5e5e5] rounded-xl p-4 hover:border-[#d0d0d0] hover:shadow-sm transition-all cursor-pointer"
-              onClick={() => setSelectedSkill(skill)}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-[#f4f4f4] flex items-center justify-center text-xl">
-                    {skill.icon}
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-[#171717]">{skill.name}</h3>
-                    <p className="text-[11px] text-[#8e8e8e]">{skill.vendor} · v{skill.version}</p>
-                  </div>
-                </div>
-                {skill.version === "0.1.0" && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#f4f4f4] text-[#8e8e8e]">
-                    Coming Soon
-                  </span>
-                )}
-              </div>
-
-              <p className="text-[13px] text-[#666] leading-relaxed mb-3 line-clamp-2">
-                {skill.description}
-              </p>
-
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#f0f0f0] text-[#666]">
-                    {skill.category}
-                  </span>
-                  {skill.assignedByOrg && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#e8f0ff] text-[#2457d6]">
-                      Assigned by Organization
-                    </span>
-                  )}
-                  {skill.installedByUser && !skill.assignedByOrg && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#eaf8ec] text-[#1f7a35]">
-                      Installed by You
-                    </span>
-                  )}
-                </div>
-                {skill.version !== "0.1.0" && (
-                  <div className="flex items-center gap-1">
-                    {skill.installablePublic && !skill.installedByUser && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          installSkill(skill);
-                        }}
-                        disabled={busySkillId === skill.id || !agentId}
-                        className="px-3 py-1 rounded-lg text-[11px] font-medium bg-[#171717] text-white hover:bg-[#333] transition-colors disabled:opacity-50"
-                      >
-                        {busySkillId === skill.id ? 'Installing...' : 'Install'}
-                      </button>
-                    )}
-                    {skill.removableByUser && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          uninstallSkill(skill);
-                        }}
-                        disabled={busySkillId === skill.id}
-                        className="px-3 py-1 rounded-lg text-[11px] font-medium border border-[#d0d0d0] text-[#555] hover:bg-[#f6f6f6] transition-colors disabled:opacity-50"
-                      >
-                        Remove
-                      </button>
-                    )}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        copyInstallUrl(skill);
-                      }}
-                      className="px-3 py-1 rounded-lg text-[11px] font-medium bg-[#f4f4f4] text-[#444] hover:bg-[#e5e5e5] transition-colors"
-                    >
-                      {copiedId === skill.id ? "✓ Copied" : "Copy URL"}
-                    </button>
-                  </div>
-                )}
-              </div>
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  className={`rounded-full px-4 py-2 text-xs font-semibold ${activeCategory === cat ? "bg-slate-950 text-white" : "bg-white text-slate-600 border border-slate-200"}`}
+                >
+                  {cat}
+                </button>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        </SectionCard>
 
-        {filtered.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-sm text-[#8e8e8e]">No skills match your search</p>
+        {filtered.length === 0 ? (
+          <EmptyState icon="◇" title="No skills match this view" description="Try a different category or search term to surface relevant skills." />
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {filtered.map((skill) => (
+              <SectionCard key={skill.id} className="cursor-pointer transition hover:-translate-y-0.5">
+                <div onClick={() => setSelectedSkill(skill)} className="space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="mira-icon-chip text-xl">{skill.icon}</div>
+                      <div>
+                        <h3 className="text-base font-semibold tracking-[-0.03em] text-slate-950">{skill.name}</h3>
+                        <p className="mt-1 text-xs text-slate-500">{skill.vendor} · v{skill.version}</p>
+                      </div>
+                    </div>
+                    {skill.version === "0.1.0" && <span className="mira-pill bg-slate-100 text-slate-600">Coming soon</span>}
+                  </div>
+
+                  <p className="line-clamp-3 text-sm leading-6 text-slate-600">{skill.description}</p>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="mira-pill bg-slate-100 text-slate-600">{skill.category}</span>
+                    {skill.assignedByOrg && <span className="mira-pill bg-sky-100 text-sky-700">Assigned by organization</span>}
+                    {skill.installedByUser && !skill.assignedByOrg && <span className="mira-pill bg-emerald-100 text-emerald-700">Installed by you</span>}
+                  </div>
+
+                  {skill.version !== "0.1.0" && (
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      {skill.installablePublic && !skill.installedByUser && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            installSkill(skill);
+                          }}
+                          disabled={busySkillId === skill.id || !agentId}
+                          className="mira-button-primary px-4 py-2 text-xs font-semibold disabled:opacity-50"
+                        >
+                          {busySkillId === skill.id ? "Installing…" : "Install"}
+                        </button>
+                      )}
+                      {skill.removableByUser && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            uninstallSkill(skill);
+                          }}
+                          disabled={busySkillId === skill.id}
+                          className="mira-button-secondary px-4 py-2 text-xs font-semibold disabled:opacity-50"
+                        >
+                          Remove
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyInstallUrl(skill);
+                        }}
+                        className="mira-button-secondary px-4 py-2 text-xs font-semibold"
+                      >
+                        {copiedId === skill.id ? "Copied" : "Copy URL"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </SectionCard>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Skill Detail Modal */}
       {selectedSkill && (
-        <div
-          className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 p-4"
-          onClick={() => setSelectedSkill(null)}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[80vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#e5e5e5]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm" onClick={() => setSelectedSkill(null)}>
+          <div className="mira-surface flex max-h-[82vh] w-full max-w-2xl flex-col rounded-[1.8rem]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between gap-4 border-b border-slate-200/60 px-6 py-5">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-[#f4f4f4] flex items-center justify-center text-xl">
-                  {selectedSkill.icon}
-                </div>
+                <div className="mira-icon-chip text-xl">{selectedSkill.icon}</div>
                 <div>
-                  <h2 className="text-sm font-semibold text-[#171717]">{selectedSkill.name}</h2>
-                  <p className="text-[11px] text-[#8e8e8e]">
-                    {selectedSkill.vendor} · v{selectedSkill.version} · {selectedSkill.category}
-                  </p>
+                  <h2 className="text-lg font-semibold tracking-[-0.03em] text-slate-950">{selectedSkill.name}</h2>
+                  <p className="mt-1 text-xs text-slate-500">{selectedSkill.vendor} · v{selectedSkill.version} · {selectedSkill.category}</p>
                 </div>
               </div>
-              <button
-                onClick={() => setSelectedSkill(null)}
-                className="p-1.5 text-[#8e8e8e] hover:text-[#171717] rounded-lg hover:bg-[#f4f4f4] transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <button onClick={() => setSelectedSkill(null)} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">Close</button>
             </div>
 
-            {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto px-5 py-4">
-              <p className="text-[13px] text-[#666] mb-4">{selectedSkill.description}</p>
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              <p className="text-sm leading-6 text-slate-600">{selectedSkill.description}</p>
 
-              {/* Tags */}
-              <div className="flex flex-wrap gap-1.5 mb-4">
+              <div className="mt-4 flex flex-wrap gap-2">
                 {selectedSkill.tags.map((tag) => (
-                  <span key={tag} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#f0f0f0] text-[#666]">
-                    {tag}
-                  </span>
+                  <span key={tag} className="mira-pill bg-slate-100 text-slate-600">{tag}</span>
                 ))}
               </div>
 
-              {/* Install Instructions */}
               {selectedSkill.version !== "0.1.0" && (
-                <div className="bg-[#f9f9f9] border border-[#e5e5e5] rounded-xl p-4 mb-4">
-                  <h3 className="text-xs font-semibold text-[#171717] mb-2">📦 How to Install</h3>
-                  <ol className="text-[12px] text-[#666] space-y-1.5 list-decimal list-inside">
-                    <li>Click <strong>Copy Install URL</strong> below</li>
-                    <li>Go to your assistant chat</li>
-                    <li>Paste the URL and say <em>&quot;Install this skill&quot;</em></li>
-                    <li>Your assistant will handle the rest</li>
+                <div className="mira-surface-muted mt-5 rounded-[1.2rem] p-4">
+                  <h3 className="text-sm font-semibold text-slate-950">Install flow</h3>
+                  <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-600">
+                    <li>Copy the install URL.</li>
+                    <li>Paste it into your assistant chat.</li>
+                    <li>Ask Mira to install the skill.</li>
                   </ol>
                 </div>
               )}
 
-              {/* Readme */}
-              <div className="prose prose-sm max-w-none">
-                <div className="text-[13px] text-[#444] leading-relaxed whitespace-pre-line">
-                  {selectedSkill.readme.split('\n').map((line, i) => {
-                    if (line.startsWith('# ')) return <h3 key={i} className="text-sm font-semibold text-[#171717] mt-4 mb-2">{line.slice(2)}</h3>;
-                    if (line.startsWith('## ')) return <h4 key={i} className="text-[13px] font-semibold text-[#171717] mt-3 mb-1">{line.slice(3)}</h4>;
-                    if (line.startsWith('- **')) {
-                      const match = line.match(/^- \*\*(.+?)\*\* — (.+)$/);
-                      if (match) return <p key={i} className="ml-3 my-0.5"><strong>{match[1]}</strong> — {match[2]}</p>;
-                    }
-                    if (line.startsWith('- "')) return <p key={i} className="ml-3 my-0.5 text-[#666] italic">{line.slice(2)}</p>;
-                    if (line.trim() === '') return <br key={i} />;
-                    return <p key={i} className="my-0.5">{line}</p>;
-                  })}
-                </div>
+              <div className="mt-5 whitespace-pre-line text-sm leading-6 text-slate-600">
+                {selectedSkill.readme}
               </div>
             </div>
 
-            {/* Modal Footer */}
-            <div className="px-5 py-3 border-t border-[#e5e5e5] flex items-center justify-end gap-2">
-              <button
-                onClick={() => setSelectedSkill(null)}
-                className="px-4 py-2 text-[12px] font-medium text-[#666] hover:text-[#171717] transition-colors"
-              >
-                Close
-              </button>
+            <div className="flex items-center justify-end gap-3 border-t border-slate-200/60 px-6 py-4">
+              <button onClick={() => setSelectedSkill(null)} className="mira-button-secondary px-4 py-2 text-sm font-semibold">Close</button>
               {selectedSkill.version !== "0.1.0" && (
-                <button
-                  onClick={() => copyInstallUrl(selectedSkill)}
-                  className="px-4 py-2 rounded-lg text-[12px] font-semibold bg-[#171717] text-white hover:bg-[#333] transition-colors"
-                >
-                  {copiedId === selectedSkill.id ? "✓ Copied!" : "Copy Install URL"}
+                <button onClick={() => copyInstallUrl(selectedSkill)} className="mira-button-primary px-4 py-2 text-sm font-semibold">
+                  {copiedId === selectedSkill.id ? "Copied" : "Copy install URL"}
                 </button>
               )}
             </div>
           </div>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

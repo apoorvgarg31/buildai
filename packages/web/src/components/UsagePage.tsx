@@ -1,24 +1,26 @@
 "use client";
 
+import { EmptyState, PageShell, SectionCard } from "./MiraShell";
+
 export default function UsagePage() {
   return (
-    <div className="flex flex-col h-full bg-white">
-      <header className="flex items-center pl-14 pr-6 lg:px-6 h-14 border-b border-black/5 shrink-0">
-        <h1 className="text-sm font-semibold text-[#171717]">Usage</h1>
-      </header>
-
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center space-y-3 px-4">
-          <div className="w-12 h-12 rounded-xl bg-[#f4f4f4] flex items-center justify-center text-2xl mx-auto">
-            📊
-          </div>
-          <h2 className="text-lg font-semibold text-[#171717]">Usage Analytics</h2>
-          <p className="text-[#8e8e8e] text-sm max-w-sm">
-            Track your conversations, API usage, and assistant performance metrics.
-          </p>
-          <p className="text-[#b4b4b4] text-xs">Coming soon</p>
+    <PageShell title="Usage intelligence" subtitle="Track how your workspace is using Mira across conversations, skills, and proactive automation." eyebrow="Analytics">
+      <div className="mx-auto max-w-5xl space-y-5">
+        <div className="grid gap-4 md:grid-cols-3">
+          {[
+            ["Conversations", "Live session usage and assistant activity"],
+            ["Artifacts", "Generated files, outputs, and shared assets"],
+            ["Automation", "Scheduled prompts and watchlist-triggered actions"],
+          ].map(([title, copy]) => (
+            <SectionCard key={title} className="min-h-[140px]">
+              <p className="mira-eyebrow">Preview</p>
+              <h3 className="mt-3 text-lg font-semibold text-slate-950">{title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{copy}</p>
+            </SectionCard>
+          ))}
         </div>
+        <EmptyState icon="◫" title="Usage dashboards land next" description="The visual system is in place. Data visualizations and rate breakdowns can now be dropped into a consistent Mira shell." hint="Ready for metrics wiring" />
       </div>
-    </div>
+    </PageShell>
   );
 }

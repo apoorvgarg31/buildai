@@ -11,67 +11,32 @@ export interface Message {
   isThinking?: boolean;
 }
 
-interface ChatMessageProps {
-  message: Message;
-}
+interface ChatMessageProps { message: Message; }
 
 export default function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === "user";
 
   return (
-    <div className={`py-3 ${isUser ? "" : ""}`}>
-      <div className={`max-w-[680px] mx-auto px-4 ${isUser ? "flex justify-end" : ""}`}>
+    <div className="py-3">
+      <div className={`mx-auto max-w-[760px] px-4 ${isUser ? "flex justify-end" : ""}`}>
         {isUser ? (
-          /* User message: right-aligned gray bubble */
-          <div className="max-w-[85%]">
-            <div className="inline-block bg-[#f4f4f4] text-[#171717] rounded-3xl px-5 py-3">
-              <div className="text-[15px] leading-[1.7] whitespace-pre-wrap">
-                {message.content}
-              </div>
-            </div>
+          <div className="max-w-[85%] rounded-[1.7rem] border border-slate-200/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(240,247,255,0.88))] px-5 py-3 text-slate-900 shadow-[0_18px_36px_rgba(148,163,184,0.12)]">
+            <div className="text-[15px] leading-[1.8] whitespace-pre-wrap">{message.content}</div>
           </div>
         ) : (
-          /* Assistant message: left-aligned with markdown rendering */
           <div className="max-w-full">
             <div className="flex items-start gap-3">
-              {/* Small BuildAI icon */}
-              <div className="w-6 h-6 rounded-full bg-[#171717] flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 mt-1">
-                B
-              </div>
-              <div
-                className="flex-1 min-w-0 prose prose-sm max-w-none
-                  prose-p:text-[#171717] prose-p:leading-[1.7] prose-p:my-2 prose-p:text-[15px]
-                  prose-strong:text-[#171717] prose-strong:font-semibold
-                  prose-li:text-[#171717] prose-li:my-0.5 prose-li:text-[15px] prose-li:leading-[1.7]
-                  prose-ul:my-2 prose-ul:list-disc prose-ul:pl-4
-                  prose-ol:my-2 prose-ol:pl-4
-                  prose-code:text-[#171717] prose-code:bg-[#f4f4f4] prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-[13px] prose-code:font-normal
-                  prose-pre:bg-[#f4f4f4] prose-pre:border prose-pre:border-[#e5e5e5] prose-pre:rounded-xl
-                  prose-headings:text-[#171717] prose-headings:font-semibold
-                  prose-a:text-[#171717] prose-a:no-underline prose-a:font-medium hover:prose-a:underline
-                  prose-table:border-collapse prose-table:w-full
-                  prose-th:bg-[#f4f4f4] prose-th:border prose-th:border-[#e5e5e5] prose-th:px-3 prose-th:py-1.5 prose-th:text-left prose-th:text-[13px] prose-th:font-semibold
-                  prose-td:border prose-td:border-[#e5e5e5] prose-td:px-3 prose-td:py-1.5 prose-td:text-[13px]
-                  text-[#171717]
-                "
-              >
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {message.content}
-                </ReactMarkdown>
+              <div className="mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-2xl bg-[linear-gradient(145deg,#0f2746,#3b82f6)] text-[10px] font-semibold tracking-[0.24em] text-white shadow-[0_12px_24px_rgba(59,130,246,0.22)]">M</div>
+              <div className="mira-surface min-w-0 flex-1 rounded-[1.5rem] px-5 py-4 prose prose-sm max-w-none prose-p:my-2 prose-p:text-[15px] prose-p:leading-[1.8] prose-p:text-slate-800 prose-strong:text-slate-950 prose-li:text-slate-800 prose-li:text-[15px] prose-code:rounded prose-code:bg-slate-100 prose-code:px-1.5 prose-code:py-0.5 prose-pre:rounded-2xl prose-pre:border prose-pre:border-slate-200 prose-pre:bg-slate-950 prose-pre:text-slate-100 prose-headings:text-slate-950 prose-a:text-blue-700 prose-th:border prose-th:border-slate-200 prose-th:bg-slate-50 prose-td:border prose-td:border-slate-200">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
               </div>
             </div>
           </div>
         )}
       </div>
-      {/* Timestamp hidden by default, shown on hover */}
-      <div className="group">
-        <p className={`text-[11px] text-[#b4b4b4] mt-1 opacity-0 group-hover:opacity-100 transition-opacity ${isUser ? "text-right pr-6" : "pl-[52px]"} max-w-[680px] mx-auto px-4`}>
-          {message.timestamp.toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </p>
-      </div>
+      <p className={`mx-auto mt-1 max-w-[760px] px-4 text-[11px] text-slate-400 ${isUser ? "text-right pr-6" : "pl-[56px]"}`}>
+        {message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+      </p>
     </div>
   );
 }

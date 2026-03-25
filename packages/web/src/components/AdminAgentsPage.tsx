@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { EmptyState, PageShell, SectionCard } from "./MiraShell";
 
 interface Agent {
   id: string;
@@ -27,8 +28,6 @@ export default function AdminAgentsPage() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
-
-  // Form state
   const [formName, setFormName] = useState("");
   const [formModel, setFormModel] = useState("google/gemini-2.0-flash");
   const [formApiKey, setFormApiKey] = useState("");
@@ -44,11 +43,16 @@ export default function AdminAgentsPage() {
       ]);
       if (agentsRes.ok) setAgents(await agentsRes.json());
       if (connsRes.ok) setConnections(await connsRes.json());
-    } catch { /* ignore */ }
-    finally { setLoading(false); }
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleCreate = async () => {
     setCreating(true);
@@ -66,7 +70,9 @@ export default function AdminAgentsPage() {
       });
       if (res.ok) {
         setShowCreateModal(false);
-        setFormName(""); setFormApiKey(""); setSelectedConnections([]);
+        setFormName("");
+        setFormApiKey("");
+        setSelectedConnections([]);
         fetchData();
       } else {
         const data = await res.json();
@@ -91,105 +97,84 @@ export default function AdminAgentsPage() {
     );
   };
 
-  const getConnectionNames = (ids: string[]) =>
-    ids.map((id) => connections.find((c) => c.id === id)?.name || id).join(", ");
+  const getConnectionNames = (ids: string[]) => ids.map((id) => connections.find((c) => c.id === id)?.name || id).join(", ");
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      <header className="flex items-center justify-between pl-14 pr-6 lg:px-6 h-14 border-b border-black/5">
-        <div>
-          <h2 className="text-sm font-semibold text-[#171717]">Agents</h2>
-          <p className="text-[11px] text-[#8e8e8e]">
-            {loading ? "Loading..." : `${agents.length} agent${agents.length !== 1 ? "s" : ""}`}
-          </p>
-        </div>
-        <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#171717] hover:bg-[#333] text-white text-[13px] font-semibold transition-colors">
-          <span>+</span> Create Agent
-        </button>
-      </header>
-
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+    <PageShell
+      title="Agents"
+      subtitle="Provision Mira agents with the right model, credentials, and connection stack for each workflow."
+      eyebrow="Admin workspace"
+      actions={<button onClick={() => setShowCreateModal(true)} className="mira-button-primary px-4 py-2 text-xs font-semibold">Create agent</button>}
+    >
+      <div className="mx-auto max-w-6xl">
         {loading ? (
-          <div className="flex items-center justify-center h-32 text-[#8e8e8e] text-sm">Loading agents...</div>
+          <SectionCard><p className="text-sm text-slate-500">Loading agents…</p></SectionCard>
         ) : agents.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 text-[#8e8e8e] text-sm">
-            <p>No agents yet</p>
-            <p className="text-[11px] mt-1">Create a connection first, then create an agent</p>
-          </div>
+          <EmptyState icon="✦" title="No agents yet" description="Create an agent after wiring at least one model key and the connections it should reason over." hint="Admin setup" />
         ) : (
-          <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             {agents.map((agent) => (
-              <div key={agent.id} className="rounded-xl border bg-[#f9f9f9] border-black/5 hover:border-[#e5e5e5] p-5 transition-colors">
-                <div className="flex items-start justify-between mb-3">
+              <SectionCard key={agent.id} className="space-y-4">
+                <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/20 flex items-center justify-center text-xl">🏗️</div>
+                    <div className="mira-icon-chip text-lg">✦</div>
                     <div>
-                      <h3 className="text-[14px] font-semibold text-[#171717]">{agent.name}</h3>
-                      <p className="text-[11px] text-[#8e8e8e] font-mono">{agent.id}</p>
+                      <h3 className="text-base font-semibold tracking-[-0.03em] text-slate-950">{agent.name}</h3>
+                      <p className="mt-1 text-xs font-mono text-slate-500">{agent.id}</p>
                     </div>
                   </div>
-                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border ${
-                    agent.status === "active"
-                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                      : "bg-gray-500/10 text-[#8e8e8e] border-gray-500/20"
-                  }`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${agent.status === "active" ? "bg-emerald-400" : "bg-gray-400"}`} />
+                  <span className={`mira-pill ${agent.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
                     {agent.status}
                   </span>
                 </div>
 
-                <div className="space-y-2 mb-4">
-                  <div className="flex justify-between text-[12px]">
-                    <span className="text-[#8e8e8e]">Model</span>
-                    <span className="text-[#333] font-mono text-[11px]">{agent.model.split("/").pop()}</span>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="mira-surface-muted rounded-[1.1rem] px-4 py-3">
+                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-slate-400">Model</p>
+                    <p className="mt-2 text-sm text-slate-900">{agent.model.split("/").pop()}</p>
                   </div>
-                  <div className="flex justify-between text-[12px]">
-                    <span className="text-[#8e8e8e]">API Key</span>
-                    <span className={`text-[11px] font-medium ${agent.api_key ? 'text-emerald-500' : 'text-red-400'}`}>
-                      {agent.api_key ? '✓ Configured' : '✗ Missing'}
-                    </span>
+                  <div className="mira-surface-muted rounded-[1.1rem] px-4 py-3">
+                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-slate-400">API key</p>
+                    <p className={`mt-2 text-sm ${agent.api_key ? "text-emerald-700" : "text-rose-600"}`}>{agent.api_key ? "Configured" : "Missing"}</p>
                   </div>
-                  <div className="flex justify-between text-[12px]">
-                    <span className="text-[#8e8e8e]">Connections</span>
-                    <span className="text-[#333]">{agent.connection_ids.length > 0 ? getConnectionNames(agent.connection_ids) : "None"}</span>
+                  <div className="mira-surface-muted rounded-[1.1rem] px-4 py-3 sm:col-span-2">
+                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-slate-400">Connections</p>
+                    <p className="mt-2 text-sm text-slate-900">{agent.connection_ids.length > 0 ? getConnectionNames(agent.connection_ids) : "None assigned"}</p>
                   </div>
-                  <div className="flex justify-between text-[12px]">
-                    <span className="text-[#8e8e8e]">Session</span>
-                    <span className="text-[#333] font-mono text-[11px]">agent:{agent.id}:webchat:default</span>
+                  <div className="mira-surface-muted rounded-[1.1rem] px-4 py-3 sm:col-span-2">
+                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-slate-400">Session route</p>
+                    <p className="mt-2 break-all font-mono text-xs text-slate-500">agent:{agent.id}:webchat:default</p>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-black/5">
-                  <span className="text-[11px] text-[#666]">Created {new Date(agent.created_at + "Z").toLocaleDateString()}</span>
-                  <button onClick={() => handleDelete(agent.id)} className="px-2.5 py-1 text-[11px] text-red-400 hover:text-red-300 rounded-md hover:bg-red-500/5 transition-colors font-medium">
+                <div className="flex items-center justify-between gap-3 border-t border-slate-200/60 pt-4">
+                  <p className="text-xs text-slate-500">Created {new Date(agent.created_at + "Z").toLocaleDateString()}</p>
+                  <button onClick={() => handleDelete(agent.id)} className="rounded-full border border-rose-200 bg-white px-4 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-50">
                     Delete
                   </button>
                 </div>
-              </div>
+              </SectionCard>
             ))}
           </div>
         )}
       </div>
 
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowCreateModal(false)}>
-          <div className="w-full max-w-md bg-[#f9f9f9] border border-[#e5e5e5] rounded-2xl p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-[#171717] mb-4">Create Agent</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 px-4 backdrop-blur-sm" onClick={() => setShowCreateModal(false)}>
+          <div className="mira-surface w-full max-w-xl rounded-[1.8rem] p-6" onClick={(e) => e.stopPropagation()}>
+            <p className="mira-eyebrow">New agent</p>
+            <h3 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-slate-950">Create a Mira worker</h3>
 
-            {createError && (
-              <div className="mb-3 px-3 py-2 rounded-lg bg-red-500/10 text-red-400 text-[12px] border border-red-500/20">{createError}</div>
-            )}
+            {createError && <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{createError}</div>}
 
-            <div className="space-y-3">
+            <div className="mt-5 space-y-4">
               <div>
-                <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Agent Name</label>
-                <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Sarah's PM Agent"
-                  className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20" />
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Agent name</label>
+                <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Sarah's PM Agent" className="mira-input px-4 py-3 text-sm" />
               </div>
               <div>
-                <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Model</label>
-                <select value={formModel} onChange={(e) => setFormModel(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] focus:outline-none focus:border-[#171717]/20">
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Model</label>
+                <select value={formModel} onChange={(e) => setFormModel(e.target.value)} className="mira-select px-4 py-3 text-sm">
                   <option value="google/gemini-2.0-flash">Gemini 2.0 Flash (Recommended)</option>
                   <option value="anthropic/claude-sonnet-4-20250514">Claude Sonnet 4</option>
                   <option value="anthropic/claude-opus-4-6">Claude Opus 4</option>
@@ -197,23 +182,25 @@ export default function AdminAgentsPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">API Key</label>
-                <input type="password" value={formApiKey} onChange={(e) => setFormApiKey(e.target.value)}
-                  placeholder={formModel.startsWith('anthropic') ? 'sk-ant-...' : formModel.startsWith('openai') ? 'sk-...' : 'API key for the selected provider'}
-                  className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717] placeholder-[#b4b4b4] focus:outline-none focus:border-[#171717]/20 font-mono" />
-                <p className="text-[10px] text-[#b4b4b4] mt-1">Required. The agent uses this key to call the LLM.</p>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">API key</label>
+                <input
+                  type="password"
+                  value={formApiKey}
+                  onChange={(e) => setFormApiKey(e.target.value)}
+                  placeholder={formModel.startsWith("anthropic") ? "sk-ant-..." : formModel.startsWith("openai") ? "sk-..." : "Provider API key"}
+                  className="mira-input px-4 py-3 font-mono text-sm"
+                />
+                <p className="mt-2 text-xs text-slate-500">Required so the agent can call its assigned model.</p>
               </div>
               {connections.length > 0 && (
                 <div>
-                  <label className="block text-[12px] font-medium text-[#8e8e8e] mb-2">Assign Connections</label>
-                  <div className="space-y-1.5">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Connections</label>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {connections.map((conn) => (
-                      <label key={conn.id} className="flex items-center gap-2 px-3 py-2 bg-white border border-black/5 rounded-lg cursor-pointer hover:border-[#e5e5e5]">
-                        <input type="checkbox" checked={selectedConnections.includes(conn.id)}
-                          onChange={() => toggleConnection(conn.id)}
-                          className="rounded border-white/20 bg-transparent" />
-                        <span className="text-[13px] text-[#171717]">{conn.name}</span>
-                        <span className="text-[11px] text-[#8e8e8e] ml-auto">{conn.type}</span>
+                      <label key={conn.id} className="mira-surface-muted flex items-center gap-3 rounded-[1rem] px-4 py-3 text-sm text-slate-700">
+                        <input type="checkbox" checked={selectedConnections.includes(conn.id)} onChange={() => toggleConnection(conn.id)} />
+                        <span className="min-w-0 flex-1 truncate">{conn.name}</span>
+                        <span className="text-xs text-slate-400">{conn.type}</span>
                       </label>
                     ))}
                   </div>
@@ -221,16 +208,15 @@ export default function AdminAgentsPage() {
               )}
             </div>
 
-            <div className="flex justify-end gap-2 mt-6">
-              <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-[13px] text-[#8e8e8e] hover:text-[#171717] transition-colors rounded-lg hover:bg-black/[0.04]">Cancel</button>
-              <button onClick={handleCreate} disabled={!formName || !formApiKey || creating}
-                className="px-4 py-2 bg-[#171717] hover:bg-[#333] text-white text-[13px] font-semibold rounded-lg transition-colors disabled:opacity-50">
-                {creating ? "Creating..." : "Create Agent"}
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button onClick={() => setShowCreateModal(false)} className="mira-button-secondary px-4 py-2 text-sm font-semibold">Cancel</button>
+              <button onClick={handleCreate} disabled={!formName || !formApiKey || creating} className="mira-button-primary px-4 py-2 text-sm font-semibold disabled:opacity-50">
+                {creating ? "Creating…" : "Create agent"}
               </button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

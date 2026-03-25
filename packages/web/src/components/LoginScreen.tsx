@@ -33,10 +33,10 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[#171717] text-white font-bold text-xl mb-4">
-            B
+            M
           </div>
-          <h1 className="text-xl font-semibold text-[#171717]">Welcome to BuildAI</h1>
-          <p className="text-sm text-[#8e8e8e] mt-1">AI-Powered Construction Management</p>
+          <h1 className="text-xl font-semibold text-[#171717]">Welcome to Mira</h1>
+          <p className="text-sm text-[#8e8e8e] mt-1">Construction intelligence, reimagined</p>
         </div>
 
         {/* Login form */}

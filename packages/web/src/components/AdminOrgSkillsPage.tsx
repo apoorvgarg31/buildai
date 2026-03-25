@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { EmptyState, PageShell, SectionCard } from "./MiraShell";
 
 type MarketplaceSkill = {
   id: string;
@@ -90,71 +91,58 @@ export default function AdminOrgSkillsPage() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      <header className="flex items-center justify-between pl-14 pr-6 lg:px-6 h-14 border-b border-black/5">
-        <div>
-          <h2 className="text-sm font-semibold text-[#171717]">Org Skills</h2>
-          <p className="text-[11px] text-[#8e8e8e]">Assign marketplace skills for your organization</p>
-        </div>
-      </header>
+    <PageShell
+      title="Organization skills"
+      subtitle="Control which marketplace skills every org member receives by default, and which are mandatory across the workspace."
+      eyebrow="Admin workspace"
+      actions={<button onClick={() => load()} className="mira-button-secondary px-4 py-2 text-xs font-semibold">Refresh</button>}
+    >
+      <div className="mx-auto max-w-5xl space-y-4">
+        {message && <SectionCard><p className="text-sm text-slate-600">{message}</p></SectionCard>}
 
-      <div className="flex-1 overflow-y-auto px-6 py-5">
-        <div className="max-w-5xl mx-auto space-y-4">
-          {message && <p className="text-xs text-[#666]">{message}</p>}
-          {loading ? (
-            <div className="text-sm text-[#8e8e8e]">Loading skills…</div>
-          ) : (
-            <div className="rounded-2xl border border-black/10 divide-y divide-black/5">
-              {skills.map((skill) => {
-                const assignment = assignmentMap.get(skill.id);
-                const isAssigned = !!assignment;
-                const isRequired = !!assignment && assignment.required === 1;
+        {loading ? (
+          <SectionCard><p className="text-sm text-slate-500">Loading skills…</p></SectionCard>
+        ) : skills.length === 0 ? (
+          <EmptyState icon="⬢" title="No marketplace skills found" description="Install or publish skills first, then assign them across the organization from here." />
+        ) : (
+          <div className="space-y-4">
+            {skills.map((skill) => {
+              const assignment = assignmentMap.get(skill.id);
+              const isAssigned = !!assignment;
+              const isRequired = !!assignment && assignment.required === 1;
 
-                return (
-                  <div key={skill.id} className="p-4 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium text-[#171717]">{skill.name}</p>
-                      <p className="text-xs text-[#666]">{skill.id}</p>
-                      {skill.description && <p className="text-xs text-[#8e8e8e] mt-1">{skill.description}</p>}
+              return (
+                <SectionCard key={skill.id} className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-base font-semibold tracking-[-0.03em] text-slate-950">{skill.name}</h3>
                       {isAssigned && (
-                        <span className={`inline-flex mt-2 px-2 py-0.5 text-[10px] rounded-full ${isRequired ? 'bg-red-500/10 text-red-500' : 'bg-blue-500/10 text-blue-500'}`}>
-                          {isRequired ? 'Required' : 'Optional'}
+                        <span className={`mira-pill ${isRequired ? "bg-rose-100 text-rose-700" : "bg-sky-100 text-sky-700"}`}>
+                          {isRequired ? "Required" : "Optional"}
                         </span>
                       )}
                     </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={() => assign(skill.id, false)}
-                        className="text-xs px-2.5 py-1 rounded-lg border border-black/10"
-                      >
-                        Assign Optional
-                      </button>
-                      <button
-                        onClick={() => assign(skill.id, true)}
-                        className="text-xs px-2.5 py-1 rounded-lg border border-black/10"
-                      >
-                        Assign Required
-                      </button>
-                      <button
-                        onClick={() => remove(skill.id)}
-                        disabled={!isAssigned}
-                        className="text-xs px-2.5 py-1 rounded-lg border border-red-200 text-red-500 disabled:opacity-40"
-                      >
-                        Remove
-                      </button>
-                    </div>
+                    <p className="mt-2 font-mono text-xs text-slate-400">{skill.id}</p>
+                    {skill.description && <p className="mt-2 text-sm leading-6 text-slate-600">{skill.description}</p>}
                   </div>
-                );
-              })}
 
-              {skills.length === 0 && (
-                <div className="p-4 text-sm text-[#8e8e8e]">No marketplace skills found.</div>
-              )}
-            </div>
-          )}
-        </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button onClick={() => assign(skill.id, false)} className="mira-button-secondary px-4 py-2 text-xs font-semibold">
+                      Assign optional
+                    </button>
+                    <button onClick={() => assign(skill.id, true)} className="mira-button-secondary px-4 py-2 text-xs font-semibold">
+                      Assign required
+                    </button>
+                    <button onClick={() => remove(skill.id)} disabled={!isAssigned} className="rounded-full border border-rose-200 bg-white px-4 py-2 text-xs font-semibold text-rose-600 disabled:opacity-40">
+                      Remove
+                    </button>
+                  </div>
+                </SectionCard>
+              );
+            })}
+          </div>
+        )}
       </div>
-    </div>
+    </PageShell>
   );
 }

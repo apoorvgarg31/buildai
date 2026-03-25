@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Inter, Geist_Mono } from "next/font/google";
+import { Manrope, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
   display: "swap",
 });
@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BuildAI — Construction PM Assistant",
-  description: "Reactive AI assistant for construction project managers",
+  title: "Mira — Construction Intelligence, Reimagined",
+  description: "A premium reactive AI operating layer for modern construction teams.",
 };
 
 export default function RootLayout({
@@ -27,7 +27,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full">
       <body
-        className={`${inter.variable} ${geistMono.variable} antialiased h-full`}
+        className={`${manrope.variable} ${geistMono.variable} antialiased h-full`}
       >
         <ClerkProvider>
           {children}

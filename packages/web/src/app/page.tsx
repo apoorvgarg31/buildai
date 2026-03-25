@@ -19,6 +19,7 @@ import WatchlistPage from "@/components/WatchlistPage";
 import SchedulePage from "@/components/SchedulePage";
 import ArtifactsPage from "@/components/ArtifactsPage";
 import SuperadminOrgsPage from "@/components/SuperadminOrgsPage";
+import { RedirectToSignIn } from "@clerk/nextjs";
 
 export default function Home() {
   const { user, isLoaded } = useCurrentUser();
@@ -27,87 +28,59 @@ export default function Home() {
 
   if (!isLoaded) {
     return (
-      <div className="flex items-center justify-center h-full bg-white">
-        <div className="text-center space-y-3">
-          <div className="w-10 h-10 rounded-full bg-[#171717] flex items-center justify-center text-white text-sm font-bold mx-auto animate-pulse">
-            B
-          </div>
-          <p className="text-sm text-[#8e8e8e]">Loading...</p>
+      <div className="mira-app-shell flex h-full items-center justify-center">
+        <div className="mira-surface rounded-[1.8rem] px-8 py-10 text-center">
+          <div className="mx-auto flex h-12 w-12 animate-pulse items-center justify-center rounded-2xl bg-[linear-gradient(145deg,#0f2746,#3b82f6)] text-sm font-semibold tracking-[0.28em] text-white">M</div>
+          <p className="mt-4 text-sm text-slate-500">Loading Mira workspace...</p>
         </div>
       </div>
     );
   }
 
   if (!user) {
-    // Clerk middleware should redirect to /sign-in, but just in case:
-    return null;
+    return <RedirectToSignIn />;
   }
 
   const renderPage = () => {
     if (mode === "superadmin" && user.isSuperadmin) {
       switch (activePage) {
-        case "orgs":
-          return <SuperadminOrgsPage />;
-        case "users":
-          return <AdminUsersPage />;
-        case "settings":
-          return <AdminSettingsPage />;
-        default:
-          return <SuperadminOrgsPage />;
+        case "orgs": return <SuperadminOrgsPage />;
+        case "users": return <AdminUsersPage />;
+        case "settings": return <AdminSettingsPage />;
+        default: return <SuperadminOrgsPage />;
       }
     }
 
-    // User mode pages (admins can use these too)
     if (mode === "user" || user.role !== "admin") {
       switch (activePage) {
-        case "chat":
-          return <ChatArea agentId={user.agentId} />;
-        case "artifacts":
-          return <ArtifactsPage agentId={user.agentId} />;
-        case "schedule":
-          return <SchedulePage />;
-        case "watchlist":
-          return <WatchlistPage agentId={user.agentId} />;
-        case "personality":
-          return <PersonalityStudio agentId={user.agentId} />;
-        case "marketplace":
-          return <MarketplacePage />;
-        case "usage":
-          return <UsagePage />;
-        case "settings":
-          return <SettingsPage />;
-        default:
-          return <ChatArea agentId={user.agentId} />;
+        case "chat": return <ChatArea agentId={user.agentId} />;
+        case "artifacts": return <ArtifactsPage agentId={user.agentId} />;
+        case "schedule": return <SchedulePage />;
+        case "watchlist": return <WatchlistPage agentId={user.agentId} />;
+        case "personality": return <PersonalityStudio agentId={user.agentId} />;
+        case "marketplace": return <MarketplacePage />;
+        case "usage": return <UsagePage />;
+        case "settings": return <SettingsPage />;
+        default: return <ChatArea agentId={user.agentId} />;
       }
     }
 
-    // Admin mode pages
     switch (activePage) {
-      case "dashboard":
-        return <AdminDashboard user={user} />;
-      case "chat":
-        return <ChatArea agentId={user.agentId} />;
-      case "artifacts":
-        return <ArtifactsPage agentId={user.agentId} />;
-      case "users":
-        return <AdminUsersPage />;
-      case "agents":
-        return <AdminAgentsPage />;
-      case "connections":
-        return <AdminConnectionsPage />;
-      case "org-skills":
-        return <AdminOrgSkillsPage />;
-      case "marketplace":
-        return <MarketplacePage />;
-      case "settings":
-        return <AdminSettingsPage />;
-      default:
-        return <AdminDashboard user={user} />;
+      case "dashboard": return <AdminDashboard user={user} />;
+      case "chat": return <ChatArea agentId={user.agentId} />;
+      case "artifacts": return <ArtifactsPage agentId={user.agentId} />;
+      case "users": return <AdminUsersPage />;
+      case "agents": return <AdminAgentsPage />;
+      case "connections": return <AdminConnectionsPage />;
+      case "org-skills": return <AdminOrgSkillsPage />;
+      case "marketplace": return <MarketplacePage />;
+      case "settings": return <AdminSettingsPage />;
+      default: return <AdminDashboard user={user} />;
     }
   };
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex h-full overflow-hidden bg-transparent">
       <Sidebar
         user={user}
         activePage={activePage}
@@ -117,20 +90,14 @@ export default function Home() {
           const hasAdmin = user.role === "admin";
           const hasSuper = !!user.isSuperadmin;
           if (!hasAdmin && !hasSuper) return;
-
-          const order: Array<"user" | "admin" | "superadmin"> = hasSuper
-            ? (hasAdmin ? ["user", "admin", "superadmin"] : ["user", "superadmin"])
-            : ["user", "admin"];
-
+          const order: Array<"user" | "admin" | "superadmin"> = hasSuper ? (hasAdmin ? ["user", "admin", "superadmin"] : ["user", "superadmin"]) : ["user", "admin"];
           const idx = order.indexOf(mode);
           const nextMode = order[(idx + 1) % order.length];
           setMode(nextMode);
           setActivePage(nextMode === "admin" ? "dashboard" : nextMode === "superadmin" ? "orgs" : "chat");
         }}
       />
-      <main className="flex-1 min-w-0">
-        {renderPage()}
-      </main>
+      <main className="min-w-0 flex-1 overflow-hidden">{renderPage()}</main>
     </div>
   );
 }

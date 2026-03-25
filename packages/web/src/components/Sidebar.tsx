@@ -11,32 +11,32 @@ interface NavItem {
 }
 
 const adminNav: NavItem[] = [
-  { name: "Dashboard", icon: "📊", page: "dashboard" },
-  { name: "Chat", icon: "💬", page: "chat" },
-  { name: "Artifacts", icon: "🗂️", page: "artifacts" },
-  { name: "Users", icon: "👥", page: "users" },
-  { name: "Agents", icon: "🤖", page: "agents" },
-  { name: "Connections", icon: "🔗", page: "connections" },
-  { name: "Org Skills", icon: "🧩", page: "org-skills" },
-  { name: "Marketplace", icon: "🛍️", page: "marketplace" },
-  { name: "Settings", icon: "⚙️", page: "settings" },
+  { name: "Dashboard", icon: "◫", page: "dashboard" },
+  { name: "Chat", icon: "◎", page: "chat" },
+  { name: "Artifacts", icon: "◨", page: "artifacts" },
+  { name: "Users", icon: "◌", page: "users" },
+  { name: "Agents", icon: "✦", page: "agents" },
+  { name: "Connections", icon: "⟷", page: "connections" },
+  { name: "Org Skills", icon: "⬢", page: "org-skills" },
+  { name: "Marketplace", icon: "◇", page: "marketplace" },
+  { name: "Settings", icon: "⊙", page: "settings" },
 ];
 
 const superadminNav: NavItem[] = [
-  { name: "Organizations", icon: "🏢", page: "orgs" },
-  { name: "Users", icon: "👥", page: "users" },
-  { name: "Settings", icon: "⚙️", page: "settings" },
+  { name: "Organizations", icon: "◫", page: "orgs" },
+  { name: "Users", icon: "◌", page: "users" },
+  { name: "Settings", icon: "⊙", page: "settings" },
 ];
 
 const userNav: NavItem[] = [
-  { name: "Chat", icon: "💬", page: "chat" },
-  { name: "Artifacts", icon: "🗂️", page: "artifacts" },
-  { name: "Automation", icon: "🗓️", page: "schedule" },
-  { name: "Watchlist", icon: "👀", page: "watchlist" },
-  { name: "Personality", icon: "✨", page: "personality" },
-  { name: "Marketplace", icon: "🛍️", page: "marketplace" },
-  { name: "Usage", icon: "📊", page: "usage" },
-  { name: "Settings", icon: "⚙️", page: "settings" },
+  { name: "Chat", icon: "◎", page: "chat" },
+  { name: "Artifacts", icon: "◨", page: "artifacts" },
+  { name: "Automation", icon: "◷", page: "schedule" },
+  { name: "Watchlist", icon: "◔", page: "watchlist" },
+  { name: "Personality", icon: "✦", page: "personality" },
+  { name: "Marketplace", icon: "◇", page: "marketplace" },
+  { name: "Usage", icon: "◫", page: "usage" },
+  { name: "Settings", icon: "⊙", page: "settings" },
 ];
 
 export type UserPage = "chat" | "artifacts" | "schedule" | "watchlist" | "personality" | "marketplace" | "usage" | "settings";
@@ -57,80 +57,80 @@ export default function Sidebar({ user, activePage, onNavigate, mode = "user", o
   const [mobileOpen, setMobileOpen] = useState(false);
   const isSuperadminView = !!user.isSuperadmin && mode === "superadmin";
   const isAdminView = user.role === "admin" && mode === "admin";
-  const navigation = isSuperadminView ? superadminNav : (isAdminView ? adminNav : userNav);
-  const defaultPage: Page = isSuperadminView ? "orgs" : (isAdminView ? "dashboard" : "chat");
+  const navigation = isSuperadminView ? superadminNav : isAdminView ? adminNav : userNav;
+  const defaultPage: Page = isSuperadminView ? "orgs" : isAdminView ? "dashboard" : "chat";
   const currentPage = activePage ?? defaultPage;
+  const modeLabel = isSuperadminView ? "Superadmin control" : isAdminView ? "Admin operations" : "Project workspace";
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-[#f9f9f9] text-[#171717]">
-      {/* Brand */}
-      <div className="flex items-center gap-3 px-4 h-14 border-b border-black/5">
-        <div className="w-7 h-7 rounded-full bg-[#171717] flex items-center justify-center text-white font-bold text-xs">
-          B
+    <div className="flex h-full flex-col border-r border-slate-200/50 bg-[linear-gradient(180deg,rgba(255,255,255,0.84),rgba(243,248,255,0.72))] text-slate-900 backdrop-blur-2xl">
+      <div className="border-b border-slate-200/60 px-4 pb-4 pt-5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(145deg,#0f2746,#3b82f6)] text-sm font-semibold tracking-[0.28em] text-white shadow-[0_18px_32px_rgba(59,130,246,0.24)]">
+            M
+          </div>
+          <div>
+            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.32em] text-slate-400">Mira</p>
+            <p className="text-sm font-semibold text-slate-950">BuildAI command</p>
+          </div>
         </div>
-        <div>
-          <p className="text-sm font-semibold text-[#171717] leading-none">BuildAI</p>
-          <p className="text-[10px] text-[#8e8e8e] mt-0.5">
-            {isSuperadminView ? "Super Admin" : (isAdminView ? "Admin Console" : "PM Assistant")}
-          </p>
+        <div className="mira-surface-muted mt-4 rounded-[1.2rem] px-3 py-3">
+          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-slate-400">Current mode</p>
+          <p className="mt-2 text-sm font-medium text-slate-900">{modeLabel}</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">Calm, premium workflows across user, admin, and org operations.</p>
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-2 py-3 space-y-0.5">
-        {navigation.map((item) => (
-          <button
-            key={item.name}
-            onClick={() => {
-              onNavigate?.(item.page);
-              setMobileOpen(false);
-            }}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${
-              currentPage === item.page
-                ? "bg-black/[0.07] text-[#171717] font-medium"
-                : "text-[#666] hover:bg-black/[0.04] hover:text-[#171717]"
-            }`}
-          >
-            <span className="text-base">{item.icon}</span>
-            <span>{item.name}</span>
-          </button>
-        ))}
+      <nav className="flex-1 space-y-1 px-3 py-4">
+        {navigation.map((item) => {
+          const active = currentPage === item.page;
+          return (
+            <button
+              key={item.name}
+              onClick={() => {
+                onNavigate?.(item.page);
+                setMobileOpen(false);
+              }}
+              className={`flex w-full items-center gap-3 rounded-[1.05rem] px-3 py-3 text-sm transition-all ${
+                active
+                  ? "bg-[linear-gradient(135deg,rgba(18,49,88,0.96),rgba(53,111,196,0.96))] text-white shadow-[0_18px_32px_rgba(37,84,141,0.18)]"
+                  : "text-slate-600 hover:bg-white/70 hover:text-slate-900"
+              }`}
+            >
+              <span className={`flex h-8 w-8 items-center justify-center rounded-xl text-sm ${active ? "bg-white/12 text-white" : "bg-slate-100 text-slate-600"}`}>{item.icon}</span>
+              <span className="font-medium">{item.name}</span>
+            </button>
+          );
+        })}
       </nav>
 
-      {/* Admin/User mode switch */}
       {(user.role === "admin" || user.isSuperadmin) && (
-        <div className="px-2 pt-3 border-t border-black/5">
-          <button
-            onClick={onToggleMode}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs border border-black/10 hover:bg-black/[0.04]"
-            title="Switch mode"
-          >
-            <span>{isSuperadminView ? "🧠 Superadmin mode" : (isAdminView ? "🛡️ Admin mode" : "👤 User mode")}</span>
-            <span className="text-[#8e8e8e]">Switch</span>
+        <div className="px-3 pb-3">
+          <button onClick={onToggleMode} className="mira-surface-muted flex w-full items-center justify-between rounded-[1.1rem] px-3 py-3 text-left">
+            <div>
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">View switcher</p>
+              <p className="mt-1 text-sm font-medium text-slate-900">{isSuperadminView ? "Superadmin" : isAdminView ? "Admin" : "User"}</p>
+            </div>
+            <span className="text-xs font-semibold text-slate-500">Switch</span>
           </button>
         </div>
       )}
 
-      {/* User */}
-      <div className="px-2 py-3">
-        <div className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-black/[0.04] transition-colors">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold ${
-            user.role === "admin"
-              ? "bg-gradient-to-br from-purple-500 to-purple-700"
-              : "bg-gradient-to-br from-gray-500 to-gray-700"
-          }`}>
+      <div className="border-t border-slate-200/60 px-3 py-4">
+        <div className="mira-surface-muted flex items-center gap-3 rounded-[1.2rem] px-3 py-3">
+          <div className={`flex h-10 w-10 items-center justify-center rounded-2xl text-xs font-semibold text-white ${user.role === "admin" ? "bg-[linear-gradient(145deg,#4f46e5,#7c3aed)]" : "bg-[linear-gradient(145deg,#0f2746,#3b82f6)]"}`}>
             {user.avatar}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-[#171717] truncate">{user.name}</p>
-            <p className="text-[11px] text-[#8e8e8e] truncate">{user.title}</p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-slate-950">{user.name}</p>
+            <p className="truncate text-xs text-slate-500">{user.title}</p>
           </div>
           <button
-            onClick={() => signOut({ redirectUrl: '/sign-in' })}
-            className="p-1.5 text-[#8e8e8e] hover:text-[#171717] transition-colors rounded-md hover:bg-black/[0.04]"
+            onClick={() => signOut({ redirectUrl: "/sign-in" })}
+            className="rounded-xl border border-slate-200 bg-white/80 p-2 text-slate-500 transition hover:text-slate-900"
             title="Sign out"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
           </button>
@@ -141,30 +141,19 @@ export default function Sidebar({ user, activePage, onNavigate, mode = "user", o
 
   return (
     <>
-      {/* Mobile hamburger */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="fixed top-3 left-3 z-50 p-2 rounded-lg bg-white text-[#171717] lg:hidden shadow-md border border-black/10"
+        className="fixed left-3 top-3 z-50 rounded-2xl border border-slate-200 bg-white/90 p-2.5 text-slate-700 shadow-[0_12px_30px_rgba(148,163,184,0.2)] backdrop-blur lg:hidden"
         aria-label="Open menu"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
         </svg>
       </button>
 
-      {/* Mobile overlay */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setMobileOpen(false)}>
-          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
-        </div>
-      )}
+      {mobileOpen && <div className="fixed inset-0 z-40 bg-slate-950/20 backdrop-blur-sm lg:hidden" onClick={() => setMobileOpen(false)} />}
 
-      {/* Sidebar */}
-      <aside className={`
-        fixed inset-y-0 left-0 z-50 w-[260px] transition-transform duration-200
-        ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
-        lg:relative lg:translate-x-0 lg:z-auto
-      `}>
+      <aside className={`fixed inset-y-0 left-0 z-50 w-[284px] transition-transform duration-300 ${mobileOpen ? "translate-x-0" : "-translate-x-full"} lg:relative lg:translate-x-0 lg:z-auto`}>
         {sidebarContent}
       </aside>
     </>

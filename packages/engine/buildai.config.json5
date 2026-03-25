@@ -24,7 +24,7 @@
         },
         "identity": {
           "name": "BuildAI",
-          "emoji": "\ud83c\udfd7\ufe0f"
+          "emoji": "🏗️"
         }
       },
       {
@@ -36,7 +36,27 @@
         },
         "identity": {
           "name": "BuildAI",
-          "emoji": "\ud83c\udfd7\ufe0f"
+          "emoji": "🏗️"
+        },
+        "heartbeat": {
+          "every": "30m",
+          "activeHours": {
+            "start": "07:00",
+            "end": "19:00"
+          },
+          "prompt": "Read HEARTBEAT.md. Run the monitoring checks using available skills. If any issues found, write alerts to ACTIVE.md. If nothing needs attention, reply HEARTBEAT_OK."
+        }
+      },
+      {
+        "id": "mira-admin-assistant-6dhltl",
+        "name": "Mira Admin Assistant",
+        "workspace": "../../workspaces/mira-admin-assistant-6dhltl",
+        "model": {
+          "primary": "google/gemini-2.0-flash"
+        },
+        "identity": {
+          "name": "BuildAI",
+          "emoji": "🏗️"
         },
         "heartbeat": {
           "every": "30m",

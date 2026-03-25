@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { EmptyState, PageShell, SectionCard } from "./MiraShell";
 
 interface User {
   id: string;
@@ -123,72 +124,66 @@ export default function AdminUsersPage() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      <header className="flex items-center justify-between pl-14 pr-6 lg:px-6 h-14 border-b border-black/5">
-        <div>
-          <h2 className="text-sm font-semibold text-[#171717]">Users</h2>
-          <p className="text-[11px] text-[#8e8e8e]">
-            {loading ? "Loading..." : `${users.length} user${users.length !== 1 ? "s" : ""}`}
-          </p>
-        </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#171717] hover:bg-[#333] text-white text-[13px] font-semibold transition-colors"
-        >
-          <span>+</span> Add User
+    <PageShell
+      title="Users"
+      subtitle="Invite teammates, shape access, and route each person to the right Mira agent without the usual admin clutter."
+      eyebrow="Admin workspace"
+      actions={
+        <button onClick={() => setShowAddModal(true)} className="mira-button-primary px-4 py-2 text-xs font-semibold">
+          Add user
         </button>
-      </header>
-
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+      }
+    >
+      <div className="mx-auto max-w-6xl">
         {loading ? (
-          <div className="flex items-center justify-center h-32 text-[#8e8e8e] text-sm">Loading users...</div>
+          <SectionCard>
+            <p className="text-sm text-slate-500">Loading users…</p>
+          </SectionCard>
         ) : users.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 text-[#8e8e8e] text-sm">
-            <p>No users yet</p>
-            <button onClick={() => setShowAddModal(true)} className="mt-2 text-[#171717] hover:text-amber-300 text-sm">Add your first user</button>
-          </div>
+          <EmptyState
+            icon="◌"
+            title="No users yet"
+            description="Create your first Mira user to start assigning roles, org access, and dedicated agents."
+            hint="Invite from admin"
+          />
         ) : (
-          <div className="max-w-5xl mx-auto">
-            <div className="rounded-xl border border-black/5 overflow-hidden">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-black/5">
-                    <th className="text-left px-5 py-3 text-[11px] font-medium text-[#8e8e8e] uppercase tracking-wider">User</th>
-                    <th className="text-left px-5 py-3 text-[11px] font-medium text-[#8e8e8e] uppercase tracking-wider">Platform Role</th>
-                    <th className="text-left px-5 py-3 text-[11px] font-medium text-[#8e8e8e] uppercase tracking-wider">Org</th>
-                    <th className="text-left px-5 py-3 text-[11px] font-medium text-[#8e8e8e] uppercase tracking-wider">Assigned Agent</th>
-                    <th className="text-right px-5 py-3 text-[11px] font-medium text-[#8e8e8e] uppercase tracking-wider">Actions</th>
+          <SectionCard className="overflow-hidden p-0">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200/60 text-left">
+                <thead className="bg-white/55">
+                  <tr>
+                    <th className="px-5 py-4 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">User</th>
+                    <th className="px-5 py-4 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Role</th>
+                    <th className="px-5 py-4 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Org</th>
+                    <th className="px-5 py-4 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Assigned agent</th>
+                    <th className="px-5 py-4 text-right text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100">
                   {users.map((user) => (
-                    <tr key={user.id} className="border-b border-black/5 hover:bg-white/[0.02] transition-colors">
-                      <td className="px-5 py-3">
+                    <tr key={user.id} className="bg-white/30 transition hover:bg-white/60">
+                      <td className="px-5 py-4 align-middle">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500/30 to-orange-500/30 flex items-center justify-center text-[11px] font-semibold text-amber-300">
-                            {user.name.split(" ").map((n) => n[0]).join("").substring(0, 2)}
+                          <div className="mira-icon-chip h-11 w-11 shrink-0 text-xs font-semibold text-slate-700">
+                            {user.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
                           </div>
-                          <div>
-                            <p className="text-[13px] font-medium text-[#171717]">{user.name}</p>
-                            <p className="text-[11px] text-[#8e8e8e]">{user.email}</p>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-slate-950">{user.name}</p>
+                            <p className="truncate text-xs text-slate-500">{user.email}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                          user.role === "admin"
-                            ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
-                            : "bg-blue-500/10 text-blue-400 border border-blue-500/20"
-                        }`}>
+                      <td className="px-5 py-4 align-middle">
+                        <span className={`mira-pill ${user.role === "admin" ? "bg-violet-100 text-violet-700" : "bg-sky-100 text-sky-700"}`}>
                           {user.role}
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-[12px] text-[#666]">{user.org_id || "—"}</td>
-                      <td className="px-5 py-3">
+                      <td className="px-5 py-4 align-middle text-sm text-slate-600">{user.org_id || "—"}</td>
+                      <td className="px-5 py-4 align-middle">
                         <select
                           value={user.agent_id || ""}
                           onChange={(e) => handleAssignAgent(user.id, e.target.value || null)}
-                          className="bg-white border border-[#e5e5e5] rounded-lg px-2 py-1 text-[12px] text-[#333] focus:outline-none focus:border-[#171717]/20"
+                          className="mira-select px-3 py-2 text-sm"
                         >
                           <option value="">Unassigned</option>
                           {agents.map((agent) => (
@@ -196,8 +191,8 @@ export default function AdminUsersPage() {
                           ))}
                         </select>
                       </td>
-                      <td className="px-5 py-3 text-right">
-                        <button onClick={() => handleDelete(user.id)} className="text-[11px] text-red-400 hover:text-red-300 font-medium">
+                      <td className="px-5 py-4 text-right align-middle">
+                        <button onClick={() => handleDelete(user.id)} className="rounded-full border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-50">
                           Delete
                         </button>
                       </td>
@@ -206,41 +201,42 @@ export default function AdminUsersPage() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </SectionCard>
         )}
       </div>
 
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowAddModal(false)}>
-          <div className="w-full max-w-md bg-[#f9f9f9] border border-[#e5e5e5] rounded-2xl p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-[#171717] mb-4">Add User</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Name</label>
-                <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Jane Smith"
-                  className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717]" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 px-4 backdrop-blur-sm" onClick={() => setShowAddModal(false)}>
+          <div className="mira-surface w-full max-w-xl rounded-[1.8rem] p-6" onClick={(e) => e.stopPropagation()}>
+            <p className="mira-eyebrow">Invite user</p>
+            <h3 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-slate-950">Add a teammate</h3>
+            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Name</label>
+                <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Jane Smith" className="mira-input px-4 py-3 text-sm" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Email</label>
+                <input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="jane@company.com" className="mira-input px-4 py-3 text-sm" />
               </div>
               <div>
-                <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Email</label>
-                <input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="jane@company.com"
-                  className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717]" />
-              </div>
-              <div>
-                <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Platform Role</label>
-                <select value={formRole} onChange={(e) => setFormRole(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717]">
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Platform role</label>
+                <select value={formRole} onChange={(e) => setFormRole(e.target.value)} className="mira-select px-4 py-3 text-sm">
                   <option value="user">User</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Org role</label>
+                <select value={formOrgRole} onChange={(e) => setFormOrgRole(e.target.value === "admin" ? "admin" : "member")} className="mira-select px-4 py-3 text-sm">
+                  <option value="admin">admin</option>
+                  <option value="member">member</option>
+                </select>
+              </div>
               {me?.isSuperadmin && (
-                <div>
-                  <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Organization</label>
-                  <select
-                    value={formOrgId}
-                    onChange={(e) => setFormOrgId(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717]"
-                  >
+                <div className="sm:col-span-2">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Organization</label>
+                  <select value={formOrgId} onChange={(e) => setFormOrgId(e.target.value)} className="mira-select px-4 py-3 text-sm">
                     <option value="">No org</option>
                     {orgs.map((org) => (
                       <option key={org.id} value={org.id}>{org.name}</option>
@@ -248,25 +244,16 @@ export default function AdminUsersPage() {
                   </select>
                 </div>
               )}
-              <div>
-                <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Org Role</label>
-                <select value={formOrgRole} onChange={(e) => setFormOrgRole(e.target.value === "admin" ? "admin" : "member")}
-                  className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px] text-[#171717]">
-                  <option value="admin">admin</option>
-                  <option value="member">member</option>
-                </select>
-              </div>
             </div>
-            <div className="flex justify-end gap-2 mt-6">
-              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 text-[13px] text-[#8e8e8e] hover:text-[#171717] transition-colors rounded-lg hover:bg-black/[0.04]">Cancel</button>
-              <button onClick={handleAdd} disabled={!formName || !formEmail}
-                className="px-4 py-2 bg-[#171717] hover:bg-[#333] text-white text-[13px] font-semibold rounded-lg transition-colors disabled:opacity-50">
-                Add User
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button onClick={() => setShowAddModal(false)} className="mira-button-secondary px-4 py-2 text-sm font-semibold">Cancel</button>
+              <button onClick={handleAdd} disabled={!formName || !formEmail} className="mira-button-primary px-4 py-2 text-sm font-semibold disabled:opacity-50">
+                Add user
               </button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

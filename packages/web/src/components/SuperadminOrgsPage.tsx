@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { EmptyState, PageShell, SectionCard } from "./MiraShell";
 
 interface Org {
   id: string;
@@ -37,10 +38,7 @@ export default function SuperadminOrgsPage() {
   const [editName, setEditName] = useState("");
   const [editSlug, setEditSlug] = useState("");
 
-  const currentEditingOrg = useMemo(
-    () => orgs.find((o) => o.id === editingOrgId) || null,
-    [editingOrgId, orgs]
-  );
+  const currentEditingOrg = useMemo(() => orgs.find((o) => o.id === editingOrgId) || null, [editingOrgId, orgs]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -114,226 +112,147 @@ export default function SuperadminOrgsPage() {
     }
   }, [currentEditingOrg, editName, editSlug, load]);
 
-  const deleteOrg = useCallback(
-    async (orgId: string, orgName: string) => {
-      if (!confirm(`Delete organization "${orgName}"? This removes memberships and org-linked records.`)) return;
-      setError("");
-      try {
-        const res = await fetch(`/api/superadmin/orgs/${encodeURIComponent(orgId)}`, {
-          method: "DELETE",
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.message || data?.error || "Failed to delete org");
-        await load();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to delete org");
-      }
-    },
-    [load]
-  );
+  const deleteOrg = useCallback(async (orgId: string, orgName: string) => {
+    if (!confirm(`Delete organization "${orgName}"? This removes memberships and org-linked records.`)) return;
+    setError("");
+    try {
+      const res = await fetch(`/api/superadmin/orgs/${encodeURIComponent(orgId)}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || data?.error || "Failed to delete org");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete org");
+    }
+  }, [load]);
 
-  const assignMember = useCallback(
-    async (orgId: string) => {
-      const draft = memberDraft[orgId];
-      if (!draft?.userId?.trim()) return;
-      setError("");
-      try {
-        const res = await fetch(`/api/superadmin/orgs/${encodeURIComponent(orgId)}/members`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: draft.userId.trim(), role: draft.role || "member" }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.message || data?.error || "Failed to assign member");
-        setMemberDraft((prev) => ({ ...prev, [orgId]: { userId: "", role: "member" } }));
-        await loadMembers(orgId);
-        await load();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to assign member");
-      }
-    },
-    [load, loadMembers, memberDraft]
-  );
+  const assignMember = useCallback(async (orgId: string) => {
+    const draft = memberDraft[orgId];
+    if (!draft?.userId?.trim()) return;
+    setError("");
+    try {
+      const res = await fetch(`/api/superadmin/orgs/${encodeURIComponent(orgId)}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: draft.userId.trim(), role: draft.role || "member" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || data?.error || "Failed to assign member");
+      setMemberDraft((prev) => ({ ...prev, [orgId]: { userId: "", role: "member" } }));
+      await loadMembers(orgId);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to assign member");
+    }
+  }, [load, loadMembers, memberDraft]);
 
-  const toggleMembers = useCallback(
-    async (orgId: string) => {
-      const next = expandedOrgId === orgId ? null : orgId;
-      setExpandedOrgId(next);
-      if (next && !membersByOrg[next]) {
-        await loadMembers(next);
-      }
-    },
-    [expandedOrgId, membersByOrg, loadMembers]
-  );
+  const toggleMembers = useCallback(async (orgId: string) => {
+    const next = expandedOrgId === orgId ? null : orgId;
+    setExpandedOrgId(next);
+    if (next && !membersByOrg[next]) await loadMembers(next);
+  }, [expandedOrgId, membersByOrg, loadMembers]);
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      <header className="flex items-center justify-between pl-14 pr-6 lg:px-6 h-14 border-b border-black/5">
-        <h1 className="text-sm font-semibold text-[#171717]">Organizations</h1>
-      </header>
-
-      <div className="p-6 space-y-4 overflow-y-auto">
-        <div className="max-w-2xl rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-4 space-y-3">
-          <p className="text-sm font-medium text-[#171717]">Create organization</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Organization name"
-              className="px-3 py-2 rounded-lg border border-[#e5e5e5] text-sm"
-            />
-            <input
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              placeholder="slug (optional)"
-              className="px-3 py-2 rounded-lg border border-[#e5e5e5] text-sm"
-            />
+    <PageShell title="Organizations" subtitle="Superadmin control over tenancy, membership, and org-level operating structure in the Mira system." eyebrow="Superadmin workspace">
+      <div className="mx-auto max-w-6xl space-y-5">
+        <SectionCard>
+          <p className="mira-eyebrow">Create organization</p>
+          <h2 className="mt-2 text-lg font-semibold tracking-[-0.03em] text-slate-950">Add a new tenant</h2>
+          <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Organization name" className="mira-input px-4 py-3 text-sm" />
+            <input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="slug (optional)" className="mira-input px-4 py-3 text-sm" />
           </div>
-          <button
-            onClick={createOrg}
-            disabled={!name.trim()}
-            className="px-3 py-2 rounded-lg bg-[#171717] text-white text-sm disabled:opacity-50"
-          >
-            Create org
-          </button>
-          {error && <p className="text-xs text-red-500">{error}</p>}
-        </div>
+          <div className="mt-4 flex items-center gap-3">
+            <button onClick={createOrg} disabled={!name.trim()} className="mira-button-primary px-4 py-2 text-sm font-semibold disabled:opacity-50">Create org</button>
+            {error && <p className="text-sm text-rose-600">{error}</p>}
+          </div>
+        </SectionCard>
 
-        <div className="max-w-5xl">
-          <p className="text-xs text-[#8e8e8e] mb-2">All organizations (CRUD)</p>
-          {loading ? (
-            <p className="text-sm text-[#8e8e8e]">Loading...</p>
-          ) : orgs.length === 0 ? (
-            <p className="text-sm text-[#8e8e8e]">No organizations yet.</p>
-          ) : (
-            <div className="space-y-2">
-              {orgs.map((o) => (
-                <div key={o.id} className="border border-[#e5e5e5] rounded-xl px-4 py-3 bg-white space-y-3">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-[#171717]">{o.name}</p>
-                      <p className="text-xs text-[#8e8e8e]">{o.slug} • {new Date(o.created_at).toLocaleString()}</p>
-                      <p className="text-xs text-[#8e8e8e] mt-1">
-                        {o.members_count ?? 0} members • {o.admins_count ?? 0} admins • {o.agents_count ?? 0} agents
-                      </p>
+        {loading ? (
+          <SectionCard><p className="text-sm text-slate-500">Loading organizations…</p></SectionCard>
+        ) : orgs.length === 0 ? (
+          <EmptyState icon="◫" title="No organizations yet" description="Create the first tenant to start segmenting users, agents, and skills across customers or business units." />
+        ) : (
+          <div className="space-y-4">
+            {orgs.map((org) => (
+              <SectionCard key={org.id} className="space-y-4">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold tracking-[-0.03em] text-slate-950">{org.name}</h3>
+                    <p className="mt-1 text-sm text-slate-500">{org.slug} • {new Date(org.created_at).toLocaleString()}</p>
+                    <p className="mt-3 text-xs uppercase tracking-[0.22em] text-slate-400">{org.members_count ?? 0} members • {org.admins_count ?? 0} admins • {org.agents_count ?? 0} agents</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button onClick={() => { setEditingOrgId(org.id); setEditName(org.name); setEditSlug(org.slug); }} className="mira-button-secondary px-4 py-2 text-xs font-semibold">Edit</button>
+                    <button onClick={() => void toggleMembers(org.id)} className="mira-button-secondary px-4 py-2 text-xs font-semibold">{expandedOrgId === org.id ? "Hide members" : "Members"}</button>
+                    <button onClick={() => void deleteOrg(org.id, org.name)} className="rounded-full border border-rose-200 bg-white px-4 py-2 text-xs font-semibold text-rose-600">Delete</button>
+                  </div>
+                </div>
+
+                {expandedOrgId === org.id && (
+                  <div className="space-y-4 border-t border-slate-200/60 pt-4">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr),180px,auto]">
+                      <input
+                        value={memberDraft[org.id]?.userId || ""}
+                        onChange={(e) => setMemberDraft((prev) => ({ ...prev, [org.id]: { userId: e.target.value, role: prev[org.id]?.role || "member" } }))}
+                        placeholder="User ID to assign"
+                        className="mira-input px-4 py-3 text-sm"
+                      />
+                      <select
+                        value={memberDraft[org.id]?.role || "member"}
+                        onChange={(e) => setMemberDraft((prev) => ({ ...prev, [org.id]: { userId: prev[org.id]?.userId || "", role: e.target.value === "admin" ? "admin" : "member" } }))}
+                        className="mira-select px-4 py-3 text-sm"
+                      >
+                        <option value="admin">admin</option>
+                        <option value="member">member</option>
+                      </select>
+                      <button onClick={() => void assignMember(org.id)} className="mira-button-primary px-4 py-2 text-sm font-semibold">Assign member</button>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setEditingOrgId(o.id);
-                          setEditName(o.name);
-                          setEditSlug(o.slug);
-                        }}
-                        className="px-2.5 py-1.5 rounded-md border border-[#d9d9d9] text-xs hover:border-[#b4b4b4]"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => void toggleMembers(o.id)}
-                        className="px-2.5 py-1.5 rounded-md border border-[#d9d9d9] text-xs hover:border-[#b4b4b4]"
-                      >
-                        {expandedOrgId === o.id ? "Hide members" : "Members"}
-                      </button>
-                      <button
-                        onClick={() => void deleteOrg(o.id, o.name)}
-                        className="px-2.5 py-1.5 rounded-md border border-red-200 text-red-600 text-xs hover:bg-red-50"
-                      >
-                        Delete
-                      </button>
+
+                    <div className="space-y-2">
+                      {(membersByOrg[org.id] || []).length === 0 ? (
+                        <p className="text-sm text-slate-500">No members yet.</p>
+                      ) : (
+                        (membersByOrg[org.id] || []).map((member) => (
+                          <div key={`${member.organization_id}:${member.user_id}`} className="mira-surface-muted flex items-center justify-between gap-3 rounded-[1.1rem] px-4 py-3">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-950">{member.name || member.email || member.user_id}</p>
+                              <p className="text-xs text-slate-500">{member.user_id}</p>
+                            </div>
+                            <span className={`mira-pill ${member.role === "admin" ? "bg-violet-100 text-violet-700" : "bg-sky-100 text-sky-700"}`}>{member.role}</span>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
-
-                  {expandedOrgId === o.id && (
-                    <div className="pt-2 border-t border-[#f0f0f0] space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <input
-                          value={memberDraft[o.id]?.userId || ""}
-                          onChange={(e) =>
-                            setMemberDraft((prev) => ({
-                              ...prev,
-                              [o.id]: { userId: e.target.value, role: prev[o.id]?.role || "member" },
-                            }))
-                          }
-                          placeholder="User ID to assign"
-                          className="px-2.5 py-1.5 rounded-md border border-[#e5e5e5] text-xs min-w-[220px]"
-                        />
-                        <select
-                          value={memberDraft[o.id]?.role || "member"}
-                          onChange={(e) =>
-                            setMemberDraft((prev) => ({
-                              ...prev,
-                              [o.id]: {
-                                userId: prev[o.id]?.userId || "",
-                                role: e.target.value === "admin" ? "admin" : "member",
-                              },
-                            }))
-                          }
-                          className="px-2.5 py-1.5 rounded-md border border-[#e5e5e5] text-xs"
-                        >
-                          <option value="admin">admin</option>
-                          <option value="member">member</option>
-                        </select>
-                        <button
-                          onClick={() => void assignMember(o.id)}
-                          className="px-2.5 py-1.5 rounded-md border border-[#d9d9d9] text-xs hover:border-[#b4b4b4]"
-                        >
-                          Assign member
-                        </button>
-                      </div>
-
-                      <div className="space-y-1">
-                        {(membersByOrg[o.id] || []).length === 0 ? (
-                          <p className="text-xs text-[#8e8e8e]">No members yet.</p>
-                        ) : (
-                          membersByOrg[o.id].map((m) => (
-                            <p key={`${m.organization_id}:${m.user_id}`} className="text-xs text-[#4f4f4f]">
-                              {m.name || m.email || m.user_id} — <span className="font-medium">{m.role}</span>
-                            </p>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                )}
+              </SectionCard>
+            ))}
+          </div>
+        )}
       </div>
 
       {editingOrgId && currentEditingOrg && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setEditingOrgId(null)}>
-          <div className="w-full max-w-md bg-[#f9f9f9] border border-[#e5e5e5] rounded-2xl p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-[#171717] mb-4">Edit organization</h3>
-            <div className="space-y-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 px-4 backdrop-blur-sm" onClick={() => setEditingOrgId(null)}>
+          <div className="mira-surface w-full max-w-xl rounded-[1.8rem] p-6" onClick={(e) => e.stopPropagation()}>
+            <p className="mira-eyebrow">Edit organization</p>
+            <h3 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-slate-950">Update org details</h3>
+            <div className="mt-5 space-y-4">
               <div>
-                <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Name</label>
-                <input
-                  type="text"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px]"
-                />
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Name</label>
+                <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="mira-input px-4 py-3 text-sm" />
               </div>
               <div>
-                <label className="block text-[12px] font-medium text-[#8e8e8e] mb-1">Slug</label>
-                <input
-                  type="text"
-                  value={editSlug}
-                  onChange={(e) => setEditSlug(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-[#e5e5e5] rounded-lg text-[13px]"
-                />
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Slug</label>
+                <input type="text" value={editSlug} onChange={(e) => setEditSlug(e.target.value)} className="mira-input px-4 py-3 text-sm" />
               </div>
             </div>
-            <div className="flex justify-end gap-2 mt-6">
-              <button onClick={() => setEditingOrgId(null)} className="px-4 py-2 text-[13px] text-[#8e8e8e] hover:text-[#171717]">Cancel</button>
-              <button onClick={() => void saveOrg()} className="px-4 py-2 bg-[#171717] text-white text-[13px] font-semibold rounded-lg">
-                Save
-              </button>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button onClick={() => setEditingOrgId(null)} className="mira-button-secondary px-4 py-2 text-sm font-semibold">Cancel</button>
+              <button onClick={() => void saveOrg()} className="mira-button-primary px-4 py-2 text-sm font-semibold">Save</button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

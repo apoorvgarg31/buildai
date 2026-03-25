@@ -14,11 +14,284 @@
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(circle at top, rgba(170, 214, 255, 0.28), transparent 28%),
+    linear-gradient(180deg, #f8fbff 0%, #f1f6fd 50%, #edf3fb 100%);
   color: var(--foreground);
-  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-manrope), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-size: 16px;
   line-height: 1.6;
+}
+
+.mira-app-shell {
+  background:
+    radial-gradient(circle at top left, rgba(171, 220, 255, 0.36), transparent 26%),
+    radial-gradient(circle at right, rgba(207, 231, 255, 0.7), transparent 24%),
+    linear-gradient(180deg, rgba(248, 251, 255, 0.98) 0%, rgba(239, 246, 254, 0.96) 100%);
+}
+
+.mira-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1rem 1rem 3.5rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(255, 255, 255, 0.68);
+  backdrop-filter: blur(24px);
+}
+
+.mira-surface {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(247,250,255,0.84));
+  box-shadow: 0 20px 60px rgba(148, 163, 184, 0.14), inset 0 1px 0 rgba(255,255,255,0.72);
+}
+
+.mira-surface-muted {
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(255,255,255,0.66);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.78);
+}
+
+.mira-eyebrow {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: #6b85a3;
+}
+
+.mira-button-primary {
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #10233d 0%, #264d7f 100%);
+  color: white;
+  box-shadow: 0 16px 30px rgba(37, 84, 141, 0.18);
+}
+
+.mira-button-secondary {
+  border-radius: 9999px;
+  border: 1px solid rgba(125, 145, 170, 0.2);
+  background: rgba(255,255,255,0.8);
+  color: #27415f;
+}
+
+.mira-input,
+.mira-select,
+.mira-textarea {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(255,255,255,0.88);
+  color: #0f172a;
+  outline: none;
+  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.mira-input:focus,
+.mira-select:focus,
+.mira-textarea:focus {
+  border-color: rgba(59, 130, 246, 0.34);
+  box-shadow: 0 0 0 4px rgba(147, 197, 253, 0.18);
+  background: white;
+}
+
+.mira-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 9999px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.mira-icon-chip {
+  display: inline-flex;
+  height: 3rem;
+  width: 3rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+  background: linear-gradient(145deg, rgba(233,244,255,0.95), rgba(217,234,252,0.75));
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 10px 30px rgba(148, 163, 184, 0.14);
+}
+
+@media (max-width: 640px) {
+  .mira-page-header {
+    padding-left: 4rem;
+    flex-direction: column;
+  }
+}
+
+.mira-auth-shell {
+  position: relative;
+  isolation: isolate;
+}
+
+.mira-light-shell {
+  background:
+    radial-gradient(circle at top, rgba(168, 214, 255, 0.38), transparent 28%),
+    linear-gradient(180deg, #f7fbff 0%, #f3f8fe 46%, #eef5fc 100%);
+}
+
+.mira-headline {
+  text-wrap: balance;
+  letter-spacing: -0.045em;
+}
+
+.mira-flow-row {
+  animation: miraRise 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.mira-grid {
+  background-image:
+    linear-gradient(rgba(154, 188, 224, 0.24) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(154, 188, 224, 0.24) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(circle at center, black 30%, transparent 84%);
+}
+
+.mira-auth-noise {
+  background-image:
+    radial-gradient(rgba(167, 191, 218, 0.18) 0.7px, transparent 0.7px),
+    radial-gradient(rgba(138, 176, 214, 0.14) 0.7px, transparent 0.7px);
+  background-position: 0 0, 13px 13px;
+  background-size: 26px 26px;
+}
+
+.mira-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(24px);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.mira-orb-a {
+  top: 4%;
+  left: 6%;
+  width: 26rem;
+  height: 26rem;
+  background: radial-gradient(circle, rgba(157, 214, 255, 0.5) 0%, rgba(157, 214, 255, 0.12) 52%, transparent 76%);
+  animation: miraFloat 16s ease-in-out infinite;
+}
+
+.mira-orb-b {
+  right: 5%;
+  bottom: 10%;
+  width: 32rem;
+  height: 32rem;
+  background: radial-gradient(circle, rgba(194, 225, 255, 0.58) 0%, rgba(194, 225, 255, 0.14) 54%, transparent 78%);
+  animation: miraFloatReverse 18s ease-in-out infinite;
+}
+
+.mira-beam {
+  position: absolute;
+  pointer-events: none;
+  inset: auto;
+  border-radius: 9999px;
+  filter: blur(10px);
+  opacity: 0.55;
+}
+
+.mira-beam-a {
+  top: 12%;
+  right: 14%;
+  width: 18rem;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(117, 195, 255, 0.85), transparent);
+  animation: miraPulse 8s ease-in-out infinite;
+}
+
+.mira-beam-b {
+  left: 12%;
+  bottom: 18%;
+  width: 14rem;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(154, 193, 255, 0.75), transparent);
+  animation: miraPulse 10s ease-in-out infinite reverse;
+}
+
+.mira-beam-c {
+  top: 34%;
+  left: 48%;
+  width: 10rem;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(120, 203, 255, 0.6), transparent);
+  animation: miraPulse 12s ease-in-out infinite;
+}
+
+.mira-panel-glow {
+  background:
+    radial-gradient(circle at 18% 18%, rgba(180, 223, 255, 0.36), transparent 26%),
+    radial-gradient(circle at 82% 22%, rgba(213, 236, 255, 0.34), transparent 20%),
+    linear-gradient(135deg, rgba(255,255,255,0.45), transparent 44%);
+}
+
+.mira-logo-ring,
+.mira-cube,
+.mira-form-frame,
+.mira-stat-card {
+  animation: miraRise 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.mira-cube {
+  transform-style: preserve-3d;
+  animation: miraCubeDrift 9s ease-in-out infinite;
+}
+
+@keyframes miraFloat {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(28px, -18px, 0) scale(1.06); }
+}
+
+@keyframes miraFloatReverse {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-22px, 18px, 0) scale(1.08); }
+}
+
+@keyframes miraRise {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes miraCubeDrift {
+  0%, 100% {
+    transform: rotateX(0deg) rotateY(-10deg) translateY(0px);
+  }
+  50% {
+    transform: rotateX(10deg) rotateY(14deg) translateY(-10px);
+  }
+}
+
+@keyframes miraPulse {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scaleX(0.92);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scaleX(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mira-orb-a,
+  .mira-orb-b,
+  .mira-logo-ring,
+  .mira-cube,
+  .mira-form-frame,
+  .mira-stat-card {
+    animation: none !important;
+  }
 }
 
 /* Thin minimal scrollbar */

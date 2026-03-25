@@ -37,9 +37,15 @@ interface EngineConfig {
  */
 function readConfig(): EngineConfig {
   const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
-  // Strip single-line comments for JSON5 compatibility
-  const cleaned = raw.replace(/\/\/.*$/gm, '').replace(/,\s*([}\]])/g, '$1');
-  return JSON.parse(cleaned);
+
+  // Prefer parsing the raw file first. Our config is usually valid JSON,
+  // and naive comment stripping breaks URLs like http://localhost:3000.
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const cleaned = raw.replace(/,\s*([}\]])/g, '$1');
+    return JSON.parse(cleaned);
+  }
 }
 
 /**
