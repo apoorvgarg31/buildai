@@ -271,7 +271,7 @@ export default function AdminConnectionsPage() {
                   </div>
                   <div>
                     <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Database name</label>
-                    <input type="text" value={formDbName} onChange={(e) => setFormDbName(e.target.value)} placeholder="buildai_demo" className="mira-input px-4 py-3 font-mono text-sm" />
+                    <input type="text" value={formDbName} onChange={(e) => setFormDbName(e.target.value)} placeholder="mira_demo" className="mira-input px-4 py-3 font-mono text-sm" />
                   </div>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>

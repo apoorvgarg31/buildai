@@ -64,7 +64,7 @@ export default function AuthShell({ mode, children }: AuthShellProps) {
               M
             </div>
             <div>
-              <p className="text-[0.65rem] uppercase tracking-[0.32em] text-slate-400">BuildAI evolves</p>
+              <p className="text-[0.65rem] uppercase tracking-[0.32em] text-slate-400">Mira evolves</p>
               <p className="text-sm font-medium text-slate-700">Mira</p>
             </div>
           </div>

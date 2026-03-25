@@ -48,7 +48,7 @@ const SKILL_CATALOG: Omit<MarketplaceSkill, 'installed'>[] = [
     description: 'Full read/write access to Procore — RFIs, submittals, budgets, daily logs, punch items, change orders, drawings, meetings, and more.',
     category: 'PMIS',
     icon: '🏗️',
-    vendor: 'BuildAI',
+    vendor: 'Mira',
     version: '1.0.0',
     tags: ['procore', 'rfi', 'submittal', 'budget', 'construction'],
     connectionType: 'procore',
@@ -81,7 +81,7 @@ Your admin will configure the Procore connection with OAuth credentials. Once co
     description: 'Automated monitoring and alerts for project data — track RFI status changes, budget overruns, and more with daily digests.',
     category: 'Analytics',
     icon: '👁️',
-    vendor: 'BuildAI',
+    vendor: 'Mira',
     version: '1.0.0',
     tags: ['monitoring', 'alerts', 'digest', 'automation'],
     readme: `# Project Monitor
@@ -109,7 +109,7 @@ Just ask your assistant to start monitoring something:
     description: 'Query your project database with natural language. The assistant writes SQL for you and returns structured results.',
     category: 'Analytics',
     icon: '📊',
-    vendor: 'BuildAI',
+    vendor: 'Mira',
     version: '1.0.0',
     tags: ['database', 'sql', 'analytics', 'reporting'],
     connectionType: 'database',
@@ -140,7 +140,7 @@ Connect your project database and query it using natural language. Your assistan
     description: 'Connect to Oracle Primavera P6 for schedule management — activities, WBS, resources, baselines, and critical path analysis.',
     category: 'Scheduling',
     icon: '📅',
-    vendor: 'BuildAI',
+    vendor: 'Mira',
     version: '0.1.0',
     tags: ['p6', 'primavera', 'scheduling', 'oracle', 'critical-path'],
     connectionType: 'p6',
@@ -156,7 +156,7 @@ Connect to Oracle Primavera P6 to manage schedules through your AI assistant.
 - **WBS** — Navigate work breakdown structure
 
 ## Coming Soon
-This skill is in development. Contact your BuildAI admin for early access.`,
+This skill is in development. Contact your Mira admin for early access.`,
   },
   {
     id: 'buildai-unifier',
@@ -164,7 +164,7 @@ This skill is in development. Contact your BuildAI admin for early access.`,
     description: 'Connect to Oracle Unifier for cost management — business processes, cost sheets, cash flow, and project controls.',
     category: 'Cost Management',
     icon: '💰',
-    vendor: 'BuildAI',
+    vendor: 'Mira',
     version: '0.1.0',
     tags: ['unifier', 'oracle', 'cost', 'project-controls'],
     connectionType: 'unifier',
@@ -179,7 +179,7 @@ Connect to Oracle Unifier for cost management and project controls.
 - **Change Management** — Track cost changes and trends
 
 ## Coming Soon
-This skill is in development. Contact your BuildAI admin for early access.`,
+This skill is in development. Contact your Mira admin for early access.`,
   },
   // Old placeholders removed — replaced by real skills below
   {
@@ -188,7 +188,7 @@ This skill is in development. Contact your BuildAI admin for early access.`,
     description: 'Extract text, tables, and structured content from any PDF — specifications, submittals, contracts, RFIs, inspection reports, and vendor quotes.',
     category: 'Documents',
     icon: '📄',
-    vendor: 'BuildAI',
+    vendor: 'Mira',
     version: '1.0.0',
     tags: ['pdf', 'extract', 'text', 'tables', 'specifications', 'submittals'],
     readme: `# PDF Extractor
@@ -217,7 +217,7 @@ Upload a PDF and ask: "Extract the tables from this specification document"`,
     description: 'Generate professional PDF reports — executive summaries, RFI reports, daily construction logs, meeting minutes, and project status updates.',
     category: 'Communication',
     icon: '📋',
-    vendor: 'BuildAI',
+    vendor: 'Mira',
     version: '1.0.0',
     tags: ['pdf', 'report', 'executive-summary', 'meeting-minutes', 'daily-log'],
     readme: `# Report Generator
@@ -246,7 +246,7 @@ Generate formatted PDF reports from your project data.
     description: 'Extract structured data from construction invoices — vendor name, amounts, line items, dates, PO numbers. Parse PDF invoices for budget tracking and payment processing.',
     category: 'Cost Management',
     icon: '🧾',
-    vendor: 'BuildAI',
+    vendor: 'Mira',
     version: '1.0.0',
     tags: ['invoice', 'payment', 'vendor', 'cost', 'budget', 'billing'],
     readme: `# Invoice Parser
@@ -276,7 +276,7 @@ Upload an invoice and ask: "Parse this invoice and compare the total against our
     description: 'Parse construction contracts to extract key terms — parties, dates, scope, payment terms, insurance requirements, liquidated damages, and obligations.',
     category: 'Documents',
     icon: '📜',
-    vendor: 'BuildAI',
+    vendor: 'Mira',
     version: '1.0.0',
     tags: ['contract', 'legal', 'terms', 'insurance', 'obligations', 'subcontract'],
     readme: `# Contract Parser
@@ -307,7 +307,7 @@ Upload a contract and ask: "What are the insurance requirements and payment term
     description: 'Import project schedules from CSV, Excel, or PDF exports — P6, MS Project, Asta Powerproject. Extract activities, durations, dependencies, and milestones.',
     category: 'Scheduling',
     icon: '📅',
-    vendor: 'BuildAI',
+    vendor: 'Mira',
     version: '1.0.0',
     tags: ['schedule', 'p6', 'primavera', 'ms-project', 'activities', 'milestones'],
     readme: `# Schedule Import
@@ -342,7 +342,7 @@ Upload a P6 CSV export and ask: "What activities are behind schedule?"`,
     description: 'Check construction project safety compliance — OSHA 1926 requirements, safety plan review, incident tracking, toolbox talks, and inspection checklists.',
     category: 'Compliance',
     icon: '🦺',
-    vendor: 'BuildAI',
+    vendor: 'Mira',
     version: '0.1.0',
     tags: ['safety', 'osha', 'compliance', 'inspection', 'incidents'],
     readme: `# Safety Compliance
@@ -357,7 +357,7 @@ Monitor and verify construction safety compliance.
 - **Inspection Checklists** — Generate safety inspection forms
 
 ## Coming Soon
-This skill is in development. Contact your BuildAI admin for early access.`,
+This skill is in development. Contact your Mira admin for early access.`,
   },
   {
     id: 'buildai-email',
@@ -365,7 +365,7 @@ This skill is in development. Contact your BuildAI admin for early access.`,
     description: 'Send emails with attachments — deliver reports, exports, notifications, and summaries to users via email. Supports HTML formatting and file attachments.',
     category: 'Communication',
     icon: '📧',
-    vendor: 'BuildAI',
+    vendor: 'Mira',
     version: '1.0.0',
     tags: ['email', 'smtp', 'notification', 'report', 'attachment'],
     readme: `# Email Send
@@ -392,7 +392,7 @@ Admin configures SMTP credentials (Gmail App Password) as environment variables.
     description: 'Export data to formatted Excel (.xlsx) files — RFIs, budgets, schedules, or any tabular data with headers, auto-column-widths, filters, and multiple sheets.',
     category: 'Analytics',
     icon: '📊',
-    vendor: 'BuildAI',
+    vendor: 'Mira',
     version: '1.0.0',
     tags: ['excel', 'xlsx', 'export', 'spreadsheet', 'report', 'data'],
     readme: `# Excel Export
@@ -428,7 +428,7 @@ Export any project data to professionally formatted Excel spreadsheets.
     description: 'Generate PowerPoint (.pptx) decks from outlines, project updates, meeting notes, and uploaded document context. Outputs ready-to-download presentation files.',
     category: 'Communication',
     icon: '📽️',
-    vendor: 'BuildAI',
+    vendor: 'Mira',
     version: '1.0.0',
     tags: ['ppt', 'pptx', 'presentation', 'slides', 'deck', 'reporting'],
     readme: `# PPT Generator
@@ -444,7 +444,7 @@ Generate polished PowerPoint decks directly from chat.
 
 ## Output
 - Produces .pptx files in agent artifacts
-- Files appear in BuildAI Artifacts UI for download
+- Files appear in Mira Artifacts UI for download
 
 ## Example Requests
 - "Create a 10-slide project status deck for Terminal A"
@@ -457,7 +457,7 @@ Generate polished PowerPoint decks directly from chat.
     description: 'Process construction site photos — EXIF metadata extraction, auto-tagging by location and trade, daily photo logs, and visual progress reports.',
     category: 'Documents',
     icon: '📸',
-    vendor: 'BuildAI',
+    vendor: 'Mira',
     version: '0.1.0',
     tags: ['photos', 'site', 'progress', 'documentation', 'visual'],
     readme: `# Photo Log
@@ -472,7 +472,7 @@ Organize and process construction site photography.
 - **Drawing Markup** — Link photos to drawing locations
 
 ## Coming Soon
-This skill is in development. Contact your BuildAI admin for early access.`,
+This skill is in development. Contact your Mira admin for early access.`,
   },
 ];
 

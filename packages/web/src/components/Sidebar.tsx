@@ -71,7 +71,7 @@ export default function Sidebar({ user, activePage, onNavigate, mode = "user", o
           </div>
           <div>
             <p className="text-[0.65rem] font-semibold uppercase tracking-[0.32em] text-slate-400">Mira</p>
-            <p className="text-sm font-semibold text-slate-950">BuildAI command</p>
+            <p className="text-sm font-semibold text-slate-950">Mira command</p>
           </div>
         </div>
         <div className="mira-surface-muted mt-4 rounded-[1.2rem] px-3 py-3">
