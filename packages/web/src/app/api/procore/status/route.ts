@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
+import { userHasAssignedConnection } from '@/lib/api-guard';
 
 /**
  * GET /api/procore/status?connectionId=xxx — Check if current user has valid Procore tokens.
@@ -13,6 +14,9 @@ export async function GET(request: NextRequest) {
   const connectionId = request.nextUrl.searchParams.get('connectionId');
   if (!connectionId) {
     return NextResponse.json({ error: 'connectionId is required' }, { status: 400 });
+  }
+  if (!userHasAssignedConnection(userId, connectionId)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const { getDb } = await import('@/lib/admin-db-server');

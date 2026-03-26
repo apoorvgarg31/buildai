@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NextRequest } from 'next/server';
 
 const files = new Map<string, string>();
+const execFileMock = vi.hoisted(() => vi.fn());
 
 vi.mock('fs', () => ({
   default: {
     existsSync: (p: string) => files.has(p),
+    mkdirSync: vi.fn(),
     readdirSync: (p: string) => {
       const prefix = `${p}/`;
       const names = new Set<string>();
@@ -19,6 +21,11 @@ vi.mock('fs', () => ({
     readFileSync: (p: string) => files.get(p) || '',
     writeFileSync: (p: string, c: string) => { files.set(p, c); },
   },
+}));
+
+vi.mock('child_process', () => ({
+  execFile: execFileMock,
+  default: { execFile: execFileMock },
 }));
 
 vi.mock('@/lib/api-guard', () => ({
@@ -41,6 +48,7 @@ vi.mock('@/lib/admin-db', () => ({
 
 import { GET as listFiles } from '../src/app/api/files/route';
 import { DELETE as deleteFile } from '../src/app/api/files/[name]/route';
+import { POST as uploadFile } from '../src/app/api/files/upload/route';
 import { requireSignedIn, canAccessAgent } from '@/lib/api-guard';
 import { isValidAgentId } from '@/lib/security';
 
@@ -49,6 +57,10 @@ describe('files api', () => {
   beforeEach(() => {
     files.clear();
     vi.clearAllMocks();
+    execFileMock.mockImplementation((_file, _args, _options, callback) => {
+      callback?.(null, '{"pages":[]}', '');
+      return {} as never;
+    });
     files.set('/virtual/agent-a/files', 'DIR');
     files.set('/virtual/agent-a/files/test.pdf', 'pdfdata');
     files.set('/virtual/agent-a/files/test.extracted.json', '{"ok":true}');
@@ -91,5 +103,49 @@ describe('files api', () => {
 
     const missing = await deleteFile({ nextUrl: new URL('http://localhost/api/files/missing.pdf?agentId=agent-a') } as unknown as NextRequest, { params: Promise.resolve({ name: 'missing.pdf' }) });
     expect(missing.status).toBe(404);
+  });
+
+  it('uploads pdfs without shell interpolation and keeps unsafe names inside files dir', async () => {
+    const file = new File(['pdfdata'], 'report$(touch hacked).pdf', { type: 'application/pdf' });
+    const formData = new FormData();
+    formData.set('file', file);
+    formData.set('agentId', 'agent-a');
+
+    const req = { formData: vi.fn(async () => formData) } as unknown as NextRequest;
+    const res = await uploadFile(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(execFileMock).toHaveBeenCalledTimes(1);
+    expect(execFileMock).toHaveBeenCalledWith(
+      'bash',
+      ['skills/buildai-pdf-extract/extract.sh', '/virtual/agent-a/files/report$(touch hacked).pdf', 'text'],
+      expect.objectContaining({ timeout: 30000 }),
+      expect.any(Function)
+    );
+    expect(data.name).toBe('report$(touch hacked).pdf');
+    expect(files.has('/virtual/agent-a/files/report$(touch hacked).pdf')).toBe(true);
+  });
+
+  it('rejects traversal-style upload filenames', async () => {
+    const file = {
+      name: '../escape.pdf',
+      size: 7,
+      type: 'application/pdf',
+      arrayBuffer: vi.fn(async () => new TextEncoder().encode('pdfdata').buffer),
+    } as unknown as File;
+    const formData = {
+      get: (key: string) => {
+        if (key === 'file') return file;
+        if (key === 'agentId') return 'agent-a';
+        return null;
+      },
+    };
+
+    const req = { formData: vi.fn(async () => formData) } as unknown as NextRequest;
+    const res = await uploadFile(req);
+
+    expect(res.status).toBe(400);
+    expect(execFileMock).not.toHaveBeenCalled();
   });
 });

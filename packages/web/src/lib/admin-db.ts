@@ -48,6 +48,7 @@ function initSchema(db: Database.Database) {
 
     CREATE TABLE IF NOT EXISTS connections (
       id TEXT PRIMARY KEY,
+      org_id TEXT,
       name TEXT NOT NULL,
       type TEXT NOT NULL,
       config TEXT NOT NULL DEFAULT '{}',
@@ -158,6 +159,7 @@ function initSchema(db: Database.Database) {
   // OA-3: safe schema upgrades for existing installs.
   ensureColumn(db, 'users', 'org_id', 'org_id TEXT');
   ensureColumn(db, 'agents', 'org_id', 'org_id TEXT');
+  ensureColumn(db, 'connections', 'org_id', 'org_id TEXT');
 }
 
 // ── ID generation ──
@@ -252,6 +254,7 @@ export function deleteUser(id: string): boolean {
 
 export interface Connection {
   id: string;
+  org_id: string | null;
   name: string;
   type: string;
   config: string; // JSON string
@@ -261,14 +264,78 @@ export interface Connection {
   updated_at: string;
 }
 
-export function listConnections(): Connection[] {
-  const rows = getDb().prepare(`
+const SENSITIVE_CONNECTION_KEY = /(secret|token|password|api[_-]?key|client_secret|access[_-]?key|private[_-]?key)/i;
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function sanitizeConnectionConfig(configJson: string): string {
+  try {
+    const parsed = JSON.parse(configJson);
+    if (!isPlainObject(parsed)) return configJson;
+    const sanitized = Object.fromEntries(
+      Object.entries(parsed).filter(([key]) => !SENSITIVE_CONNECTION_KEY.test(key))
+    );
+    return JSON.stringify(sanitized);
+  } catch {
+    return configJson;
+  }
+}
+
+function normalizeConnectionInput(
+  config: Record<string, unknown> | undefined,
+  secrets: Record<string, string> | undefined
+): { config: Record<string, unknown>; secrets: Record<string, string> | undefined } {
+  const nextConfig: Record<string, unknown> = {};
+  const nextSecrets: Record<string, string> = { ...(secrets || {}) };
+
+  for (const [key, value] of Object.entries(config || {})) {
+    if (SENSITIVE_CONNECTION_KEY.test(key) && typeof value === 'string' && value.length > 0) {
+      if (!nextSecrets[key]) nextSecrets[key] = value;
+      continue;
+    }
+    nextConfig[key] = value;
+  }
+
+  return {
+    config: nextConfig,
+    secrets: Object.keys(nextSecrets).length > 0 ? nextSecrets : undefined,
+  };
+}
+
+function hydrateConnection(row: Record<string, unknown>): Connection {
+  return {
+    ...row,
+    org_id: typeof row.org_id === 'string' ? row.org_id : null,
+    config: sanitizeConnectionConfig(String(row.config || '{}')),
+    has_secret: !!row.has_secret,
+  } as unknown as Connection;
+}
+
+export function listConnections(options?: { orgIds?: string[]; includeUnscoped?: boolean }): Connection[] {
+  const db = getDb();
+  const orgIds = options?.orgIds?.filter(Boolean) || [];
+
+  let query = `
     SELECT c.*, (cs.connection_id IS NOT NULL) as has_secret
     FROM connections c
     LEFT JOIN connection_secrets cs ON cs.connection_id = c.id
-    ORDER BY c.created_at DESC
-  `).all() as Record<string, unknown>[];
-  return rows.map(r => ({ ...r, has_secret: !!r.has_secret } as unknown as Connection));
+  `;
+  const where: string[] = [];
+  const values: unknown[] = [];
+  if (orgIds.length > 0) {
+    where.push(`c.org_id IN (${orgIds.map(() => '?').join(', ')})`);
+    values.push(...orgIds);
+    if (options?.includeUnscoped) where.push('c.org_id IS NULL');
+  } else if (options?.includeUnscoped === false) {
+    where.push('c.org_id IS NOT NULL');
+  }
+  if (where.length > 0) query += ` WHERE ${where.join(' OR ')}`;
+  query += ' ORDER BY c.created_at DESC';
+
+  const rows = db.prepare(query).all(...values) as Record<string, unknown>[];
+  return rows.map(hydrateConnection);
 }
 
 export function getConnection(id: string): Connection | undefined {
@@ -279,26 +346,28 @@ export function getConnection(id: string): Connection | undefined {
     WHERE c.id = ?
   `).get(id) as Record<string, unknown> | undefined;
   if (!row) return undefined;
-  return { ...row, has_secret: !!row.has_secret } as unknown as Connection;
+  return hydrateConnection(row);
 }
 
 export function createConnection(data: {
+  orgId?: string | null;
   name: string;
   type: string;
   config: Record<string, unknown>;
   secrets?: Record<string, string>;
 }): Connection {
   const id = genId('conn');
-  const configJson = JSON.stringify(data.config);
+  const normalized = normalizeConnectionInput(data.config, data.secrets);
+  const configJson = JSON.stringify(normalized.config);
 
   const db = getDb();
   const txn = db.transaction(() => {
     db.prepare(
-      'INSERT INTO connections (id, name, type, config) VALUES (?, ?, ?, ?)'
-    ).run(id, data.name, data.type, configJson);
+      'INSERT INTO connections (id, org_id, name, type, config) VALUES (?, ?, ?, ?, ?)'
+    ).run(id, data.orgId || null, data.name, data.type, configJson);
 
-    if (data.secrets && Object.keys(data.secrets).length > 0) {
-      const encrypted = encrypt(JSON.stringify(data.secrets));
+    if (normalized.secrets && Object.keys(normalized.secrets).length > 0) {
+      const encrypted = encrypt(JSON.stringify(normalized.secrets));
       db.prepare(
         'INSERT INTO connection_secrets (connection_id, encrypted_data) VALUES (?, ?)'
       ).run(id, encrypted);
@@ -309,6 +378,7 @@ export function createConnection(data: {
 }
 
 export function updateConnection(id: string, data: Partial<{
+  orgId: string | null;
   name: string;
   type: string;
   config: Record<string, unknown>;
@@ -320,21 +390,28 @@ export function updateConnection(id: string, data: Partial<{
 
   const db = getDb();
   const txn = db.transaction(() => {
+    const normalized = (data.config !== undefined || data.secrets !== undefined)
+      ? normalizeConnectionInput(
+        data.config,
+        data.secrets !== undefined ? data.secrets : (getConnectionSecrets(id) || undefined)
+      )
+      : null;
     const fields: string[] = [];
     const values: unknown[] = [];
+    if (data.orgId !== undefined) { fields.push('org_id = ?'); values.push(data.orgId); }
     if (data.name !== undefined) { fields.push('name = ?'); values.push(data.name); }
     if (data.type !== undefined) { fields.push('type = ?'); values.push(data.type); }
-    if (data.config !== undefined) { fields.push('config = ?'); values.push(JSON.stringify(data.config)); }
+    if (normalized && data.config !== undefined) { fields.push('config = ?'); values.push(JSON.stringify(normalized.config)); }
     if (data.status !== undefined) { fields.push('status = ?'); values.push(data.status); }
     if (fields.length > 0) {
       fields.push("updated_at = datetime('now')");
       values.push(id);
       db.prepare(`UPDATE connections SET ${fields.join(', ')} WHERE id = ?`).run(...values);
     }
-    if (data.secrets !== undefined) {
+    if (normalized && (data.secrets !== undefined || data.config !== undefined)) {
       db.prepare('DELETE FROM connection_secrets WHERE connection_id = ?').run(id);
-      if (Object.keys(data.secrets).length > 0) {
-        const encrypted = encrypt(JSON.stringify(data.secrets));
+      if (normalized.secrets && Object.keys(normalized.secrets).length > 0) {
+        const encrypted = encrypt(JSON.stringify(normalized.secrets));
         db.prepare('INSERT INTO connection_secrets (connection_id, encrypted_data) VALUES (?, ?)').run(id, encrypted);
       }
     }

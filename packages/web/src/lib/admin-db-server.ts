@@ -32,6 +32,7 @@ function initSchema(db: Database.Database) {
 
     CREATE TABLE IF NOT EXISTS connections (
       id TEXT PRIMARY KEY,
+      org_id TEXT,
       name TEXT NOT NULL,
       type TEXT NOT NULL,
       config TEXT NOT NULL DEFAULT '{}',
@@ -142,6 +143,7 @@ function initSchema(db: Database.Database) {
   // OA-3: safe schema upgrades for existing installs.
   ensureColumn(db, 'users', 'org_id', 'org_id TEXT');
   ensureColumn(db, 'agents', 'org_id', 'org_id TEXT');
+  ensureColumn(db, 'connections', 'org_id', 'org_id TEXT');
 }
 
 export function getDb(): Database.Database {

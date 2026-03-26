@@ -141,6 +141,18 @@ export function getAgentOrgId(agentId: string): string | null {
   return row?.org_id || null;
 }
 
+export function userHasAssignedConnection(userId: string, connectionId: string): boolean {
+  const db = getDb();
+  const row = db.prepare(`
+    SELECT 1
+    FROM users u
+    JOIN agent_connections ac ON ac.agent_id = u.agent_id
+    WHERE u.id = ? AND ac.connection_id = ?
+    LIMIT 1
+  `).get(userId, connectionId);
+  return !!row;
+}
+
 export function canAccessAgent(actor: RequestActor, agentId: string): boolean {
   const agentOrgId = getAgentOrgId(agentId);
   if (!agentOrgId) {

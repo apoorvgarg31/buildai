@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { canAccessAgent, requireSignedIn } from '@/lib/api-guard';
 import { isValidAgentId, safeJoinWithin } from '@/lib/security';
 
@@ -23,7 +23,6 @@ const ALLOWED_EXTENSIONS = new Set([
 ]);
 
 const MAX_SIZE = 20 * 1024 * 1024; // 20MB
-
 function getWorkspaceBase(): string {
   return path.resolve(process.cwd(), "../../workspaces");
 }
@@ -42,17 +41,39 @@ function getUniqueFilename(dir: string, originalName: string): string {
   return candidate;
 }
 
-function runExtraction(filePath: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const engineDir = path.resolve(process.cwd(), "../../packages/engine");
-    const cmd = `bash skills/buildai-pdf-extract/extract.sh "${filePath}" text`;
-    exec(cmd, { cwd: engineDir, timeout: 30000 }, (error, stdout, stderr) => {
-      if (error) {
-        reject(new Error(stderr || error.message));
-      } else {
+function sanitizeUploadFilename(originalName: string): string | null {
+  const trimmedName = originalName.trim();
+  if (!trimmedName) {
+    return null;
+  }
+
+  if (trimmedName.includes("/") || trimmedName.includes("\\")) {
+    return null;
+  }
+
+  const normalizedName = path.basename(trimmedName).replace(/[\0\r\n]/g, "");
+  if (!normalizedName || normalizedName === "." || normalizedName === ".." || normalizedName !== trimmedName) {
+    return null;
+  }
+
+  return normalizedName;
+}
+
+async function runExtraction(filePath: string): Promise<string> {
+  const engineDir = path.resolve(process.cwd(), "../../packages/engine");
+  return await new Promise((resolve, reject) => {
+    execFile(
+      "bash",
+      ["skills/buildai-pdf-extract/extract.sh", filePath, "text"],
+      { cwd: engineDir, timeout: 30000 },
+      (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error(stderr || error.message));
+          return;
+        }
         resolve(stdout);
       }
-    });
+    );
   });
 }
 
@@ -85,8 +106,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const safeFilename = sanitizeUploadFilename(file.name);
+    if (!safeFilename) {
+      return NextResponse.json({ error: "Invalid filename" }, { status: 400 });
+    }
+
     // Validate file type
-    const ext = path.extname(file.name).toLowerCase();
+    const ext = path.extname(safeFilename).toLowerCase();
     if (!ALLOWED_TYPES.has(file.type) && !ALLOWED_EXTENSIONS.has(ext)) {
       return NextResponse.json(
         { error: `File type not allowed. Supported: PDF, DOCX, XLSX, CSV, TXT, PNG, JPG, JPEG, GIF, WEBP` },
@@ -102,7 +128,7 @@ export async function POST(request: NextRequest) {
     fs.mkdirSync(filesDir, { recursive: true });
 
     // Get unique filename
-    const uniqueName = getUniqueFilename(filesDir, file.name);
+    const uniqueName = getUniqueFilename(filesDir, safeFilename);
     const filePath = path.join(filesDir, uniqueName);
 
     // Save file

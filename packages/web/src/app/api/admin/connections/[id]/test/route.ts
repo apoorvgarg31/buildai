@@ -1,15 +1,34 @@
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { execFile } from 'child_process';
 import { NextRequest, NextResponse } from 'next/server';
 import { getConnection, getConnectionSecrets, updateConnection } from '@/lib/admin-db';
-import { requireAdmin } from '@/lib/api-guard';
+import { actorOrgIds, requireAdmin } from '@/lib/api-guard';
+
+function readConfigValue(config: Record<string, unknown>, primaryKey: string, fallbackKey: string, defaultValue = ''): string {
+  const value = config[primaryKey] ?? config[fallbackKey] ?? defaultValue;
+  return typeof value === 'string' ? value : String(value);
+}
+
+async function runPsql(args: string[], env: NodeJS.ProcessEnv): Promise<string> {
+  return await new Promise((resolve, reject) => {
+    execFile('psql', args, { env, timeout: 10000 }, (error, stdout, stderr) => {
+      if (error) {
+        reject(new Error(stderr || error.message));
+        return;
+      }
+      resolve(stdout);
+    });
+  });
+}
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireAdmin();
+    const actor = await requireAdmin();
     const { id } = await params;
     const conn = getConnection(id);
     if (!conn) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (!actor.isSuperadmin && (!conn.org_id || !actorOrgIds(actor).includes(conn.org_id))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     const config = JSON.parse(conn.config);
     const secrets = getConnectionSecrets(id);
@@ -19,23 +38,31 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
       switch (conn.type) {
         case 'database': {
-          const execAsync = promisify(exec);
-          const host = config.host || config.DB_HOST || '';
-          const port = config.port || config.DB_PORT || '5432';
-          const dbName = config.dbName || config.DB_NAME || 'postgres';
-          const user = secrets?.username || secrets?.DB_USER || '';
-          const password = secrets?.password || secrets?.DB_PASSWORD || '';
+          const host = readConfigValue(config, 'host', 'DB_HOST');
+          const port = readConfigValue(config, 'port', 'DB_PORT', '5432');
+          const dbName = readConfigValue(config, 'dbName', 'DB_NAME', 'postgres');
+          const user = readConfigValue(secrets ?? {}, 'username', 'DB_USER');
+          const password = readConfigValue(secrets ?? {}, 'password', 'DB_PASSWORD');
 
-          const args = [];
-          if (host) args.push(`-h ${host}`);
-          if (port && host) args.push(`-p ${port}`);
-          if (user) args.push(`-U ${user}`);
-          args.push(`-d ${dbName}`);
-          args.push(`-c "SELECT COUNT(*) as table_count FROM information_schema.tables WHERE table_schema = 'public'" --tuples-only --no-align`);
+          if (!/^\d+$/.test(port)) {
+            throw new Error('Invalid database port');
+          }
+
+          const args = [
+            '--no-psqlrc',
+            '--tuples-only',
+            '--no-align',
+            '--command',
+            "SELECT COUNT(*) as table_count FROM information_schema.tables WHERE table_schema = 'public'",
+          ];
+          if (host) args.push(`--host=${host}`);
+          args.push(`--port=${port}`);
+          if (user) args.push(`--username=${user}`);
+          args.push(`--dbname=${dbName}`);
 
           const env = { ...process.env, PGPASSWORD: password };
-          const result = await execAsync(`psql ${args.join(' ')}`, { env, timeout: 10000 });
-          const tableCount = result.stdout.trim();
+          const stdout = await runPsql(args, env);
+          const tableCount = stdout.trim();
           message = `Connected! ${tableCount} tables found in public schema.`;
           break;
         }

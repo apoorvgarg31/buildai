@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
+import { getConnection } from '@/lib/admin-db';
+import { userHasAssignedConnection } from '@/lib/api-guard';
 
 /**
  * GET /api/procore/auth?connectionId=xxx — Redirect user to Procore OAuth.
@@ -15,13 +17,12 @@ export async function GET(request: NextRequest) {
   if (!connectionId) {
     return NextResponse.json({ error: 'connectionId is required' }, { status: 400 });
   }
+  if (!userHasAssignedConnection(userId, connectionId)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
-  const { getDb } = await import('@/lib/admin-db-server');
-  const db = getDb();
-
-  // Get connection config + secrets
-  const conn = db.prepare('SELECT * FROM connections WHERE id = ? AND type = ?').get(connectionId, 'procore') as Record<string, string> | undefined;
-  if (!conn) {
+  const conn = getConnection(connectionId);
+  if (!conn || conn.type !== 'procore') {
     return NextResponse.json({ error: 'Procore connection not found' }, { status: 404 });
   }
 

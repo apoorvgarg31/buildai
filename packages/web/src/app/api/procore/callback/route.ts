@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getConnection, getConnectionSecrets } from '@/lib/admin-db';
+import { userHasAssignedConnection } from '@/lib/api-guard';
 
 /**
  * GET /api/procore/callback — OAuth callback, exchanges code for tokens.
@@ -25,18 +27,21 @@ export async function GET(request: NextRequest) {
     return htmlResponse('error', 'Invalid state parameter');
   }
 
+  if (!userHasAssignedConnection(state.userId, state.connectionId)) {
+    return htmlResponse('error', 'Connection access is no longer available for this user');
+  }
+
   const { getDb } = await import('@/lib/admin-db-server');
   const db = getDb();
 
-  // Get connection config for client_id/secret
-  const conn = db.prepare('SELECT * FROM connections WHERE id = ?').get(state.connectionId) as Record<string, string> | undefined;
+  const conn = getConnection(state.connectionId);
   if (!conn) {
     return htmlResponse('error', 'Connection not found');
   }
 
   const config = JSON.parse(conn.config || '{}');
   const clientId = config.clientId;
-  const clientSecret = config.clientSecret;
+  const clientSecret = getConnectionSecrets(state.connectionId)?.clientSecret;
   const baseUrl = config.oauthBaseUrl || 'https://login.procore.com';
   const redirectUri = `${request.nextUrl.origin}/api/procore/callback`;
 
