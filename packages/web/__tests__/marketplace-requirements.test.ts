@@ -107,7 +107,67 @@ describe('/api/marketplace/skills requirements', () => {
 
     expect(procoreSkill.requirementsSatisfied).toBe(false);
     expect(procoreSkill.requirementStates).toEqual([
-      expect.objectContaining({ type: 'procore', authMode: 'oauth_user', ready: false, needsUserAuth: true }),
+      expect.objectContaining({
+        type: 'procore',
+        authMode: 'oauth_user',
+        ready: false,
+        needsUserAuth: true,
+        tokenExpired: false,
+        reconnectRequired: false,
+        blockedReason: 'user_auth_required',
+        statusLabel: 'Needs sign-in',
+      }),
+    ]);
+  });
+
+  it('marks missing connector setup as an admin configuration gap', async () => {
+    const res = await GET({ nextUrl: new URL('http://localhost/api/marketplace/skills?agentId=agent-a') } as never);
+    const data = await res.json();
+    const procoreSkill = data.skills.find((skill: { id: string }) => skill.id === 'buildai-procore');
+
+    expect(procoreSkill.requirementsSatisfied).toBe(false);
+    expect(procoreSkill.requirementStates).toEqual([
+      expect.objectContaining({
+        type: 'procore',
+        available: false,
+        ready: false,
+        blockedReason: 'admin_setup_required',
+        statusLabel: 'Admin setup needed',
+      }),
+    ]);
+  });
+
+  it('marks expired user auth as reconnect required', async () => {
+    testDb.prepare('INSERT INTO connections (id, name, type, auth_mode, config, status) VALUES (?, ?, ?, ?, ?, ?)').run(
+      'conn-procore',
+      'Procore Production',
+      'procore',
+      'oauth_user',
+      '{}',
+      'connected',
+    );
+    testDb.prepare('INSERT INTO agent_connections (agent_id, connection_id) VALUES (?, ?)').run('agent-a', 'conn-procore');
+    testDb.prepare('INSERT INTO user_tokens (user_id, connection_id, access_token, expires_at) VALUES (?, ?, ?, ?)').run(
+      'user-1',
+      'conn-procore',
+      'expired-token',
+      1,
+    );
+
+    const res = await GET({ nextUrl: new URL('http://localhost/api/marketplace/skills?agentId=agent-a') } as never);
+    const data = await res.json();
+    const procoreSkill = data.skills.find((skill: { id: string }) => skill.id === 'buildai-procore');
+
+    expect(procoreSkill.requirementsSatisfied).toBe(false);
+    expect(procoreSkill.requirementStates).toEqual([
+      expect.objectContaining({
+        type: 'procore',
+        ready: false,
+        tokenExpired: true,
+        reconnectRequired: true,
+        blockedReason: 'reconnect_required',
+        statusLabel: 'Reconnect required',
+      }),
     ]);
   });
 });

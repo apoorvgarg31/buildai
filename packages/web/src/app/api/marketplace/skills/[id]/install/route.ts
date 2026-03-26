@@ -6,6 +6,7 @@ import { canAccessAgent, requireSignedIn } from '@/lib/api-guard';
 import { isValidAgentId, safeJoinWithin } from '@/lib/security';
 import { upsertUserSkillInstall } from '@/lib/admin-db';
 import { apiError } from '@/lib/api-error';
+import { buildSkillInstallInstructions, resolveSkillConnectionRequirements } from '@/lib/connector-runtime';
 
 const WORKSPACES_BASE = path.resolve(process.cwd(), '../../workspaces');
 const SKILLS_SOURCE = path.resolve(process.cwd(), '../../packages/engine/skills');
@@ -81,6 +82,9 @@ export async function POST(
       source: 'public',
     });
 
+    const { getDb } = await import('@/lib/admin-db-server');
+    const requirements = resolveSkillConnectionRequirements(getDb(), actor.userId, agentId, skill);
+
     return NextResponse.json({
       success: true,
       skill: {
@@ -90,10 +94,10 @@ export async function POST(
         version: skill.version,
         connectionType: skill.connectionType,
       },
+      connectionRequirements: requirements.requirementStates,
+      requirementsSatisfied: requirements.requirementsSatisfied,
       installedTo: `workspaces/${agentId}/skills/${id}`,
-      instructions: skill.connectionType
-        ? `Skill installed. This skill requires a "${skill.connectionType}" connection. Ask your admin to set one up in the Admin Console → Connections.`
-        : 'Skill installed successfully. You can start using it right away.',
+      instructions: buildSkillInstallInstructions(skill.name, requirements),
     });
   } catch (err) {
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') {
@@ -159,6 +163,9 @@ export async function GET(
       );
     }
 
+    const { getDb } = await import('@/lib/admin-db-server');
+    const requirements = resolveSkillConnectionRequirements(getDb(), actor.userId, payload.agentId, skill);
+
     return NextResponse.json({
       success: true,
       skill: {
@@ -168,10 +175,10 @@ export async function GET(
         version: skill.version,
         connectionType: skill.connectionType,
       },
+      connectionRequirements: requirements.requirementStates,
+      requirementsSatisfied: requirements.requirementsSatisfied,
       package: pkg,
-      instructions: skill.connectionType
-        ? `Skill installed. This skill requires a "${skill.connectionType}" connection. Ask your admin to set one up in the Admin Console → Connections.`
-        : 'Skill installed successfully. You can start using it right away.',
+      instructions: buildSkillInstallInstructions(skill.name, requirements),
     });
   } catch (err) {
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') {

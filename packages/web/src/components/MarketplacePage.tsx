@@ -29,6 +29,11 @@ interface Skill {
     ready: boolean;
     needsUserAuth: boolean;
     available: boolean;
+    tokenExpired?: boolean;
+    reconnectRequired?: boolean;
+    blockedReason?: 'ready' | 'admin_setup_required' | 'connection_not_ready' | 'user_auth_required' | 'reconnect_required';
+    statusLabel?: string;
+    actionLabel?: string;
   }>;
 }
 
@@ -187,7 +192,7 @@ export default function MarketplacePage() {
                       {skill.requirementStates?.map((state) => (
                         <div key={`${skill.id}-${state.type}`} className="rounded-2xl border border-slate-200/70 bg-slate-50 px-3 py-2 text-xs text-slate-600">
                           <span className="font-semibold text-slate-800">{state.type}</span>
-                          {state.ready ? ' ready' : state.available ? state.needsUserAuth ? ' needs your sign-in' : ' unavailable' : ' not configured by admin'}
+                          {` ${state.statusLabel || (state.ready ? 'ready' : state.available ? state.needsUserAuth ? 'needs your sign-in' : 'unavailable' : 'not configured by admin')}`}
                         </div>
                       ))}
                     </div>
@@ -276,12 +281,12 @@ export default function MarketplacePage() {
                           <div className="flex items-center justify-between gap-3">
                             <span>{state.type}</span>
                             <span className={`mira-pill ${state.ready ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                              {state.ready ? 'Ready' : state.available ? state.needsUserAuth ? 'Sign in needed' : 'Blocked' : 'Admin setup needed'}
+                              {state.statusLabel || (state.ready ? 'Ready' : state.available ? state.needsUserAuth ? 'Sign in needed' : 'Blocked' : 'Admin setup needed')}
                             </span>
                           </div>
                           {state.connectUrl && state.needsUserAuth ? (
                             <a href={state.connectUrl} className="mt-2 inline-flex text-xs font-semibold text-blue-700 underline-offset-2 hover:underline">
-                              Connect now
+                              {state.actionLabel || 'Connect now'}
                             </a>
                           ) : null}
                         </div>

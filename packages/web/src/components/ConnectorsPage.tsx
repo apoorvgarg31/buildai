@@ -12,6 +12,11 @@ type Connector = {
   userAuthorized: boolean;
   readyForUse: boolean;
   requiresUserAuth: boolean;
+  tokenExpired?: boolean;
+  reconnectRequired?: boolean;
+  blockedReason?: 'ready' | 'admin_setup_required' | 'connection_not_ready' | 'user_auth_required' | 'reconnect_required';
+  statusLabel?: string;
+  actionLabel?: string;
   authUrl?: string;
   environment?: string;
 };
@@ -61,7 +66,7 @@ export default function ConnectorsPage() {
                     <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">{connector.type}</p>
                   </div>
                   <span className={`mira-pill ${connector.readyForUse ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                    {connector.readyForUse ? 'Ready' : connector.requiresUserAuth ? 'Needs sign-in' : connector.status}
+                    {connector.statusLabel || (connector.readyForUse ? 'Ready' : connector.requiresUserAuth ? 'Needs sign-in' : connector.status)}
                   </span>
                 </div>
 
@@ -74,11 +79,11 @@ export default function ConnectorsPage() {
                 <div className="flex items-center gap-2">
                   {connector.authUrl && !connector.readyForUse && connector.requiresUserAuth ? (
                     <a href={connector.authUrl} className="mira-button-primary px-4 py-2 text-xs font-semibold">
-                      Connect account
+                      {connector.actionLabel || 'Connect account'}
                     </a>
                   ) : null}
                   {connector.authMode === 'token_user' && !connector.readyForUse ? (
-                    <span className="text-xs text-slate-500">Personal token entry UI coming next.</span>
+                    <span className="text-xs text-slate-500">{connector.actionLabel || 'Personal token required'}. Personal token entry UI coming next.</span>
                   ) : null}
                 </div>
               </SectionCard>

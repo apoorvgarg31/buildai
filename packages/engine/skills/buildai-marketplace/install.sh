@@ -114,6 +114,8 @@ result = {
     },
     'instructions': instructions,
     'needsConnection': skill_meta.get('connectionType'),
+    'connectionRequirements': response.get('connectionRequirements', []),
+    'requirementsSatisfied': response.get('requirementsSatisfied', True),
 }
 
 print(json.dumps(result, indent=2))

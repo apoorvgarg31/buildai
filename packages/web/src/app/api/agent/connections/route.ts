@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-
-type AuthMode = 'shared' | 'oauth_user' | 'token_user';
+import { buildConnectorRuntimeState, type ConnectorAuthMode } from '@/lib/connector-runtime';
 
 /**
  * GET /api/agent/connections — Returns the connections assigned to the current user's agent.
@@ -33,34 +32,35 @@ export async function GET(request: NextRequest) {
     id: string;
     name: string;
     type: string;
-    auth_mode?: AuthMode;
+    auth_mode?: ConnectorAuthMode;
     config: string;
     status: string;
   }>;
 
-  // Check user token status for each connection
+  const tokenRows = connections.length > 0
+    ? db.prepare('SELECT connection_id, expires_at FROM user_tokens WHERE user_id = ?').all(userId) as Array<{ connection_id: string; expires_at?: number | null }>
+    : [];
+  const tokenByConnectionId = new Map(tokenRows.map((row) => [row.connection_id, row]));
+
   const result = connections.map(conn => {
     const config = JSON.parse(conn.config || '{}');
-    const authMode = conn.auth_mode || 'shared';
-    const token = db.prepare(
-      'SELECT expires_at FROM user_tokens WHERE user_id = ? AND connection_id = ?'
-    ).get(userId, conn.id) as { expires_at: number } | undefined;
-
-    const now = Math.floor(Date.now() / 1000);
-    const tokenValid = token ? !token.expires_at || token.expires_at > now : false;
-    const userAuthorized = authMode === 'shared' ? true : tokenValid;
-    const readyForUse = conn.status === 'connected' && userAuthorized;
+    const state = buildConnectorRuntimeState(conn.type, conn, tokenByConnectionId.get(conn.id));
 
     return {
       id: conn.id,
       name: conn.name,
       type: conn.type,
-      authMode,
+      authMode: state.authMode,
       status: conn.status,
-      userAuthorized,
-      readyForUse,
-      requiresUserAuth: authMode !== 'shared',
-      authUrl: conn.type === 'procore' ? `/api/procore/auth?connectionId=${conn.id}` : undefined,
+      userAuthorized: state.userAuthorized,
+      readyForUse: state.ready,
+      requiresUserAuth: state.authMode !== 'shared',
+      tokenExpired: state.tokenExpired,
+      reconnectRequired: state.reconnectRequired,
+      blockedReason: state.blockedReason,
+      statusLabel: state.statusLabel,
+      actionLabel: state.actionLabel,
+      authUrl: state.connectUrl,
       environment: config.oauthBaseUrl?.includes('sandbox') ? 'sandbox' : 'production',
     };
   });
