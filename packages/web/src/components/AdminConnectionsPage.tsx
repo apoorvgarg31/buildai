@@ -7,6 +7,7 @@ interface Connection {
   id: string;
   name: string;
   type: string;
+  auth_mode: 'shared' | 'oauth_user' | 'token_user';
   config: string;
   status: string;
   has_secret: boolean;
@@ -38,6 +39,16 @@ const statusConfig: Record<string, string> = {
   error: "bg-rose-100 text-rose-700",
 };
 
+const authModeLabels: Record<Connection['auth_mode'], string> = {
+  shared: 'Shared enterprise access',
+  oauth_user: 'Admin app + user sign-in',
+  token_user: 'User token required',
+};
+
+function defaultAuthMode(type: string): Connection['auth_mode'] {
+  return type === 'procore' ? 'oauth_user' : 'shared';
+}
+
 export default function AdminConnectionsPage() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +65,7 @@ export default function AdminConnectionsPage() {
   const [formClientId, setFormClientId] = useState("");
   const [formClientSecret, setFormClientSecret] = useState("");
   const [formOauthBaseUrl, setFormOauthBaseUrl] = useState("https://login.procore.com");
+  const [formAuthMode, setFormAuthMode] = useState<Connection['auth_mode']>('shared');
 
   const fetchConnections = useCallback(async () => {
     try {
@@ -86,7 +98,7 @@ export default function AdminConnectionsPage() {
       const res = await fetch("/api/admin/connections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: formName, type: formType, config, secrets }),
+        body: JSON.stringify({ name: formName, type: formType, authMode: formAuthMode, config, secrets }),
       });
       if (res.ok) {
         setShowAddModal(false);
@@ -99,6 +111,7 @@ export default function AdminConnectionsPage() {
         setFormClientId("");
         setFormClientSecret("");
         setFormOauthBaseUrl("https://login.procore.com");
+        setFormAuthMode(defaultAuthMode('database'));
         fetchConnections();
       }
     } catch (err) {
@@ -168,6 +181,10 @@ export default function AdminConnectionsPage() {
                   </div>
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="mira-surface-muted rounded-[1.1rem] px-4 py-3">
+                      <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-slate-400">Auth model</p>
+                      <p className="mt-2 text-sm text-slate-700">{authModeLabels[conn.auth_mode]}</p>
+                    </div>
                     {conn.type === "procore" ? (
                       <>
                         <div className="mira-surface-muted rounded-[1.1rem] px-4 py-3">
@@ -228,13 +245,26 @@ export default function AdminConnectionsPage() {
               </div>
               <div>
                 <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Type</label>
-                <select value={formType} onChange={(e) => setFormType(e.target.value)} className="mira-select px-4 py-3 text-sm">
+                <select value={formType} onChange={(e) => {
+                  const nextType = e.target.value;
+                  setFormType(nextType);
+                  setFormAuthMode(defaultAuthMode(nextType));
+                }} className="mira-select px-4 py-3 text-sm">
                   <option value="database">Database (PostgreSQL)</option>
                   <option value="procore">Procore (PMIS)</option>
                   <option value="p6">Primavera P6</option>
                   <option value="unifier">Unifier</option>
                   <option value="documents">Documents</option>
                   <option value="llm">LLM Provider</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Authentication model</label>
+                <select value={formAuthMode} onChange={(e) => setFormAuthMode(e.target.value as Connection['auth_mode'])} className="mira-select px-4 py-3 text-sm">
+                  <option value="shared">Shared enterprise access</option>
+                  <option value="oauth_user">Admin app + user sign-in</option>
+                  <option value="token_user">User token required</option>
                 </select>
               </div>
 

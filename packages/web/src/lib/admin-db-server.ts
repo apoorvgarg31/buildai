@@ -10,6 +10,13 @@ const DB_PATH = path.resolve(process.cwd(), '../../data/buildai-admin.db');
 
 let _db: Database.Database | null = null;
 
+function ensureColumn(db: Database.Database, table: string, column: string, ddl: string) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (!cols.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  }
+}
+
 function initSchema(db: Database.Database) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -26,6 +33,7 @@ function initSchema(db: Database.Database) {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       type TEXT NOT NULL,
+      auth_mode TEXT NOT NULL DEFAULT 'shared',
       config TEXT NOT NULL DEFAULT '{}',
       status TEXT NOT NULL DEFAULT 'pending',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -96,6 +104,8 @@ function initSchema(db: Database.Database) {
       PRIMARY KEY (user_id, skill_id)
     );
   `);
+
+  ensureColumn(db, 'connections', 'auth_mode', "auth_mode TEXT NOT NULL DEFAULT 'shared'");
 }
 
 export function getDb(): Database.Database {

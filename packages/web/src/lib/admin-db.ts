@@ -12,6 +12,13 @@ const DB_PATH = path.resolve(process.cwd(), '../../data/buildai-admin.db');
 
 let _db: Database.Database | null = null;
 
+function ensureColumn(db: Database.Database, table: string, column: string, ddl: string) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (!cols.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  }
+}
+
 function getDb(): Database.Database {
   if (!_db) {
     // Ensure data dir exists
@@ -42,6 +49,7 @@ function initSchema(db: Database.Database) {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       type TEXT NOT NULL,
+      auth_mode TEXT NOT NULL DEFAULT 'shared',
       config TEXT NOT NULL DEFAULT '{}',
       status TEXT NOT NULL DEFAULT 'pending',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -112,6 +120,8 @@ function initSchema(db: Database.Database) {
       PRIMARY KEY (user_id, skill_id)
     );
   `);
+
+  ensureColumn(db, 'connections', 'auth_mode', "auth_mode TEXT NOT NULL DEFAULT 'shared'");
 }
 
 // ── ID generation ──
@@ -207,6 +217,7 @@ export interface Connection {
   id: string;
   name: string;
   type: string;
+  auth_mode: 'shared' | 'oauth_user' | 'token_user';
   config: string; // JSON string
   status: string;
   has_secret: boolean;
@@ -257,6 +268,7 @@ function normalizeConnectionInput(
 function hydrateConnection(row: Record<string, unknown>): Connection {
   return {
     ...row,
+    auth_mode: row.auth_mode === 'oauth_user' || row.auth_mode === 'token_user' ? row.auth_mode : 'shared',
     config: sanitizeConnectionConfig(String(row.config || '{}')),
     has_secret: !!row.has_secret,
   } as unknown as Connection;
@@ -289,6 +301,7 @@ export function getConnection(id: string): Connection | undefined {
 export function createConnection(data: {
   name: string;
   type: string;
+  authMode?: 'shared' | 'oauth_user' | 'token_user';
   config: Record<string, unknown>;
   secrets?: Record<string, string>;
 }): Connection {
@@ -299,8 +312,8 @@ export function createConnection(data: {
   const db = getDb();
   const txn = db.transaction(() => {
     db.prepare(
-      'INSERT INTO connections (id, name, type, config) VALUES (?, ?, ?, ?)'
-    ).run(id, data.name, data.type, configJson);
+      'INSERT INTO connections (id, name, type, auth_mode, config) VALUES (?, ?, ?, ?, ?)'
+    ).run(id, data.name, data.type, data.authMode || 'shared', configJson);
 
     if (normalized.secrets && Object.keys(normalized.secrets).length > 0) {
       const encrypted = encrypt(JSON.stringify(normalized.secrets));
@@ -316,6 +329,7 @@ export function createConnection(data: {
 export function updateConnection(id: string, data: Partial<{
   name: string;
   type: string;
+  authMode: 'shared' | 'oauth_user' | 'token_user';
   config: Record<string, unknown>;
   secrets: Record<string, string>;
   status: string;
@@ -335,6 +349,7 @@ export function updateConnection(id: string, data: Partial<{
     const values: unknown[] = [];
     if (data.name !== undefined) { fields.push('name = ?'); values.push(data.name); }
     if (data.type !== undefined) { fields.push('type = ?'); values.push(data.type); }
+    if (data.authMode !== undefined) { fields.push('auth_mode = ?'); values.push(data.authMode); }
     if (normalized && data.config !== undefined) { fields.push('config = ?'); values.push(JSON.stringify(normalized.config)); }
     if (data.status !== undefined) { fields.push('status = ?'); values.push(data.status); }
     if (fields.length > 0) {

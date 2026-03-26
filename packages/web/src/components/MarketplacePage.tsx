@@ -18,6 +18,18 @@ interface Skill {
   effectiveSource?: "user_installed_public" | "public";
   removableByUser?: boolean;
   installablePublic?: boolean;
+  requiresConnections?: boolean;
+  requiredConnectionTypes?: string[];
+  requirementsSatisfied?: boolean;
+  requirementStates?: Array<{
+    type: string;
+    authMode: 'shared' | 'oauth_user' | 'token_user';
+    connectionName?: string;
+    connectUrl?: string;
+    ready: boolean;
+    needsUserAuth: boolean;
+    available: boolean;
+  }>;
 }
 
 export default function MarketplacePage() {
@@ -167,7 +179,19 @@ export default function MarketplacePage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="mira-pill bg-slate-100 text-slate-600">{skill.category}</span>
                     {skill.installedByUser && <span className="mira-pill bg-emerald-100 text-emerald-700">Installed by you</span>}
+                    {skill.requiresConnections && !skill.requirementsSatisfied && <span className="mira-pill bg-amber-100 text-amber-700">Needs connector</span>}
                   </div>
+
+                  {skill.requiresConnections && (
+                    <div className="space-y-2">
+                      {skill.requirementStates?.map((state) => (
+                        <div key={`${skill.id}-${state.type}`} className="rounded-2xl border border-slate-200/70 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                          <span className="font-semibold text-slate-800">{state.type}</span>
+                          {state.ready ? ' ready' : state.available ? state.needsUserAuth ? ' needs your sign-in' : ' unavailable' : ' not configured by admin'}
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {skill.version !== "0.1.0" && (
                     <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -244,6 +268,26 @@ export default function MarketplacePage() {
                     <li>Paste it into your assistant chat.</li>
                     <li>Ask Mira to install the skill.</li>
                   </ol>
+                  {selectedSkill.requiresConnections && selectedSkill.requirementStates?.length ? (
+                    <div className="mt-4 space-y-2 border-t border-slate-200/70 pt-4 text-sm text-slate-600">
+                      <p className="font-semibold text-slate-900">Required connectors</p>
+                      {selectedSkill.requirementStates.map((state) => (
+                        <div key={`${selectedSkill.id}-modal-${state.type}`} className="rounded-2xl bg-white px-3 py-2">
+                          <div className="flex items-center justify-between gap-3">
+                            <span>{state.type}</span>
+                            <span className={`mira-pill ${state.ready ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {state.ready ? 'Ready' : state.available ? state.needsUserAuth ? 'Sign in needed' : 'Blocked' : 'Admin setup needed'}
+                            </span>
+                          </div>
+                          {state.connectUrl && state.needsUserAuth ? (
+                            <a href={state.connectUrl} className="mt-2 inline-flex text-xs font-semibold text-blue-700 underline-offset-2 hover:underline">
+                              Connect now
+                            </a>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               )}
 

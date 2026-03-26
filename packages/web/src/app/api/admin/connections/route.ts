@@ -22,11 +22,11 @@ export async function POST(request: NextRequest) {
   try {
     await requireAdmin();
     const body = await request.json();
-    const { name, type, config, secrets } = body;
+    const { name, type, authMode, config, secrets } = body;
     if (!name || !type) {
       return NextResponse.json({ error: 'name and type are required' }, { status: 400 });
     }
-    const conn = createConnection({ name, type, config: config || {}, secrets });
+    const conn = createConnection({ name, type, authMode, config: config || {}, secrets });
     return NextResponse.json(conn, { status: 201 });
   } catch (err) {
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') {

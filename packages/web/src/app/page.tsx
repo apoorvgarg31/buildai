@@ -5,6 +5,7 @@ import { useCurrentUser } from "@/lib/user";
 import Sidebar from "@/components/Sidebar";
 import type { Page } from "@/components/Sidebar";
 import ChatArea from "@/components/ChatArea";
+import ConnectorsPage from "@/components/ConnectorsPage";
 import AdminDashboard from "@/components/AdminDashboard";
 import AdminUsersPage from "@/components/AdminUsersPage";
 import AdminAgentsPage from "@/components/AdminAgentsPage";
@@ -43,6 +44,7 @@ export default function Home() {
     if (mode === "user" || user.role !== "admin") {
       switch (activePage) {
         case "chat": return <ChatArea agentId={user.agentId} />;
+        case "connectors": return <ConnectorsPage />;
         case "artifacts": return <ArtifactsPage agentId={user.agentId} />;
         case "schedule": return <SchedulePage />;
         case "watchlist": return <WatchlistPage agentId={user.agentId} />;
@@ -57,6 +59,7 @@ export default function Home() {
     switch (activePage) {
       case "dashboard": return <AdminDashboard user={user} />;
       case "chat": return <ChatArea agentId={user.agentId} />;
+      case "connectors": return <ConnectorsPage />;
       case "artifacts": return <ArtifactsPage agentId={user.agentId} />;
       case "users": return <AdminUsersPage />;
       case "agents": return <AdminAgentsPage />;
