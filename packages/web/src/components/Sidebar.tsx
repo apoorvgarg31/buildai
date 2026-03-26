@@ -16,7 +16,7 @@ const adminNav: NavItem[] = [
   { name: "Artifacts", icon: "◨", page: "artifacts" },
   { name: "Users", icon: "◌", page: "users" },
   { name: "Agents", icon: "✦", page: "agents" },
-  { name: "Connections", icon: "⟷", page: "connections" },
+  { name: "Connectors", icon: "⟷", page: "connections" },
   { name: "Marketplace", icon: "◇", page: "marketplace" },
   { name: "Settings", icon: "⊙", page: "settings" },
 ];

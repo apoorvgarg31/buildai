@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { EmptyState, PageShell, SectionCard } from "./MiraShell";
+import { CONNECTOR_CATALOG, getDefaultConnectorAuthMode } from "@/lib/connector-catalog";
 
 interface Connection {
   id: string;
@@ -31,6 +32,15 @@ const typeLabels: Record<string, string> = {
   p6: "Scheduling",
   unifier: "Cost management",
   llm: "LLM provider",
+  linear: "Project tracking",
+  github: "Developer tools",
+  gitlab: "Developer tools",
+  jira: "Project tracking",
+  confluence: "Knowledge base",
+  notion: "Knowledge base",
+  slack: "Communication",
+  salesforce: "CRM",
+  hubspot: "CRM",
 };
 
 const statusConfig: Record<string, string> = {
@@ -44,10 +54,6 @@ const authModeLabels: Record<Connection['auth_mode'], string> = {
   oauth_user: 'Admin app + user sign-in',
   token_user: 'User token required',
 };
-
-function defaultAuthMode(type: string): Connection['auth_mode'] {
-  return type === 'procore' ? 'oauth_user' : 'shared';
-}
 
 export default function AdminConnectionsPage() {
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -65,7 +71,7 @@ export default function AdminConnectionsPage() {
   const [formClientId, setFormClientId] = useState("");
   const [formClientSecret, setFormClientSecret] = useState("");
   const [formOauthBaseUrl, setFormOauthBaseUrl] = useState("https://login.procore.com");
-  const [formAuthMode, setFormAuthMode] = useState<Connection['auth_mode']>('shared');
+  const [formAuthMode, setFormAuthMode] = useState<Connection['auth_mode']>(getDefaultConnectorAuthMode('database'));
 
   const fetchConnections = useCallback(async () => {
     try {
@@ -111,7 +117,7 @@ export default function AdminConnectionsPage() {
         setFormClientId("");
         setFormClientSecret("");
         setFormOauthBaseUrl("https://login.procore.com");
-        setFormAuthMode(defaultAuthMode('database'));
+        setFormAuthMode(getDefaultConnectorAuthMode('database'));
         fetchConnections();
       }
     } catch (err) {
@@ -144,10 +150,10 @@ export default function AdminConnectionsPage() {
 
   return (
     <PageShell
-      title="Connections"
-      subtitle="Wire Mira into PMIS, schedules, databases, and document systems with a polished control layer."
+      title="Connectors"
+      subtitle="Choose from the supported enterprise application catalog and configure how each connector authenticates in Mira."
       eyebrow="Admin workspace"
-      actions={<button onClick={() => setShowAddModal(true)} className="mira-button-primary px-4 py-2 text-xs font-semibold">Add connection</button>}
+      actions={<button onClick={() => setShowAddModal(true)} className="mira-button-primary px-4 py-2 text-xs font-semibold">Add connector</button>}
     >
       <div className="mx-auto max-w-6xl space-y-4">
         {testResult && (
@@ -162,7 +168,7 @@ export default function AdminConnectionsPage() {
         {loading ? (
           <SectionCard><p className="text-sm text-slate-500">Loading connections…</p></SectionCard>
         ) : connections.length === 0 ? (
-          <EmptyState icon="⟷" title="No integrations yet" description="Add your first connection to bring live systems and project data into Mira." hint="Admin setup" />
+          <EmptyState icon="⟷" title="No connectors yet" description="Add your first supported connector to bring live systems and project data into Mira." hint="Admin setup" />
         ) : (
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             {connections.map((conn) => {
@@ -235,27 +241,24 @@ export default function AdminConnectionsPage() {
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 px-4 backdrop-blur-sm" onClick={() => setShowAddModal(false)}>
           <div className="mira-surface w-full max-w-xl rounded-[1.8rem] p-6" onClick={(e) => e.stopPropagation()}>
-            <p className="mira-eyebrow">New connection</p>
-            <h3 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-slate-950">Add an integration</h3>
+            <p className="mira-eyebrow">New connector</p>
+            <h3 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-slate-950">Add a supported enterprise application</h3>
 
             <div className="mt-5 space-y-4">
               <div>
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Connection name</label>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Connector name</label>
                 <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Project Database" className="mira-input px-4 py-3 text-sm" />
               </div>
               <div>
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Type</label>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Connector app</label>
                 <select value={formType} onChange={(e) => {
                   const nextType = e.target.value;
                   setFormType(nextType);
-                  setFormAuthMode(defaultAuthMode(nextType));
+                  setFormAuthMode(getDefaultConnectorAuthMode(nextType));
                 }} className="mira-select px-4 py-3 text-sm">
-                  <option value="database">Database (PostgreSQL)</option>
-                  <option value="procore">Procore (PMIS)</option>
-                  <option value="p6">Primavera P6</option>
-                  <option value="unifier">Unifier</option>
-                  <option value="documents">Documents</option>
-                  <option value="llm">LLM Provider</option>
+                  {CONNECTOR_CATALOG.map((entry) => (
+                    <option key={entry.type} value={entry.type}>{entry.label} · {entry.category}</option>
+                  ))}
                 </select>
               </div>
 
