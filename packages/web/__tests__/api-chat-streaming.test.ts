@@ -14,8 +14,6 @@ vi.mock('../src/lib/api-guard', () => ({
     role: 'user',
     agentId: 'agent-1',
     email: 'u@example.com',
-    isSuperadmin: false,
-    orgId: 'org-1',
   })),
   assertCanAccessAgent: vi.fn(() => undefined),
 }));

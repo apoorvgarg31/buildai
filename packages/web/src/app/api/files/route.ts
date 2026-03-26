@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { canAccessAgent, requireSignedIn } from '@/lib/api-guard';
-import { getAgentOrgId } from '@/lib/api-guard';
 import { isValidAgentId, safeJoinWithin } from '@/lib/security';
 import { apiError } from '@/lib/api-error';
 import { writeAuditEvent } from '@/lib/admin-db';
@@ -25,8 +24,8 @@ export async function GET(request: NextRequest) {
     if (!agentId) return apiError('validation_error', 'agentId is required', 400);
     if (!isValidAgentId(agentId)) return apiError('validation_error', 'Invalid agentId', 400);
     if (!canAccessAgent(actor, agentId)) {
-      writeAuditEvent({ actorUserId: actor.userId, action: 'files.list.denied', entityType: 'file', entityId: agentId, orgId: getAgentOrgId(agentId) || undefined, metadata: { reason: 'ORG_MISMATCH' } });
-      return apiError('forbidden_org_membership', 'Forbidden', 403, { reason: 'ORG_MISMATCH' });
+      writeAuditEvent({ actorUserId: actor.userId, action: 'files.list.denied', entityType: 'file', entityId: agentId, metadata: { reason: 'AGENT_ACCESS_DENIED' } });
+      return apiError('forbidden_agent_access', 'Forbidden', 403, { reason: 'AGENT_ACCESS_DENIED' });
     }
 
     const filesDir = safeJoinWithin(getWorkspaceBase(), agentId, 'files');

@@ -38,7 +38,7 @@ describe('ChatMessage Component', () => {
     expect(screen.getByText('Show me open RFIs')).toBeDefined();
   });
 
-  it('should show agent avatar (B) for assistant messages', () => {
+  it('should show agent avatar (M) for assistant messages', () => {
     const message = {
       id: 'test-3',
       role: 'assistant' as const,
@@ -47,7 +47,7 @@ describe('ChatMessage Component', () => {
     };
 
     render(<ChatMessage message={message} />);
-    expect(screen.getByText('B')).toBeDefined();
+    expect(screen.getByText('M')).toBeDefined();
   });
 
   it('should render user message bubble without assistant avatar', () => {
@@ -60,7 +60,7 @@ describe('ChatMessage Component', () => {
 
     render(<ChatMessage message={message} />);
     expect(screen.getByText('User text')).toBeDefined();
-    expect(screen.queryByText('B')).toBeNull();
+    expect(screen.queryByText('M')).toBeNull();
   });
 
   it('should display timestamp', () => {
@@ -90,7 +90,7 @@ describe('ChatMessage Component', () => {
 
     const { container: assistantContainer } = render(<ChatMessage message={assistantMsg} />);
     const assistantAlign = Array.from(assistantContainer.querySelectorAll('div')).find((el) =>
-      (el as HTMLElement).className.includes('max-w-[680px] mx-auto px-4')
+      (el as HTMLElement).className.includes('mx-auto max-w-[760px] px-4')
     ) as HTMLElement | undefined;
     expect(assistantAlign?.className).not.toContain('justify-end');
 
@@ -105,7 +105,7 @@ describe('ChatMessage Component', () => {
 
     const { container: userContainer } = render(<ChatMessage message={userMsg} />);
     const userAlign = Array.from(userContainer.querySelectorAll('div')).find((el) =>
-      (el as HTMLElement).className.includes('max-w-[680px] mx-auto px-4')
+      (el as HTMLElement).className.includes('mx-auto max-w-[760px] px-4')
     ) as HTMLElement | undefined;
     expect(userAlign?.className).toContain('justify-end');
   });

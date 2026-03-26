@@ -42,8 +42,6 @@ describe('/api/chat ownership guard', () => {
       role: 'user',
       agentId: 'agent-own',
       email: 'u@example.com',
-      isSuperadmin: false,
-      orgId: 'org-1',
     });
     assertCanAccessAgentMock.mockImplementation(() => undefined);
     chatSendMock.mockResolvedValue({ response: 'ok' });
@@ -58,7 +56,7 @@ describe('/api/chat ownership guard', () => {
 
   it('denies inaccessible agent sessions and emits audit event', async () => {
     assertCanAccessAgentMock.mockImplementationOnce(() => {
-      throw new Error('FORBIDDEN_ORG_MISMATCH');
+      throw new Error('FORBIDDEN');
     });
 
     const res = await POST(req({ message: 'hello', stream: false, sessionId: 'agent:agent-other:webchat:default' }));

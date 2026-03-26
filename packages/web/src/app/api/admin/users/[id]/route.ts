@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { deleteUser, getUser, updateUser, upsertOrganizationMembership } from '@/lib/admin-db';
+import { deleteUser, getUser, updateUser } from '@/lib/admin-db';
 import { requireAdmin } from '@/lib/api-guard';
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -22,32 +22,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const actor = await requireAdmin();
+    await requireAdmin();
     const { id } = await params;
     const body = await request.json();
 
     const patch: Record<string, unknown> = { ...body };
-    delete patch.orgId;
-    delete patch.orgRole;
-
-    if (!actor.isSuperadmin && patch.org_id !== undefined) {
-      delete patch.org_id;
-    }
-
     const updated = updateUser(id, patch as Parameters<typeof updateUser>[1]);
     if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-
-    const orgId = actor.isSuperadmin
-      ? (typeof body?.orgId === 'string' ? body.orgId : (typeof body?.org_id === 'string' ? body.org_id : updated.org_id))
-      : (actor.orgId || updated.org_id);
-    const orgRole = body?.orgRole === 'admin' ? 'admin' : (body?.orgRole === 'member' ? 'member' : undefined);
-
-    if (orgId && orgRole) {
-      upsertOrganizationMembership({ organizationId: orgId, userId: id, role: orgRole });
-      if (updated.org_id !== orgId) {
-        return NextResponse.json(updateUser(id, { org_id: orgId }));
-      }
-    }
 
     return NextResponse.json(updated);
   } catch (err) {

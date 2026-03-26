@@ -31,7 +31,6 @@ vi.mock('child_process', () => ({
 vi.mock('@/lib/api-guard', () => ({
   requireSignedIn: vi.fn(async () => ({ userId: 'u1', role: 'user', agentId: 'agent-a', email: 'u@example.com' })),
   canAccessAgent: vi.fn(() => true),
-  getAgentOrgId: vi.fn(() => 'org-1'),
 }));
 
 vi.mock('@/lib/security', () => ({

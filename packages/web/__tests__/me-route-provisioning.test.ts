@@ -10,7 +10,6 @@ let mockClerkUser: Record<string, unknown> | null = {
 };
 
 let testDb: InstanceType<typeof Database>;
-let nextOrgId = 1;
 
 const provisionWorkspaceMock = vi.hoisted(() => vi.fn(async (agentId: string) => `../../workspaces/${agentId}`));
 const workspaceExistsMock = vi.hoisted(() => vi.fn(() => false));
@@ -35,33 +34,19 @@ vi.mock('@/lib/engine-config', () => ({
 }));
 
 vi.mock('@/lib/admin-db', () => ({
-  createOrganization: vi.fn(({ name, slug, createdByUserId }: { name: string; slug: string; createdByUserId: string }) => {
-    const id = `org-${nextOrgId++}`;
-    testDb.prepare('INSERT INTO organizations (id, name, slug, created_by_user_id) VALUES (?, ?, ?, ?)').run(id, name, slug, createdByUserId);
-    return { id, name, slug, created_by_user_id: createdByUserId };
-  }),
-  upsertOrganizationMembership: vi.fn(({ organizationId, userId, role }: { organizationId: string; userId: string; role: string }) => {
-    testDb.prepare(`
-      INSERT INTO organization_memberships (organization_id, user_id, role)
-      VALUES (?, ?, ?)
-      ON CONFLICT(organization_id, user_id)
-      DO UPDATE SET role = excluded.role, updated_at = datetime('now')
-    `).run(organizationId, userId, role);
-  }),
-  createAgent: vi.fn(({ id, name, userId, orgId, model, apiKey, workspaceDir }: {
+  createAgent: vi.fn(({ id, name, userId, model, apiKey, workspaceDir }: {
     id: string;
     name: string;
     userId?: string;
-    orgId?: string | null;
     model?: string;
     apiKey?: string;
     workspaceDir: string;
   }) => {
     testDb.prepare(`
-      INSERT INTO agents (id, name, user_id, org_id, model, api_key, workspace_dir, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
-    `).run(id, name, userId || null, orgId || null, model || 'google/gemini-2.0-flash', apiKey || null, workspaceDir);
-    return { id, name, user_id: userId || null, org_id: orgId || null, model: model || 'google/gemini-2.0-flash', api_key: apiKey || null, workspace_dir: workspaceDir, status: 'active' };
+      INSERT INTO agents (id, name, user_id, model, api_key, workspace_dir, status)
+      VALUES (?, ?, ?, ?, ?, ?, 'active')
+    `).run(id, name, userId || null, model || 'google/gemini-2.0-flash', apiKey || null, workspaceDir);
+    return { id, name, user_id: userId || null, model: model || 'google/gemini-2.0-flash', api_key: apiKey || null, workspace_dir: workspaceDir, status: 'active' };
   }),
 }));
 
@@ -76,7 +61,6 @@ function resetDb() {
       name TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'user',
       agent_id TEXT,
-      org_id TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -84,7 +68,6 @@ function resetDb() {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       user_id TEXT,
-      org_id TEXT,
       model TEXT,
       api_key TEXT,
       workspace_dir TEXT NOT NULL,
@@ -92,29 +75,12 @@ function resetDb() {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
-    CREATE TABLE organizations (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      slug TEXT NOT NULL UNIQUE,
-      created_by_user_id TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-    CREATE TABLE organization_memberships (
-      organization_id TEXT NOT NULL,
-      user_id TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'member',
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      PRIMARY KEY (organization_id, user_id)
-    );
   `);
 }
 
 describe('/api/me provisioning flow', () => {
   beforeEach(() => {
     resetDb();
-    nextOrgId = 1;
     mockUserId = 'user-1';
     mockClerkUser = {
       id: 'user-1',
@@ -136,8 +102,8 @@ describe('/api/me provisioning flow', () => {
     expect(data).toMatchObject({
       userId: 'user-1',
       email: 'user@example.com',
+      role: 'user',
       agentId: null,
-      orgId: null,
       needsProvisioning: true,
     });
     expect((testDb.prepare('SELECT COUNT(*) AS count FROM users').get() as { count: number }).count).toBe(0);
@@ -150,10 +116,9 @@ describe('/api/me provisioning flow', () => {
 
     expect(first.status).toBe(200);
     expect(firstData.agentId).toBe('test-user-assistant-user-1');
-    expect(firstData.orgId).toBe('org-1');
+    expect(firstData.role).toBe('admin');
     expect(firstData.needsProvisioning).toBe(false);
     expect((testDb.prepare('SELECT COUNT(*) AS count FROM users').get() as { count: number }).count).toBe(1);
-    expect((testDb.prepare('SELECT COUNT(*) AS count FROM organizations').get() as { count: number }).count).toBe(1);
     expect((testDb.prepare('SELECT COUNT(*) AS count FROM agents').get() as { count: number }).count).toBe(1);
     expect(provisionWorkspaceMock).toHaveBeenCalledTimes(1);
 
@@ -162,9 +127,23 @@ describe('/api/me provisioning flow', () => {
 
     expect(second.status).toBe(200);
     expect(secondData.agentId).toBe(firstData.agentId);
-    expect(secondData.orgId).toBe(firstData.orgId);
-    expect((testDb.prepare('SELECT COUNT(*) AS count FROM organizations').get() as { count: number }).count).toBe(1);
+    expect(secondData.role).toBe('admin');
     expect((testDb.prepare('SELECT COUNT(*) AS count FROM agents').get() as { count: number }).count).toBe(1);
     expect(provisionWorkspaceMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('assigns later users the regular user role when another account already exists', async () => {
+    testDb.prepare('INSERT INTO users (id, email, name, role) VALUES (?, ?, ?, ?)').run(
+      'existing-admin',
+      'admin@example.com',
+      'Existing Admin',
+      'admin',
+    );
+
+    const res = await POST({} as never);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.role).toBe('user');
   });
 });

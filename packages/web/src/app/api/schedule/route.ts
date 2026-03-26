@@ -79,7 +79,6 @@ function auditDenied(actor: Awaited<ReturnType<typeof requireSignedIn>>, action:
     action,
     entityType: 'schedule_job',
     entityId,
-    orgId: actor.orgId || undefined,
     metadata: { reason },
   });
 }
@@ -88,6 +87,17 @@ async function loadJobById(client: ReturnType<typeof getGatewayClient>, jobId: s
   const listRes = await client.request('cron.list', { includeDisabled: true });
   const jobs = getJobsPayload(listRes);
   return jobs.find((j) => jobIdOf(j) === jobId) || null;
+}
+
+function normalizeTimeZone(tz: string | undefined): string {
+  const candidate = tz?.trim();
+  if (!candidate) return 'UTC';
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: candidate });
+    return candidate;
+  } catch {
+    throw new Error('INVALID_TIMEZONE');
+  }
 }
 
 export async function GET() {
@@ -124,7 +134,15 @@ export async function POST(request: NextRequest) {
       }
       const hour = Math.max(0, Math.min(23, body.hour));
       const minute = Math.max(0, Math.min(59, body.minute));
-      const tz = body.tz || 'Europe/London';
+      let tz: string;
+      try {
+        tz = normalizeTimeZone(body.tz);
+      } catch (err) {
+        if (err instanceof Error && err.message === 'INVALID_TIMEZONE') {
+          return apiError('validation_error', 'Invalid timezone', 400);
+        }
+        throw err;
+      }
       const targetAgentId = body.agentId || actor.agentId;
 
       if (!targetAgentId) {
@@ -134,8 +152,8 @@ export async function POST(request: NextRequest) {
       try {
         assertCanAccessAgent(actor, targetAgentId);
       } catch {
-        auditDenied(actor, 'schedule.add.denied', targetAgentId, 'ORG_MISMATCH');
-        return apiError('forbidden_org_membership', 'Forbidden', 403, { reason: 'ORG_MISMATCH' });
+        auditDenied(actor, 'schedule.add.denied', targetAgentId, 'AGENT_ACCESS_DENIED');
+        return apiError('forbidden_agent_access', 'Forbidden', 403, { reason: 'AGENT_ACCESS_DENIED' });
       }
 
       if (actor.role !== 'admin' && actor.agentId !== targetAgentId) {

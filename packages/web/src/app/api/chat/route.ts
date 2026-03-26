@@ -112,7 +112,6 @@ export async function POST(request: NextRequest): Promise<Response> {
         action: 'chat.send.denied',
         entityType: 'chat_session',
         entityId: sessionKey,
-        orgId: actor.orgId || undefined,
         metadata: { reason: 'SESSION_OWNERSHIP_VIOLATION' },
       });
       return apiError('forbidden_session', 'Forbidden', 403, { reason: 'SESSION_OWNERSHIP_VIOLATION' });

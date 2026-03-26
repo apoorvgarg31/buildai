@@ -1,20 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { listAgents, createAgent, writeAuditEvent } from '@/lib/admin-db';
-import { provisionWorkspace } from '@/lib/workspace-provisioner';
-import { addAgentToConfig } from '@/lib/engine-config';
+import { listAgents, createAgent, deleteAgent, writeAuditEvent } from '@/lib/admin-db';
+import { provisionWorkspace, removeWorkspace } from '@/lib/workspace-provisioner';
+import { addAgentToConfig, removeAgentFromConfig } from '@/lib/engine-config';
 import { provisionSkills } from '@/lib/skill-provisioner';
-import { actorOrgIds, requireAdmin, requireOrgPermission } from '@/lib/api-guard';
+import { requireAdmin } from '@/lib/api-guard';
 import { auth } from '@clerk/nextjs/server';
 import { apiError } from '@/lib/api-error';
 import { checkMutationPolicy } from '@/lib/policy';
 
+function maskSecret(secret: string | null | undefined): string | null {
+  const value = typeof secret === 'string' ? secret.trim() : '';
+  if (!value) return null;
+  return `••••${value.slice(-4)}`;
+}
+
 export async function GET() {
   try {
-    const actor = await requireAdmin();
-    const orgIds = new Set(actorOrgIds(actor));
-    const agents = listAgents()
-      .filter((a) => actor.isSuperadmin ? true : (!!a.org_id && orgIds.has(a.org_id)))
-      .map(a => ({ ...a, api_key: a.api_key ? '••••' + a.api_key.slice(-4) : null }));
+    await requireAdmin();
+    const agents = listAgents().map((a) => ({ ...a, api_key: maskSecret(a.api_key) }));
     return NextResponse.json(agents);
   } catch (err) {
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') return apiError('unauthenticated', 'Not authenticated', 401);
@@ -30,52 +33,90 @@ export async function POST(request: NextRequest) {
     const { name, userId, model, apiKey, connectionIds } = body;
     const { userId: currentUserId } = await auth();
     const assignedUserId = userId || currentUserId || undefined;
+    const maskedApiKey = maskSecret(apiKey);
 
     const { getDb } = await import('@/lib/admin-db-server');
     const db = getDb();
     const assignedUser = assignedUserId
-      ? db.prepare('SELECT org_id FROM users WHERE id = ? LIMIT 1').get(assignedUserId) as { org_id?: string | null } | undefined
+      ? db.prepare('SELECT id FROM users WHERE id = ? LIMIT 1').get(assignedUserId) as { id?: string } | undefined
       : undefined;
-    const agentOrgId = assignedUser?.org_id || actor.orgId || null;
 
     if (!name) return apiError('validation_error', 'name is required', 400);
     if (!apiKey) return apiError('validation_error', 'apiKey is required', 400);
-    if (!agentOrgId) return apiError('validation_error', 'actor must belong to an organization', 400, { reason: 'ORG_REQUIRED' });
+    if (assignedUserId && !assignedUser?.id) return apiError('not_found', 'Assigned user not found', 404);
 
-    requireOrgPermission(actor, agentOrgId, 'agent.manage');
-    const policy = checkMutationPolicy({ action: 'admin.agent.create', actor, orgId: agentOrgId, subjectType: 'agent' });
+    const policy = checkMutationPolicy({ action: 'admin.agent.create', actor, subjectType: 'agent' });
     if (!policy.allowed) {
-      writeAuditEvent({ actorUserId: actor.userId, action: 'admin.agent.create.policy_blocked', entityType: 'agent', orgId: agentOrgId, metadata: policy.details });
+      writeAuditEvent({ actorUserId: actor.userId, action: 'admin.agent.create.policy_blocked', entityType: 'agent', metadata: policy.details });
       return apiError('policy_blocked', 'Policy blocked this action', 403, policy.details);
     }
 
     const agentId = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const workspaceDir = await provisionWorkspace(agentId);
+    let workspaceDir: string | null = null;
+    let configAdded = false;
+    let agentCreated = false;
 
-    if (connectionIds?.length) await provisionSkills(agentId, connectionIds);
+    try {
+      workspaceDir = await provisionWorkspace(agentId);
 
-    await addAgentToConfig(agentId, {
-      name,
-      workspace: workspaceDir,
-      model: model || 'google/gemini-2.0-flash',
-      apiKey: apiKey || undefined,
-    });
+      await addAgentToConfig(agentId, {
+        name,
+        workspace: workspaceDir,
+        model: model || 'google/gemini-2.0-flash',
+        apiKey: apiKey || undefined,
+      });
+      configAdded = true;
 
-    const agent = createAgent({ name, userId: assignedUserId, orgId: agentOrgId, model, apiKey, workspaceDir, connectionIds });
+      const agent = createAgent({
+        name,
+        userId: assignedUserId,
+        model,
+        apiKey: maskedApiKey || undefined,
+        workspaceDir,
+        connectionIds,
+      });
+      agentCreated = true;
 
-    if (assignedUserId) {
-      db.prepare("UPDATE users SET agent_id = ?, org_id = COALESCE(org_id, ?), updated_at = datetime('now') WHERE id = ?")
-        .run(agent.id, agentOrgId, assignedUserId);
+      if (assignedUserId) {
+        db.prepare("UPDATE users SET agent_id = ?, updated_at = datetime('now') WHERE id = ?")
+          .run(agent.id, assignedUserId);
+      }
+
+      if (connectionIds?.length) {
+        await provisionSkills(agentId, connectionIds);
+      }
+
+      return NextResponse.json({ ...agent, api_key: maskSecret(agent.api_key) }, { status: 201 });
+    } catch (err) {
+      if (agentCreated) {
+        try {
+          const rollbackAgent = deleteAgent(agentId);
+          if (!rollbackAgent) {
+            console.error('Create agent rollback could not remove db row:', agentId);
+          }
+        } catch (rollbackErr) {
+          console.error('Create agent rollback db cleanup failed:', rollbackErr);
+        }
+      }
+      if (configAdded) {
+        try {
+          await removeAgentFromConfig(agentId);
+        } catch (rollbackErr) {
+          console.error('Create agent rollback config cleanup failed:', rollbackErr);
+        }
+      }
+      if (workspaceDir) {
+        try {
+          await removeWorkspace(agentId);
+        } catch (rollbackErr) {
+          console.error('Create agent rollback workspace cleanup failed:', rollbackErr);
+        }
+      }
+      throw err;
     }
-
-    return NextResponse.json(agent, { status: 201 });
   } catch (err) {
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') return apiError('unauthenticated', 'Not authenticated', 401);
-    if (err instanceof Error && (err.message === 'FORBIDDEN' || err.message === 'FORBIDDEN_ORG_ROLE')) return apiError('insufficient_role', 'Forbidden', 403);
-    if (err instanceof Error && err.message === 'FORBIDDEN_ORG_MEMBERSHIP') {
-      writeAuditEvent({ action: 'admin.agent.create.denied', entityType: 'agent', metadata: { reason: 'ORG_MEMBERSHIP_REQUIRED' } });
-      return apiError('forbidden_org_membership', 'Forbidden', 403, { reason: 'ORG_MEMBERSHIP_REQUIRED' });
-    }
+    if (err instanceof Error && err.message === 'FORBIDDEN') return apiError('insufficient_role', 'Forbidden', 403);
     console.error('Create agent error:', err);
     return apiError('internal_error', `Failed to create agent: ${err instanceof Error ? err.message : String(err)}`, 500);
   }

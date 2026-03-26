@@ -3,7 +3,6 @@ import type { RequestActor } from '@/lib/api-guard';
 export interface PolicyCheckInput {
   action: string;
   actor: RequestActor;
-  orgId?: string | null;
   subjectType?: string;
   subjectId?: string;
 }
@@ -33,7 +32,6 @@ export function checkMutationPolicy(input: PolicyCheckInput): PolicyCheckResult 
     reason: 'APPROVAL_REQUIRED',
     details: {
       action: input.action,
-      orgId: input.orgId || null,
       subjectType: input.subjectType || null,
       subjectId: input.subjectId || null,
       approvalRequired: true,

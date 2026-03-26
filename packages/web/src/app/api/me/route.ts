@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
-import { isConfiguredSuperadmin } from '@/lib/api-guard';
 
 function normalizeSlug(input: string): string {
   return input
@@ -16,14 +15,13 @@ type MeRow = {
   name: string;
   role: string;
   agent_id: string | null;
-  org_id: string | null;
 };
 
 async function getUserProfile(userId: string): Promise<MeRow | null> {
   const { getDb } = await import('@/lib/admin-db-server');
   const db = getDb();
   const row = db.prepare(
-    'SELECT id, email, name, role, agent_id, org_id FROM users WHERE id = ?'
+    'SELECT id, email, name, role, agent_id FROM users WHERE id = ?'
   ).get(userId) as MeRow | undefined;
   return row || null;
 }
@@ -34,19 +32,17 @@ async function readMeState(userId: string) {
     const { getDb } = await import('@/lib/admin-db-server');
     const db = getDb();
     const assigned = row.agent_id
-      ? db.prepare('SELECT id, status FROM agents WHERE id = ?').get(row.agent_id) as { id: string; status: string } | undefined
+      ? db.prepare('SELECT id, status FROM agents WHERE id = ?').get(row.agent_id) as { id: string; status?: string | null } | undefined
       : undefined;
-    const hasActiveAgent = !!assigned && assigned.status === 'active';
+    const hasActiveAgent = !!assigned && (!assigned.status || assigned.status === 'active');
 
     return {
       userId: row.id,
       email: row.email,
       name: row.name,
       role: row.role === 'admin' ? 'admin' : 'user',
-      isSuperadmin: isConfiguredSuperadmin(row.id, row.email || ''),
       agentId: hasActiveAgent ? row.agent_id : null,
-      orgId: row.org_id || null,
-      needsProvisioning: !row.org_id || !hasActiveAgent,
+      needsProvisioning: !hasActiveAgent,
     };
   }
 
@@ -59,16 +55,14 @@ async function readMeState(userId: string) {
     email,
     name,
     role: 'user' as const,
-    isSuperadmin: isConfiguredSuperadmin(userId, email),
     agentId: null,
-    orgId: null,
     needsProvisioning: true,
   };
 }
 
 async function provisionMe(userId: string) {
   const { getDb } = await import('@/lib/admin-db-server');
-  const { createOrganization, upsertOrganizationMembership, createAgent } = await import('@/lib/admin-db');
+  const { createAgent } = await import('@/lib/admin-db');
   const { provisionWorkspace, workspaceExists } = await import('@/lib/workspace-provisioner');
   const { addAgentToConfig } = await import('@/lib/engine-config');
 
@@ -78,39 +72,20 @@ async function provisionMe(userId: string) {
     const clerkUser = await currentUser();
     const email = clerkUser?.emailAddresses?.[0]?.emailAddress || '';
     const name = clerkUser?.fullName || clerkUser?.firstName || 'User';
-    db.prepare('INSERT INTO users (id, email, name, role) VALUES (?, ?, ?, ?)').run(userId, email, name, 'user');
+    const existingUsers = db.prepare('SELECT COUNT(*) AS count FROM users').get() as { count?: number } | undefined;
+    const role = (existingUsers?.count || 0) === 0 ? 'admin' : 'user';
+    db.prepare('INSERT INTO users (id, email, name, role) VALUES (?, ?, ?, ?)').run(userId, email, name, role);
     row = await getUserProfile(userId);
   }
   if (!row) throw new Error('USER_CREATE_FAILED');
 
-  if (!row.org_id) {
-    const base = normalizeSlug(row.name || row.email || userId) || `user-${userId.slice(-6)}`;
-    const orgName = `${row.name || 'Personal'} Workspace`;
-    const org = createOrganization({
-      name: orgName,
-      slug: `${base}-${userId.slice(-6)}`,
-      createdByUserId: userId,
-    });
-
-    db.prepare("UPDATE users SET org_id = ?, updated_at = datetime('now') WHERE id = ?").run(org.id, userId);
-    upsertOrganizationMembership({ organizationId: org.id, userId, role: 'member' });
-    row = await getUserProfile(userId);
-  }
-  if (!row) throw new Error('USER_ORG_UPDATE_FAILED');
-
   let selectedAgentId = row.agent_id;
   const assigned = row.agent_id
-    ? db.prepare('SELECT id, status FROM agents WHERE id = ?').get(row.agent_id) as { id: string; status: string } | undefined
+    ? db.prepare('SELECT id, status FROM agents WHERE id = ?').get(row.agent_id) as { id: string; status?: string | null } | undefined
     : undefined;
 
-  if (!assigned || assigned.status !== 'active') {
-    const existingOrgAgent = row.org_id
-      ? db.prepare(
-        "SELECT id FROM agents WHERE org_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1"
-      ).get(row.org_id) as { id: string } | undefined
-      : undefined;
-
-    selectedAgentId = existingOrgAgent?.id || null;
+  if (!assigned || (assigned.status && assigned.status !== 'active')) {
+    selectedAgentId = null;
 
     if (!selectedAgentId) {
       const model = process.env.BUILDAI_DEFAULT_MODEL || 'google/gemini-2.0-flash';
@@ -140,7 +115,6 @@ async function provisionMe(userId: string) {
           id: agentIdBase,
           name: agentDisplayName,
           userId,
-          orgId: row.org_id,
           model,
           apiKey: envApiKey || undefined,
           workspaceDir,
@@ -173,7 +147,7 @@ export async function GET() {
 }
 
 /**
- * POST /api/me — idempotently provisions the current user's personal org + agent.
+ * POST /api/me — idempotently provisions the current user's agent.
  */
 export async function POST(_request: NextRequest) {
   try {

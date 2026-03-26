@@ -5,6 +5,10 @@ import { EmptyState, PageShell, SectionCard } from "./MiraShell";
 
 type Job = { jobId?: string; id?: string; name?: string; enabled?: boolean; schedule?: { kind?: string; expr?: string; tz?: string }; };
 
+function getLocalTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+}
+
 export default function SchedulePage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [name, setName] = useState("Morning Project Digest");
@@ -15,7 +19,7 @@ export default function SchedulePage() {
 
   async function load() { const res = await fetch("/api/schedule"); const data = await res.json(); setJobs(data.jobs || []); }
   useEffect(() => { let mounted = true; fetch("/api/schedule").then((r) => r.json()).then((data) => { if (mounted) setJobs(data.jobs || []); }); return () => { mounted = false; }; }, []);
-  async function addJob() { const res = await fetch("/api/schedule", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "add", name, text, hour, minute, tz: "Europe/London" }) }); const data = await res.json(); setMsg(res.ok ? "Schedule created." : data.error || "Failed"); if (res.ok) load(); }
+  async function addJob() { const res = await fetch("/api/schedule", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "add", name, text, hour, minute, tz: getLocalTimeZone() }) }); const data = await res.json(); setMsg(res.ok ? "Schedule created." : data.error || "Failed"); if (res.ok) load(); }
   async function toggle(job: Job) { const jobId = job.jobId || job.id; if (!jobId) return; const res = await fetch("/api/schedule", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "update", jobId, enabled: !job.enabled }) }); if (res.ok) load(); }
   async function runNow(job: Job) { const jobId = job.jobId || job.id; if (!jobId) return; const res = await fetch("/api/schedule", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "run", jobId }) }); setMsg(res.ok ? "Triggered." : "Run failed."); }
   async function remove(job: Job) { const jobId = job.jobId || job.id; if (!jobId) return; const res = await fetch("/api/schedule", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "remove", jobId }) }); if (res.ok) load(); }

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMarketplaceSkill, generateInstallToken } from '@/lib/marketplace';
-import { canAccessAgent, getAgentOrgId, requireSignedIn } from '@/lib/api-guard';
+import { canAccessAgent, requireSignedIn } from '@/lib/api-guard';
 import { isValidAgentId, safeJoinWithin } from '@/lib/security';
-import { deleteUserSkillInstall, listOrgSkillAssignments } from '@/lib/admin-db';
+import { deleteUserSkillInstall } from '@/lib/admin-db';
 import { apiError } from '@/lib/api-error';
 import fs from 'fs';
 import path from 'path';
@@ -65,17 +65,9 @@ export async function DELETE(
     const agentId = request.nextUrl.searchParams.get('agentId') || actor.agentId;
     if (!agentId) return apiError('validation_error', 'agentId is required', 400);
     if (!isValidAgentId(agentId)) return apiError('validation_error', 'Invalid agentId', 400);
-    if (!canAccessAgent(actor, agentId)) return apiError('forbidden_org_membership', 'Forbidden', 403, { reason: 'ORG_MISMATCH' });
+    if (!canAccessAgent(actor, agentId)) return apiError('forbidden_agent_access', 'Forbidden', 403, { reason: 'AGENT_ACCESS_DENIED' });
 
-    const orgId = getAgentOrgId(agentId);
-    if (orgId) {
-      const orgRequired = listOrgSkillAssignments(orgId).find((s) => s.skill_id === id && s.required === 1);
-      if (orgRequired) {
-        return apiError('policy_blocked', 'Cannot remove required org-assigned skill', 403, { reason: 'REQUIRED_ORG_SKILL' });
-      }
-    }
-
-    const removed = deleteUserSkillInstall(actor.userId, orgId, id);
+    const removed = deleteUserSkillInstall(actor.userId, id);
 
     const skillsDir = safeJoinWithin(path.resolve(process.cwd(), '../../workspaces'), agentId, 'skills', id);
     if (skillsDir && fs.existsSync(skillsDir)) {

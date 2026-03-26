@@ -37,11 +37,8 @@ vi.mock('@/lib/api-guard', () => ({
     role: 'user',
     agentId: 'agent-a',
     email: 'u@example.com',
-    isSuperadmin: false,
-    orgId: 'org-a',
   })),
   canAccessAgent: vi.fn(() => true),
-  getAgentOrgId: vi.fn(() => 'org-a'),
 }));
 
 vi.mock('@/lib/admin-db', () => ({
@@ -52,7 +49,7 @@ import { GET as listFiles } from '../src/app/api/files/route';
 import { GET as listArtifacts } from '../src/app/api/artifacts/route';
 import { canAccessAgent } from '@/lib/api-guard';
 
-describe('OA-3 file/artifact API isolation', () => {
+describe('file/artifact API isolation', () => {
   beforeEach(() => {
     fsMem.clear();
     vi.clearAllMocks();
@@ -62,7 +59,7 @@ describe('OA-3 file/artifact API isolation', () => {
     fsMem.set('/virtual/agent-a/artifacts/summary.txt', 'text');
   });
 
-  it('AC-OA3-04 denies cross-org/mismatched agent access for files API', async () => {
+  it('denies mismatched agent access for files API', async () => {
     vi.mocked(canAccessAgent).mockReturnValueOnce(false);
 
     const req = { nextUrl: new URL('http://localhost/api/files?agentId=agent-b') } as unknown as NextRequest;
@@ -73,7 +70,7 @@ describe('OA-3 file/artifact API isolation', () => {
     expect(data.error).toBe('Forbidden');
   });
 
-  it('AC-OA3-05 denies cross-org/mismatched agent access for artifacts API', async () => {
+  it('denies mismatched agent access for artifacts API', async () => {
     vi.mocked(canAccessAgent).mockReturnValueOnce(false);
 
     const req = { nextUrl: new URL('http://localhost/api/artifacts?agentId=agent-b') } as unknown as NextRequest;
@@ -84,7 +81,7 @@ describe('OA-3 file/artifact API isolation', () => {
     expect(data.error).toBe('Forbidden');
   });
 
-  it('AC-OA3-06 allows org-aligned access for files/artifacts list APIs', async () => {
+  it('allows assigned-agent access for files/artifacts list APIs', async () => {
     const filesRes = await listFiles({ nextUrl: new URL('http://localhost/api/files?agentId=agent-a') } as unknown as NextRequest);
     const artifactsRes = await listArtifacts({ nextUrl: new URL('http://localhost/api/artifacts?agentId=agent-a') } as unknown as NextRequest);
 

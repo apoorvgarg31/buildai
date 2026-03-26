@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyInstallToken, getMarketplaceSkill, packageSkill } from '@/lib/marketplace';
 import fs from 'fs';
 import path from 'path';
-import { canAccessAgent, getAgentOrgId, requireSignedIn } from '@/lib/api-guard';
+import { canAccessAgent, requireSignedIn } from '@/lib/api-guard';
 import { isValidAgentId, safeJoinWithin } from '@/lib/security';
 import { upsertUserSkillInstall } from '@/lib/admin-db';
 import { apiError } from '@/lib/api-error';
@@ -56,7 +56,7 @@ export async function POST(
     }
 
     if (!canAccessAgent(actor, agentId)) {
-      return apiError('forbidden_org_membership', 'Forbidden', 403, { reason: 'ORG_MISMATCH' });
+      return apiError('forbidden_agent_access', 'Forbidden', 403, { reason: 'AGENT_ACCESS_DENIED' });
     }
 
     const sourceDir = path.join(SKILLS_SOURCE, id);
@@ -77,7 +77,6 @@ export async function POST(
 
     upsertUserSkillInstall({
       userId: actor.userId,
-      orgId: getAgentOrgId(agentId),
       skillId: id,
       source: 'public',
     });

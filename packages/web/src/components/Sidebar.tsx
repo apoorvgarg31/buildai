@@ -17,14 +17,7 @@ const adminNav: NavItem[] = [
   { name: "Users", icon: "◌", page: "users" },
   { name: "Agents", icon: "✦", page: "agents" },
   { name: "Connections", icon: "⟷", page: "connections" },
-  { name: "Org Skills", icon: "⬢", page: "org-skills" },
   { name: "Marketplace", icon: "◇", page: "marketplace" },
-  { name: "Settings", icon: "⊙", page: "settings" },
-];
-
-const superadminNav: NavItem[] = [
-  { name: "Organizations", icon: "◫", page: "orgs" },
-  { name: "Users", icon: "◌", page: "users" },
   { name: "Settings", icon: "⊙", page: "settings" },
 ];
 
@@ -40,27 +33,25 @@ const userNav: NavItem[] = [
 ];
 
 export type UserPage = "chat" | "artifacts" | "schedule" | "watchlist" | "personality" | "marketplace" | "usage" | "settings";
-export type AdminPage = "dashboard" | "users" | "agents" | "connections" | "org-skills";
-export type SuperadminPage = "orgs";
-export type Page = UserPage | AdminPage | SuperadminPage;
+export type AdminPage = "dashboard" | "users" | "agents" | "connections";
+export type Page = UserPage | AdminPage;
 
 interface SidebarProps {
   user: BuildAIUser;
   activePage?: Page;
   onNavigate?: (page: Page) => void;
-  mode?: "user" | "admin" | "superadmin";
+  mode?: "user" | "admin";
   onToggleMode?: () => void;
 }
 
 export default function Sidebar({ user, activePage, onNavigate, mode = "user", onToggleMode }: SidebarProps) {
   const { signOut } = useClerk();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const isSuperadminView = !!user.isSuperadmin && mode === "superadmin";
   const isAdminView = user.role === "admin" && mode === "admin";
-  const navigation = isSuperadminView ? superadminNav : isAdminView ? adminNav : userNav;
-  const defaultPage: Page = isSuperadminView ? "orgs" : isAdminView ? "dashboard" : "chat";
+  const navigation = isAdminView ? adminNav : userNav;
+  const defaultPage: Page = isAdminView ? "dashboard" : "chat";
   const currentPage = activePage ?? defaultPage;
-  const modeLabel = isSuperadminView ? "Superadmin control" : isAdminView ? "Admin operations" : "Project workspace";
+  const modeLabel = isAdminView ? "Admin operations" : "Project workspace";
 
   const sidebarContent = (
     <div className="flex h-full flex-col border-r border-slate-200/50 bg-[linear-gradient(180deg,rgba(255,255,255,0.84),rgba(243,248,255,0.72))] text-slate-900 backdrop-blur-2xl">
@@ -77,7 +68,7 @@ export default function Sidebar({ user, activePage, onNavigate, mode = "user", o
         <div className="mira-surface-muted mt-4 rounded-[1.2rem] px-3 py-3">
           <p className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-slate-400">Current mode</p>
           <p className="mt-2 text-sm font-medium text-slate-900">{modeLabel}</p>
-          <p className="mt-1 text-xs leading-5 text-slate-500">Calm, premium workflows across user, admin, and org operations.</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">Calm, premium workflows across user and admin operations.</p>
         </div>
       </div>
 
@@ -104,12 +95,12 @@ export default function Sidebar({ user, activePage, onNavigate, mode = "user", o
         })}
       </nav>
 
-      {(user.role === "admin" || user.isSuperadmin) && (
+      {user.role === "admin" && (
         <div className="px-3 pb-3">
           <button onClick={onToggleMode} className="mira-surface-muted flex w-full items-center justify-between rounded-[1.1rem] px-3 py-3 text-left">
             <div>
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">View switcher</p>
-              <p className="mt-1 text-sm font-medium text-slate-900">{isSuperadminView ? "Superadmin" : isAdminView ? "Admin" : "User"}</p>
+              <p className="mt-1 text-sm font-medium text-slate-900">{isAdminView ? "Admin" : "User"}</p>
             </div>
             <span className="text-xs font-semibold text-slate-500">Switch</span>
           </button>

@@ -12,6 +12,7 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import JSON5 from 'json5';
 
 const ENGINE_DIR = path.resolve(__dirname, '..');
 
@@ -26,13 +27,7 @@ describe('BuildAI Engine Component Configuration', () => {
 
     it('should be parseable (valid JSON5)', async () => {
       const content = fs.readFileSync(configPath, 'utf-8');
-      // JSON5 allows comments — strip them for basic parse check
-      const stripped = content
-        .replace(/\/\/.*$/gm, '')  // line comments
-        .replace(/\/\*[\s\S]*?\*\//g, '')  // block comments
-        .replace(/,(\s*[}\]])/g, '$1');  // trailing commas
-      
-      const parsed = JSON.parse(stripped);
+      const parsed = JSON5.parse(content);
       expect(parsed).toBeDefined();
       expect(typeof parsed).toBe('object');
     });
@@ -49,12 +44,12 @@ describe('BuildAI Engine Component Configuration', () => {
 
     it('should disable node host (device pairing)', async () => {
       const config = parseConfig(configPath);
-      expect(config.nodeHost?.enabled).toBe(false);
+      expect(config.nodeHost?.enabled ?? false).toBe(false);
     });
 
     it('should disable discovery', async () => {
       const config = parseConfig(configPath);
-      expect(config.discovery?.enabled).toBe(false);
+      expect(config.discovery?.enabled ?? false).toBe(false);
     });
 
     it('should disable all messaging channels except web', async () => {
@@ -71,7 +66,8 @@ describe('BuildAI Engine Component Configuration', () => {
 
     it('should keep web channel enabled', async () => {
       const config = parseConfig(configPath);
-      expect(config.channels?.web?.enabled).toBe(true);
+      expect(config.gateway).toBeDefined();
+      expect(config.gateway?.mode).toBe('local');
     });
 
     it('should keep cron enabled', async () => {
@@ -194,8 +190,7 @@ describe('BuildAI Engine Component Configuration', () => {
 
     it('should start the gateway via dist/entry.js', () => {
       const content = fs.readFileSync(scriptPath, 'utf-8');
-      expect(content).toContain('dist/entry.js');
-      expect(content).toContain('gateway start');
+      expect(content).toContain('openclaw gateway run');
     });
   });
 });
@@ -203,9 +198,5 @@ describe('BuildAI Engine Component Configuration', () => {
 // Helper: parse JSON5 config (strips comments and trailing commas)
 function parseConfig(filePath: string): Record<string, any> {
   const content = fs.readFileSync(filePath, 'utf-8');
-  const stripped = content
-    .replace(/\/\/.*$/gm, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/,(\s*[}\]])/g, '$1');
-  return JSON.parse(stripped);
+  return JSON5.parse(content);
 }

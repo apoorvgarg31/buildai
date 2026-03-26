@@ -3,10 +3,22 @@ import { auth } from '@clerk/nextjs/server';
 import { getConnectionSecrets } from '@/lib/admin-db';
 import { userHasAssignedConnection } from '@/lib/api-guard';
 
+type TokenStatusResponse = {
+  authorized: boolean;
+  expired?: boolean;
+  authUrl?: string;
+  message?: string;
+  token_type?: string;
+  expires_in?: number;
+};
+
+function tokenStatus(body: TokenStatusResponse, status = 200) {
+  return NextResponse.json(body, { status });
+}
+
 /**
- * GET /api/procore/token?connectionId=xxx — Returns the current user's Procore access token.
- * Called by the engine skill to make API calls on behalf of the user.
- * Auto-refreshes expired tokens using the refresh_token.
+ * GET /api/procore/token?connectionId=xxx — Returns token availability metadata only.
+ * Auto-refreshes expired tokens using the refresh_token without exposing plaintext tokens.
  */
 export async function GET(request: NextRequest) {
   const { userId } = await auth();
@@ -36,11 +48,11 @@ export async function GET(request: NextRequest) {
   } | undefined;
 
   if (!token) {
-    return NextResponse.json({
+    return tokenStatus({
       authorized: false,
       authUrl: `/api/procore/auth?connectionId=${connectionId}`,
       message: 'User has not authorized Procore access. Please visit the auth URL to connect.',
-    }, { status: 200 });
+    });
   }
 
   const now = Math.floor(Date.now() / 1000);
@@ -58,7 +70,7 @@ export async function GET(request: NextRequest) {
     const baseUrl = config.oauthBaseUrl || 'https://login.procore.com';
 
     if (!clientId || !clientSecret) {
-      return NextResponse.json({
+      return tokenStatus({
         authorized: false,
         expired: true,
         authUrl: `/api/procore/auth?connectionId=${connectionId}`,
@@ -81,7 +93,7 @@ export async function GET(request: NextRequest) {
       const refreshData = await refreshRes.json();
 
       if (refreshData.error || !refreshData.access_token) {
-        return NextResponse.json({
+        return tokenStatus({
           authorized: false,
           expired: true,
           authUrl: `/api/procore/auth?connectionId=${connectionId}`,
@@ -101,14 +113,13 @@ export async function GET(request: NextRequest) {
         connectionId,
       );
 
-      return NextResponse.json({
+      return tokenStatus({
         authorized: true,
-        access_token: refreshData.access_token,
         token_type: refreshData.token_type || 'Bearer',
         expires_in: refreshData.expires_in || 7200,
       });
     } catch (err) {
-      return NextResponse.json({
+      return tokenStatus({
         authorized: false,
         expired: true,
         authUrl: `/api/procore/auth?connectionId=${connectionId}`,
@@ -118,7 +129,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (token.expires_at < now) {
-    return NextResponse.json({
+    return tokenStatus({
       authorized: false,
       expired: true,
       authUrl: `/api/procore/auth?connectionId=${connectionId}`,
@@ -126,9 +137,8 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  return NextResponse.json({
+  return tokenStatus({
     authorized: true,
-    access_token: token.access_token,
     token_type: token.token_type || 'Bearer',
     expires_in: token.expires_at - now,
   });

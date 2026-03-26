@@ -1,7 +1,7 @@
 import { execFile } from 'child_process';
 import { NextRequest, NextResponse } from 'next/server';
 import { getConnection, getConnectionSecrets, updateConnection } from '@/lib/admin-db';
-import { actorOrgIds, requireAdmin } from '@/lib/api-guard';
+import { requireAdmin } from '@/lib/api-guard';
 
 function readConfigValue(config: Record<string, unknown>, primaryKey: string, fallbackKey: string, defaultValue = ''): string {
   const value = config[primaryKey] ?? config[fallbackKey] ?? defaultValue;
@@ -22,13 +22,10 @@ async function runPsql(args: string[], env: NodeJS.ProcessEnv): Promise<string> 
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const actor = await requireAdmin();
+    await requireAdmin();
     const { id } = await params;
     const conn = getConnection(id);
     if (!conn) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    if (!actor.isSuperadmin && (!conn.org_id || !actorOrgIds(actor).includes(conn.org_id))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
 
     const config = JSON.parse(conn.config);
     const secrets = getConnectionSecrets(id);

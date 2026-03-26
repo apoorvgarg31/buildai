@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
+import crypto from 'node:crypto';
 import { getConnection } from '@/lib/admin-db';
 import { userHasAssignedConnection } from '@/lib/api-guard';
+
+const PROCORE_OAUTH_STATE_COOKIE = 'buildai_procore_oauth_state';
 
 /**
  * GET /api/procore/auth?connectionId=xxx — Redirect user to Procore OAuth.
@@ -35,9 +38,7 @@ export async function GET(request: NextRequest) {
   }
 
   const redirectUri = `${request.nextUrl.origin}/api/procore/callback`;
-
-  // Store state so we can match the callback to user + connection
-  const state = Buffer.from(JSON.stringify({ userId, connectionId })).toString('base64url');
+  const state = crypto.randomBytes(24).toString('base64url');
 
   const authUrl = new URL(`${baseUrl}/oauth/authorize`);
   authUrl.searchParams.set('response_type', 'code');
@@ -45,5 +46,19 @@ export async function GET(request: NextRequest) {
   authUrl.searchParams.set('redirect_uri', redirectUri);
   authUrl.searchParams.set('state', state);
 
-  return NextResponse.redirect(authUrl.toString());
+  const response = NextResponse.redirect(authUrl.toString());
+  response.cookies.set(PROCORE_OAUTH_STATE_COOKIE, Buffer.from(JSON.stringify({
+    state,
+    userId,
+    connectionId,
+    issuedAt: Date.now(),
+  })).toString('base64url'), {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: request.nextUrl.protocol === 'https:',
+    path: '/api/procore/callback',
+    maxAge: 60 * 10,
+  });
+
+  return response;
 }

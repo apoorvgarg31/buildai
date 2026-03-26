@@ -26,13 +26,6 @@ function getDb(): Database.Database {
   return _db;
 }
 
-function ensureColumn(db: Database.Database, table: string, column: string, ddl: string) {
-  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
-  if (!cols.some((c) => c.name === column)) {
-    db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
-  }
-}
-
 function initSchema(db: Database.Database) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -41,14 +34,12 @@ function initSchema(db: Database.Database) {
       name TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'user',
       agent_id TEXT,
-      org_id TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS connections (
       id TEXT PRIMARY KEY,
-      org_id TEXT,
       name TEXT NOT NULL,
       type TEXT NOT NULL,
       config TEXT NOT NULL DEFAULT '{}',
@@ -66,7 +57,6 @@ function initSchema(db: Database.Database) {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       user_id TEXT,
-      org_id TEXT,
       model TEXT DEFAULT 'google/gemini-2.0-flash',
       api_key TEXT,
       workspace_dir TEXT NOT NULL,
@@ -93,34 +83,12 @@ function initSchema(db: Database.Database) {
       PRIMARY KEY (user_id, connection_id)
     );
 
-    -- OA-1/OA-2 minimal org scaffolding.
-    CREATE TABLE IF NOT EXISTS organizations (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      slug TEXT NOT NULL UNIQUE,
-      created_by_user_id TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS organization_memberships (
-      organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner','admin','maintainer','reviewer','member','auditor')),
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      PRIMARY KEY (organization_id, user_id)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_org_memberships_user_id ON organization_memberships(user_id);
-
     CREATE TABLE IF NOT EXISTS audit_events (
       id TEXT PRIMARY KEY,
       actor_user_id TEXT,
       action TEXT NOT NULL,
       entity_type TEXT NOT NULL,
       entity_id TEXT,
-      org_id TEXT,
       metadata TEXT NOT NULL DEFAULT '{}',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -135,31 +103,15 @@ function initSchema(db: Database.Database) {
       PRIMARY KEY (idempotency_key, route, method)
     );
 
-    CREATE TABLE IF NOT EXISTS org_skill_assignments (
-      org_id TEXT NOT NULL,
-      skill_id TEXT NOT NULL,
-      required INTEGER NOT NULL DEFAULT 1,
-      assigned_by_user_id TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      PRIMARY KEY (org_id, skill_id)
-    );
-
     CREATE TABLE IF NOT EXISTS user_skill_installs (
       user_id TEXT NOT NULL,
-      org_id TEXT,
       skill_id TEXT NOT NULL,
       source TEXT NOT NULL DEFAULT 'public',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      PRIMARY KEY (user_id, org_id, skill_id)
+      PRIMARY KEY (user_id, skill_id)
     );
   `);
-
-  // OA-3: safe schema upgrades for existing installs.
-  ensureColumn(db, 'users', 'org_id', 'org_id TEXT');
-  ensureColumn(db, 'agents', 'org_id', 'org_id TEXT');
-  ensureColumn(db, 'connections', 'org_id', 'org_id TEXT');
 }
 
 // ── ID generation ──
@@ -208,7 +160,6 @@ export interface User {
   name: string;
   role: 'admin' | 'user';
   agent_id: string | null;
-  org_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -221,16 +172,16 @@ export function getUser(id: string): User | undefined {
   return getDb().prepare('SELECT * FROM users WHERE id = ?').get(id) as User | undefined;
 }
 
-export function createUser(data: { email: string; name: string; role?: string; orgId?: string | null }): User {
+export function createUser(data: { email: string; name: string; role?: string }): User {
   const id = genId('user');
   const role = data.role || 'user';
   getDb().prepare(
-    'INSERT INTO users (id, email, name, role, org_id) VALUES (?, ?, ?, ?, ?)'
-  ).run(id, data.email, data.name, role, data.orgId || null);
+    'INSERT INTO users (id, email, name, role) VALUES (?, ?, ?, ?)'
+  ).run(id, data.email, data.name, role);
   return getUser(id)!;
 }
 
-export function updateUser(id: string, data: Partial<{ email: string; name: string; role: string; agent_id: string | null; org_id: string | null }>): User | undefined {
+export function updateUser(id: string, data: Partial<{ email: string; name: string; role: string; agent_id: string | null }>): User | undefined {
   const user = getUser(id);
   if (!user) return undefined;
   const fields: string[] = [];
@@ -254,7 +205,6 @@ export function deleteUser(id: string): boolean {
 
 export interface Connection {
   id: string;
-  org_id: string | null;
   name: string;
   type: string;
   config: string; // JSON string
@@ -307,34 +257,21 @@ function normalizeConnectionInput(
 function hydrateConnection(row: Record<string, unknown>): Connection {
   return {
     ...row,
-    org_id: typeof row.org_id === 'string' ? row.org_id : null,
     config: sanitizeConnectionConfig(String(row.config || '{}')),
     has_secret: !!row.has_secret,
   } as unknown as Connection;
 }
 
-export function listConnections(options?: { orgIds?: string[]; includeUnscoped?: boolean }): Connection[] {
+export function listConnections(): Connection[] {
   const db = getDb();
-  const orgIds = options?.orgIds?.filter(Boolean) || [];
-
-  let query = `
+  const query = `
     SELECT c.*, (cs.connection_id IS NOT NULL) as has_secret
     FROM connections c
     LEFT JOIN connection_secrets cs ON cs.connection_id = c.id
+    ORDER BY c.created_at DESC
   `;
-  const where: string[] = [];
-  const values: unknown[] = [];
-  if (orgIds.length > 0) {
-    where.push(`c.org_id IN (${orgIds.map(() => '?').join(', ')})`);
-    values.push(...orgIds);
-    if (options?.includeUnscoped) where.push('c.org_id IS NULL');
-  } else if (options?.includeUnscoped === false) {
-    where.push('c.org_id IS NOT NULL');
-  }
-  if (where.length > 0) query += ` WHERE ${where.join(' OR ')}`;
-  query += ' ORDER BY c.created_at DESC';
 
-  const rows = db.prepare(query).all(...values) as Record<string, unknown>[];
+  const rows = db.prepare(query).all() as Record<string, unknown>[];
   return rows.map(hydrateConnection);
 }
 
@@ -350,7 +287,6 @@ export function getConnection(id: string): Connection | undefined {
 }
 
 export function createConnection(data: {
-  orgId?: string | null;
   name: string;
   type: string;
   config: Record<string, unknown>;
@@ -363,8 +299,8 @@ export function createConnection(data: {
   const db = getDb();
   const txn = db.transaction(() => {
     db.prepare(
-      'INSERT INTO connections (id, org_id, name, type, config) VALUES (?, ?, ?, ?, ?)'
-    ).run(id, data.orgId || null, data.name, data.type, configJson);
+      'INSERT INTO connections (id, name, type, config) VALUES (?, ?, ?, ?)'
+    ).run(id, data.name, data.type, configJson);
 
     if (normalized.secrets && Object.keys(normalized.secrets).length > 0) {
       const encrypted = encrypt(JSON.stringify(normalized.secrets));
@@ -378,7 +314,6 @@ export function createConnection(data: {
 }
 
 export function updateConnection(id: string, data: Partial<{
-  orgId: string | null;
   name: string;
   type: string;
   config: Record<string, unknown>;
@@ -398,7 +333,6 @@ export function updateConnection(id: string, data: Partial<{
       : null;
     const fields: string[] = [];
     const values: unknown[] = [];
-    if (data.orgId !== undefined) { fields.push('org_id = ?'); values.push(data.orgId); }
     if (data.name !== undefined) { fields.push('name = ?'); values.push(data.name); }
     if (data.type !== undefined) { fields.push('type = ?'); values.push(data.type); }
     if (normalized && data.config !== undefined) { fields.push('config = ?'); values.push(JSON.stringify(normalized.config)); }
@@ -439,7 +373,6 @@ export interface Agent {
   id: string;
   name: string;
   user_id: string | null;
-  org_id: string | null;
   model: string;
   api_key: string | null;
   workspace_dir: string;
@@ -474,7 +407,6 @@ export function createAgent(data: {
   id?: string;
   name: string;
   userId?: string;
-  orgId?: string | null;
   model?: string;
   apiKey?: string;
   workspaceDir: string;
@@ -487,8 +419,8 @@ export function createAgent(data: {
   const db = getDb();
   const txn = db.transaction(() => {
     db.prepare(
-      'INSERT INTO agents (id, name, user_id, org_id, model, api_key, workspace_dir) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).run(id, data.name, data.userId || null, data.orgId || null, model, data.apiKey || null, data.workspaceDir);
+      'INSERT INTO agents (id, name, user_id, model, api_key, workspace_dir) VALUES (?, ?, ?, ?, ?, ?)' 
+    ).run(id, data.name, data.userId || null, model, data.apiKey || null, data.workspaceDir);
 
     if (data.connectionIds?.length) {
       const stmt = db.prepare('INSERT INTO agent_connections (agent_id, connection_id) VALUES (?, ?)');
@@ -504,7 +436,6 @@ export function createAgent(data: {
 export function updateAgent(id: string, data: Partial<{
   name: string;
   userId: string | null;
-  orgId: string | null;
   model: string;
   apiKey: string | null;
   status: string;
@@ -519,7 +450,6 @@ export function updateAgent(id: string, data: Partial<{
     const values: unknown[] = [];
     if (data.name !== undefined) { fields.push('name = ?'); values.push(data.name); }
     if (data.userId !== undefined) { fields.push('user_id = ?'); values.push(data.userId); }
-    if (data.orgId !== undefined) { fields.push('org_id = ?'); values.push(data.orgId); }
     if (data.model !== undefined) { fields.push('model = ?'); values.push(data.model); }
     if (data.apiKey !== undefined) { fields.push('api_key = ?'); values.push(data.apiKey); }
     if (data.status !== undefined) { fields.push('status = ?'); values.push(data.status); }
@@ -547,126 +477,22 @@ export function deleteAgent(id: string): boolean {
 
 // ── Organizations (OA-1/OA-2 scaffolding) ──
 
-export interface Organization {
-  id: string;
-  name: string;
-  slug: string;
-  created_by_user_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface OrganizationMembership {
-  organization_id: string;
-  user_id: string;
-  role: 'owner' | 'admin' | 'maintainer' | 'reviewer' | 'member' | 'auditor';
-  created_at: string;
-  updated_at: string;
-}
-
-export function listOrganizations(): Organization[] {
-  return getDb().prepare('SELECT * FROM organizations ORDER BY created_at DESC').all() as Organization[];
-}
-
-export function getOrganization(id: string): Organization | undefined {
-  return getDb().prepare('SELECT * FROM organizations WHERE id = ?').get(id) as Organization | undefined;
-}
-
-export function updateOrganization(id: string, data: { name?: string; slug?: string }): Organization | undefined {
-  const existing = getOrganization(id);
-  if (!existing) return undefined;
-
-  const nextName = (data.name ?? existing.name).trim();
-  const nextSlug = (data.slug ?? existing.slug)
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-
-  if (!nextName) throw new Error('INVALID_ORG_NAME');
-  if (!nextSlug) throw new Error('INVALID_ORG_SLUG');
-
-  getDb().prepare(
-    'UPDATE organizations SET name = ?, slug = ?, updated_at = datetime(\'now\') WHERE id = ?'
-  ).run(nextName, nextSlug, id);
-
-  return getOrganization(id);
-}
-
-export function deleteOrganization(id: string): boolean {
-  const res = getDb().prepare('DELETE FROM organizations WHERE id = ?').run(id);
-  return res.changes > 0;
-}
-
-export function listOrganizationMemberships(orgId: string): OrganizationMembership[] {
-  return getDb().prepare(
-    'SELECT * FROM organization_memberships WHERE organization_id = ? ORDER BY created_at DESC'
-  ).all(orgId) as OrganizationMembership[];
-}
-
-export function createOrganization(data: {
-  name: string;
-  slug?: string;
-  createdByUserId?: string;
-}): Organization {
-  const id = genId('org');
-  const name = data.name.trim();
-  const slug = (data.slug || name)
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-
-  if (!name) {
-    throw new Error('INVALID_ORG_NAME');
-  }
-  if (!slug) {
-    throw new Error('INVALID_ORG_SLUG');
-  }
-
-  getDb().prepare(
-    'INSERT INTO organizations (id, name, slug, created_by_user_id) VALUES (?, ?, ?, ?)'
-  ).run(id, name, slug, data.createdByUserId || null);
-
-  return getOrganization(id)!;
-}
-
-export function upsertOrganizationMembership(data: {
-  organizationId: string;
-  userId: string;
-  role: 'owner' | 'admin' | 'maintainer' | 'reviewer' | 'member' | 'auditor';
-}): OrganizationMembership {
-  const db = getDb();
-  db.prepare(`
-    INSERT INTO organization_memberships (organization_id, user_id, role)
-    VALUES (?, ?, ?)
-    ON CONFLICT(organization_id, user_id)
-    DO UPDATE SET role = excluded.role, updated_at = datetime('now')
-  `).run(data.organizationId, data.userId, data.role);
-
-  return db.prepare(
-    'SELECT * FROM organization_memberships WHERE organization_id = ? AND user_id = ?'
-  ).get(data.organizationId, data.userId) as OrganizationMembership;
-}
-
 export function writeAuditEvent(data: {
   actorUserId?: string;
   action: string;
   entityType: string;
   entityId?: string;
-  orgId?: string;
   metadata?: Record<string, unknown>;
 }): void {
   const id = genId('audit');
   getDb().prepare(
-    'INSERT INTO audit_events (id, actor_user_id, action, entity_type, entity_id, org_id, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO audit_events (id, actor_user_id, action, entity_type, entity_id, metadata) VALUES (?, ?, ?, ?, ?, ?)'
   ).run(
     id,
     data.actorUserId || null,
     data.action,
     data.entityType,
     data.entityId || null,
-    data.orgId || null,
     JSON.stringify(data.metadata || {}),
   );
 }
@@ -685,63 +511,30 @@ export function storeIdempotentResponse(key: string, route: string, method: stri
   ).run(key, route, method, JSON.stringify(response), statusCode);
 }
 
-export interface OrgSkillAssignment {
-  org_id: string;
-  skill_id: string;
-  required: number;
-  assigned_by_user_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export function listOrgSkillAssignments(orgId: string): OrgSkillAssignment[] {
-  return getDb().prepare('SELECT * FROM org_skill_assignments WHERE org_id = ? ORDER BY created_at DESC').all(orgId) as OrgSkillAssignment[];
-}
-
-export function upsertOrgSkillAssignment(data: { orgId: string; skillId: string; required?: boolean; assignedByUserId?: string }): OrgSkillAssignment {
-  const db = getDb();
-  db.prepare(`
-    INSERT INTO org_skill_assignments (org_id, skill_id, required, assigned_by_user_id)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(org_id, skill_id)
-    DO UPDATE SET required = excluded.required, assigned_by_user_id = excluded.assigned_by_user_id, updated_at = datetime('now')
-  `).run(data.orgId, data.skillId, data.required === false ? 0 : 1, data.assignedByUserId || null);
-  return db.prepare('SELECT * FROM org_skill_assignments WHERE org_id = ? AND skill_id = ?').get(data.orgId, data.skillId) as OrgSkillAssignment;
-}
-
-export function deleteOrgSkillAssignment(orgId: string, skillId: string): boolean {
-  const res = getDb().prepare('DELETE FROM org_skill_assignments WHERE org_id = ? AND skill_id = ?').run(orgId, skillId);
-  return res.changes > 0;
-}
-
 export interface UserSkillInstall {
   user_id: string;
-  org_id: string | null;
   skill_id: string;
   source: string;
   created_at: string;
   updated_at: string;
 }
 
-export function listUserSkillInstalls(userId: string, orgId?: string | null): UserSkillInstall[] {
-  if (orgId === undefined) {
-    return getDb().prepare('SELECT * FROM user_skill_installs WHERE user_id = ? ORDER BY created_at DESC').all(userId) as UserSkillInstall[];
-  }
-  return getDb().prepare('SELECT * FROM user_skill_installs WHERE user_id = ? AND org_id IS ? ORDER BY created_at DESC').all(userId, orgId) as UserSkillInstall[];
+export function listUserSkillInstalls(userId: string): UserSkillInstall[] {
+  return getDb().prepare('SELECT * FROM user_skill_installs WHERE user_id = ? ORDER BY created_at DESC').all(userId) as UserSkillInstall[];
 }
 
-export function upsertUserSkillInstall(data: { userId: string; orgId?: string | null; skillId: string; source?: string }): UserSkillInstall {
+export function upsertUserSkillInstall(data: { userId: string; skillId: string; source?: string }): UserSkillInstall {
   const db = getDb();
   db.prepare(`
-    INSERT INTO user_skill_installs (user_id, org_id, skill_id, source)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(user_id, org_id, skill_id)
+    INSERT INTO user_skill_installs (user_id, skill_id, source)
+    VALUES (?, ?, ?)
+    ON CONFLICT(user_id, skill_id)
     DO UPDATE SET source = excluded.source, updated_at = datetime('now')
-  `).run(data.userId, data.orgId || null, data.skillId, data.source || 'public');
-  return db.prepare('SELECT * FROM user_skill_installs WHERE user_id = ? AND org_id IS ? AND skill_id = ?').get(data.userId, data.orgId || null, data.skillId) as UserSkillInstall;
+  `).run(data.userId, data.skillId, data.source || 'public');
+  return db.prepare('SELECT * FROM user_skill_installs WHERE user_id = ? AND skill_id = ?').get(data.userId, data.skillId) as UserSkillInstall;
 }
 
-export function deleteUserSkillInstall(userId: string, orgId: string | null, skillId: string): boolean {
-  const res = getDb().prepare('DELETE FROM user_skill_installs WHERE user_id = ? AND org_id IS ? AND skill_id = ?').run(userId, orgId, skillId);
+export function deleteUserSkillInstall(userId: string, skillId: string): boolean {
+  const res = getDb().prepare('DELETE FROM user_skill_installs WHERE user_id = ? AND skill_id = ?').run(userId, skillId);
   return res.changes > 0;
 }

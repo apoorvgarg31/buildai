@@ -33,6 +33,9 @@ vi.mock('@clerk/nextjs/server', () => ({
 import Database from 'better-sqlite3';
 
 let testDb: InstanceType<typeof Database>;
+const provisionWorkspaceMock = vi.hoisted(() => vi.fn(async (agentId: string) => `../../workspaces/${agentId}`));
+const workspaceExistsMock = vi.hoisted(() => vi.fn(() => false));
+const addAgentToConfigMock = vi.hoisted(() => vi.fn(async () => undefined));
 
 function resetDb() {
   testDb = new Database(':memory:');
@@ -95,13 +98,50 @@ vi.mock('@/lib/admin-db-server', () => ({
   getDb: () => testDb,
 }));
 
+vi.mock('@/lib/workspace-provisioner', () => ({
+  provisionWorkspace: provisionWorkspaceMock,
+  workspaceExists: workspaceExistsMock,
+}));
+
+vi.mock('@/lib/engine-config', () => ({
+  addAgentToConfig: addAgentToConfigMock,
+}));
+
+vi.mock('@/lib/admin-db', () => ({
+  createAgent: vi.fn(({ id, name, userId, model, apiKey, workspaceDir }: {
+    id: string;
+    name: string;
+    userId?: string;
+    model?: string;
+    apiKey?: string;
+    workspaceDir: string;
+  }) => {
+    testDb.prepare(
+      'INSERT INTO agents (id, name, user_id, model, api_key, workspace_dir, status) VALUES (?, ?, ?, ?, ?, ?, ?)' 
+    ).run(id, name, userId || null, model || 'google/gemini-2.0-flash', apiKey || null, workspaceDir, 'active');
+    return {
+      id,
+      name,
+      user_id: userId || null,
+      model: model || 'google/gemini-2.0-flash',
+      api_key: apiKey || null,
+      workspace_dir: workspaceDir,
+      status: 'active',
+    };
+  }),
+}));
+
 // ── Import route handlers ──
 
-import { GET as meGET } from '../src/app/api/me/route';
+import { GET as meGET, POST as mePOST } from '../src/app/api/me/route';
 
 describe('Admin Flow — Auto-provisioning', () => {
   beforeEach(() => {
     resetDb();
+    provisionWorkspaceMock.mockClear();
+    workspaceExistsMock.mockReset();
+    workspaceExistsMock.mockReturnValue(false);
+    addAgentToConfigMock.mockClear();
   });
 
   it('first user is auto-created as admin', async () => {
@@ -114,14 +154,14 @@ describe('Admin Flow — Auto-provisioning', () => {
       publicMetadata: {},
     };
 
-    const res = await meGET();
+    const res = await mePOST({} as never);
     const data = await res.json();
 
     expect(res.status).toBe(200);
     expect(data.role).toBe('admin');
     expect(data.email).toBe('apoorv@buildai.com');
     expect(data.name).toBe('Apoorv Garg');
-    expect(data.agentId).toBeNull();
+    expect(data.agentId).toBe('apoorv-garg-assistant-in-001');
   });
 
   it('second user is auto-created as regular user', async () => {
@@ -134,7 +174,7 @@ describe('Admin Flow — Auto-provisioning', () => {
       emailAddresses: [{ emailAddress: 'apoorv@buildai.com' }],
       publicMetadata: {},
     };
-    await meGET();
+    await mePOST({} as never);
 
     // Second: new user
     mockUserId = 'user_pm_002';
@@ -146,13 +186,13 @@ describe('Admin Flow — Auto-provisioning', () => {
       publicMetadata: {},
     };
 
-    const res = await meGET();
+    const res = await mePOST({} as never);
     const data = await res.json();
 
     expect(res.status).toBe(200);
     expect(data.role).toBe('user');
     expect(data.email).toBe('sarah@company.com');
-    expect(data.agentId).toBeNull();
+    expect(data.agentId).toBe('sarah-chen-assistant-pm-002');
   });
 
   it('existing user is not re-created on subsequent calls', async () => {
@@ -165,8 +205,8 @@ describe('Admin Flow — Auto-provisioning', () => {
       publicMetadata: {},
     };
 
-    await meGET();
-    await meGET();
+    await mePOST({} as never);
+    await mePOST({} as never);
 
     const count = (testDb.prepare('SELECT COUNT(*) as cnt FROM users').get() as { cnt: number }).cnt;
     expect(count).toBe(1);
@@ -195,7 +235,7 @@ describe('Admin Flow — Agent Assignment', () => {
       emailAddresses: [{ emailAddress: 'apoorv@buildai.com' }],
       publicMetadata: {},
     };
-    await meGET();
+    await mePOST({} as never);
 
     // Simulate: admin creates agent + assigns to user
     testDb.prepare(

@@ -10,7 +10,6 @@ import AdminUsersPage from "@/components/AdminUsersPage";
 import AdminAgentsPage from "@/components/AdminAgentsPage";
 import AdminConnectionsPage from "@/components/AdminConnectionsPage";
 import AdminSettingsPage from "@/components/AdminSettingsPage";
-import AdminOrgSkillsPage from "@/components/AdminOrgSkillsPage";
 import MarketplacePage from "@/components/MarketplacePage";
 import UsagePage from "@/components/UsagePage";
 import SettingsPage from "@/components/SettingsPage";
@@ -18,12 +17,11 @@ import PersonalityStudio from "@/components/PersonalityStudio";
 import WatchlistPage from "@/components/WatchlistPage";
 import SchedulePage from "@/components/SchedulePage";
 import ArtifactsPage from "@/components/ArtifactsPage";
-import SuperadminOrgsPage from "@/components/SuperadminOrgsPage";
 import { RedirectToSignIn } from "@clerk/nextjs";
 
 export default function Home() {
   const { user, isLoaded } = useCurrentUser();
-  const [mode, setMode] = useState<"user" | "admin" | "superadmin">("user");
+  const [mode, setMode] = useState<"user" | "admin">("user");
   const [activePage, setActivePage] = useState<Page>("chat");
 
   if (!isLoaded) {
@@ -42,15 +40,6 @@ export default function Home() {
   }
 
   const renderPage = () => {
-    if (mode === "superadmin" && user.isSuperadmin) {
-      switch (activePage) {
-        case "orgs": return <SuperadminOrgsPage />;
-        case "users": return <AdminUsersPage />;
-        case "settings": return <AdminSettingsPage />;
-        default: return <SuperadminOrgsPage />;
-      }
-    }
-
     if (mode === "user" || user.role !== "admin") {
       switch (activePage) {
         case "chat": return <ChatArea agentId={user.agentId} />;
@@ -72,7 +61,6 @@ export default function Home() {
       case "users": return <AdminUsersPage />;
       case "agents": return <AdminAgentsPage />;
       case "connections": return <AdminConnectionsPage />;
-      case "org-skills": return <AdminOrgSkillsPage />;
       case "marketplace": return <MarketplacePage />;
       case "settings": return <AdminSettingsPage />;
       default: return <AdminDashboard user={user} />;
@@ -87,14 +75,12 @@ export default function Home() {
         onNavigate={setActivePage}
         mode={mode}
         onToggleMode={() => {
-          const hasAdmin = user.role === "admin";
-          const hasSuper = !!user.isSuperadmin;
-          if (!hasAdmin && !hasSuper) return;
-          const order: Array<"user" | "admin" | "superadmin"> = hasSuper ? (hasAdmin ? ["user", "admin", "superadmin"] : ["user", "superadmin"]) : ["user", "admin"];
+          if (user.role !== "admin") return;
+          const order: Array<"user" | "admin"> = ["user", "admin"];
           const idx = order.indexOf(mode);
           const nextMode = order[(idx + 1) % order.length];
           setMode(nextMode);
-          setActivePage(nextMode === "admin" ? "dashboard" : nextMode === "superadmin" ? "orgs" : "chat");
+          setActivePage(nextMode === "admin" ? "dashboard" : "chat");
         }}
       />
       <main className="min-w-0 flex-1 overflow-hidden">{renderPage()}</main>

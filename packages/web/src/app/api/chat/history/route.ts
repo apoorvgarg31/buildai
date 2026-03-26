@@ -50,7 +50,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           action: 'chat.history.denied',
           entityType: 'chat_session',
           entityId: sessionKey,
-          orgId: actor.orgId || undefined,
           metadata: { reason: 'SESSION_OWNERSHIP_VIOLATION' },
         });
         return apiError('forbidden_session', 'Forbidden', 403, { reason: 'SESSION_OWNERSHIP_VIOLATION' });
@@ -61,7 +60,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         action: 'chat.history.denied',
         entityType: 'chat_session',
         entityId: sessionKey,
-        orgId: actor.orgId || undefined,
         metadata: { reason: 'SESSION_OWNERSHIP_VIOLATION' },
       });
       return apiError('forbidden_session', 'Forbidden', 403, { reason: 'SESSION_OWNERSHIP_VIOLATION' });

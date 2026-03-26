@@ -10,13 +10,6 @@ const DB_PATH = path.resolve(process.cwd(), '../../data/buildai-admin.db');
 
 let _db: Database.Database | null = null;
 
-function ensureColumn(db: Database.Database, table: string, column: string, ddl: string) {
-  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
-  if (!cols.some((c) => c.name === column)) {
-    db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
-  }
-}
-
 function initSchema(db: Database.Database) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -25,14 +18,12 @@ function initSchema(db: Database.Database) {
       name TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'user',
       agent_id TEXT,
-      org_id TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS connections (
       id TEXT PRIMARY KEY,
-      org_id TEXT,
       name TEXT NOT NULL,
       type TEXT NOT NULL,
       config TEXT NOT NULL DEFAULT '{}',
@@ -50,7 +41,6 @@ function initSchema(db: Database.Database) {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       user_id TEXT,
-      org_id TEXT,
       model TEXT DEFAULT 'google/gemini-2.0-flash',
       api_key TEXT,
       workspace_dir TEXT NOT NULL,
@@ -77,34 +67,12 @@ function initSchema(db: Database.Database) {
       PRIMARY KEY (user_id, connection_id)
     );
 
-    -- OA-1/OA-2 minimal org scaffolding.
-    CREATE TABLE IF NOT EXISTS organizations (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      slug TEXT NOT NULL UNIQUE,
-      created_by_user_id TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS organization_memberships (
-      organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner','admin','maintainer','reviewer','member','auditor')),
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      PRIMARY KEY (organization_id, user_id)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_org_memberships_user_id ON organization_memberships(user_id);
-
     CREATE TABLE IF NOT EXISTS audit_events (
       id TEXT PRIMARY KEY,
       actor_user_id TEXT,
       action TEXT NOT NULL,
       entity_type TEXT NOT NULL,
       entity_id TEXT,
-      org_id TEXT,
       metadata TEXT NOT NULL DEFAULT '{}',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -119,31 +87,15 @@ function initSchema(db: Database.Database) {
       PRIMARY KEY (idempotency_key, route, method)
     );
 
-    CREATE TABLE IF NOT EXISTS org_skill_assignments (
-      org_id TEXT NOT NULL,
-      skill_id TEXT NOT NULL,
-      required INTEGER NOT NULL DEFAULT 1,
-      assigned_by_user_id TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      PRIMARY KEY (org_id, skill_id)
-    );
-
     CREATE TABLE IF NOT EXISTS user_skill_installs (
       user_id TEXT NOT NULL,
-      org_id TEXT,
       skill_id TEXT NOT NULL,
       source TEXT NOT NULL DEFAULT 'public',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      PRIMARY KEY (user_id, org_id, skill_id)
+      PRIMARY KEY (user_id, skill_id)
     );
   `);
-
-  // OA-3: safe schema upgrades for existing installs.
-  ensureColumn(db, 'users', 'org_id', 'org_id TEXT');
-  ensureColumn(db, 'agents', 'org_id', 'org_id TEXT');
-  ensureColumn(db, 'connections', 'org_id', 'org_id TEXT');
 }
 
 export function getDb(): Database.Database {

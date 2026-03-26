@@ -9,7 +9,6 @@ interface User {
   name: string;
   role: string;
   agent_id: string | null;
-  org_id: string | null;
   created_at: string;
 }
 
@@ -18,30 +17,19 @@ interface Agent {
   name: string;
 }
 
-interface Org {
-  id: string;
-  name: string;
-  slug: string;
-}
-
 interface Me {
   role: "admin" | "user";
-  isSuperadmin: boolean;
-  orgId: string | null;
 }
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [orgs, setOrgs] = useState<Org[]>([]);
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [formName, setFormName] = useState("");
   const [formEmail, setFormEmail] = useState("");
   const [formRole, setFormRole] = useState("user");
-  const [formOrgId, setFormOrgId] = useState("");
-  const [formOrgRole, setFormOrgRole] = useState<"admin" | "member">("member");
 
   const fetchData = useCallback(async () => {
     try {
@@ -59,24 +47,12 @@ export default function AdminUsersPage() {
 
       if (usersRes.ok) setUsers(await usersRes.json());
       if (agentsRes.ok) setAgents(await agentsRes.json());
-
-      if (meData?.isSuperadmin) {
-        const orgRes = await fetch("/api/superadmin/orgs");
-        if (orgRes.ok) {
-          const data = await orgRes.json();
-          const nextOrgs = Array.isArray(data) ? data : [];
-          setOrgs(nextOrgs);
-          if (!formOrgId && nextOrgs[0]?.id) setFormOrgId(nextOrgs[0].id);
-        }
-      } else if (meData?.orgId) {
-        setFormOrgId(meData.orgId);
-      }
     } catch {
       // ignore
     } finally {
       setLoading(false);
     }
-  }, [formOrgId]);
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -87,10 +63,7 @@ export default function AdminUsersPage() {
       name: formName,
       email: formEmail,
       role: formRole,
-      orgRole: formOrgRole,
     };
-
-    if (me?.isSuperadmin && formOrgId) payload.orgId = formOrgId;
 
     const res = await fetch("/api/admin/users", {
       method: "POST",
@@ -103,7 +76,6 @@ export default function AdminUsersPage() {
       setFormName("");
       setFormEmail("");
       setFormRole("user");
-      setFormOrgRole("member");
       fetchData();
     }
   };
@@ -143,7 +115,7 @@ export default function AdminUsersPage() {
           <EmptyState
             icon="◌"
             title="No users yet"
-            description="Create your first Mira user to start assigning roles, org access, and dedicated agents."
+            description="Create your first Mira user to start assigning roles and dedicated agents."
             hint="Invite from admin"
           />
         ) : (
@@ -154,7 +126,6 @@ export default function AdminUsersPage() {
                   <tr>
                     <th className="px-5 py-4 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">User</th>
                     <th className="px-5 py-4 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Role</th>
-                    <th className="px-5 py-4 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Org</th>
                     <th className="px-5 py-4 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Assigned agent</th>
                     <th className="px-5 py-4 text-right text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Actions</th>
                   </tr>
@@ -178,7 +149,6 @@ export default function AdminUsersPage() {
                           {user.role}
                         </span>
                       </td>
-                      <td className="px-5 py-4 align-middle text-sm text-slate-600">{user.org_id || "—"}</td>
                       <td className="px-5 py-4 align-middle">
                         <select
                           value={user.agent_id || ""}
@@ -226,24 +196,6 @@ export default function AdminUsersPage() {
                   <option value="admin">Admin</option>
                 </select>
               </div>
-              <div>
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Org role</label>
-                <select value={formOrgRole} onChange={(e) => setFormOrgRole(e.target.value === "admin" ? "admin" : "member")} className="mira-select px-4 py-3 text-sm">
-                  <option value="admin">admin</option>
-                  <option value="member">member</option>
-                </select>
-              </div>
-              {me?.isSuperadmin && (
-                <div className="sm:col-span-2">
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Organization</label>
-                  <select value={formOrgId} onChange={(e) => setFormOrgId(e.target.value)} className="mira-select px-4 py-3 text-sm">
-                    <option value="">No org</option>
-                    {orgs.map((org) => (
-                      <option key={org.id} value={org.id}>{org.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
             </div>
             <div className="mt-6 flex items-center justify-end gap-3">
               <button onClick={() => setShowAddModal(false)} className="mira-button-secondary px-4 py-2 text-sm font-semibold">Cancel</button>

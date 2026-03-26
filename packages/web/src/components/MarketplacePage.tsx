@@ -14,10 +14,8 @@ interface Skill {
   tags: string[];
   readme: string;
   installed?: boolean;
-  assignedByOrg?: boolean;
-  requiredByOrg?: boolean;
   installedByUser?: boolean;
-  effectiveSource?: "org_assigned" | "user_installed_public" | "public";
+  effectiveSource?: "user_installed_public" | "public";
   removableByUser?: boolean;
   installablePublic?: boolean;
 }
@@ -112,7 +110,7 @@ export default function MarketplacePage() {
   return (
     <PageShell
       title="Marketplace"
-      subtitle="Browse public, user-installed, and org-assigned skills in the same premium Mira system."
+      subtitle="Browse public and user-installed skills in the same premium Mira system."
       eyebrow="Skill marketplace"
       actions={<button onClick={refreshSkills} className="mira-button-secondary px-4 py-2 text-xs font-semibold">Refresh</button>}
     >
@@ -168,8 +166,7 @@ export default function MarketplacePage() {
 
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="mira-pill bg-slate-100 text-slate-600">{skill.category}</span>
-                    {skill.assignedByOrg && <span className="mira-pill bg-sky-100 text-sky-700">Assigned by organization</span>}
-                    {skill.installedByUser && !skill.assignedByOrg && <span className="mira-pill bg-emerald-100 text-emerald-700">Installed by you</span>}
+                    {skill.installedByUser && <span className="mira-pill bg-emerald-100 text-emerald-700">Installed by you</span>}
                   </div>
 
                   {skill.version !== "0.1.0" && (

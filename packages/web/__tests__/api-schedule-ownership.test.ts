@@ -39,8 +39,6 @@ describe('/api/schedule ownership and scoping', () => {
       role: 'user',
       agentId: 'agent-own',
       email: 'u@example.com',
-      isSuperadmin: false,
-      orgId: 'org-1',
     });
     assertCanAccessAgentMock.mockImplementation(() => undefined);
   });
@@ -81,5 +79,14 @@ describe('/api/schedule ownership and scoping', () => {
     const addCall = requestMock.mock.calls.find((c) => c[0] === 'cron.add');
     expect(addCall).toBeDefined();
     expect(String(addCall?.[1]?.job?.name || '')).toContain('[owner:user-1] [agent:agent-own]');
+    expect(addCall?.[1]?.job?.schedule?.tz).toBe('UTC');
+  });
+
+  it('rejects invalid schedule timezones', async () => {
+    const res = await POST(req({ action: 'add', hour: 8, minute: 30, tz: 'Mars/Olympus_Mons' }));
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe('validation_error');
   });
 });
