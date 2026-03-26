@@ -21,6 +21,10 @@ const typeIcons: Record<string, string> = {
   procore: "🏗️",
   p6: "📅",
   unifier: "💰",
+  google_workspace: "🟢",
+  google_cloud: "☁️",
+  microsoft365: "🪟",
+  slack: "💬",
 };
 
 const typeLabels: Record<string, string> = {
@@ -34,6 +38,9 @@ const typeLabels: Record<string, string> = {
   jira: "Project tracking",
   confluence: "Knowledge base",
   notion: "Knowledge base",
+  google_workspace: "Productivity",
+  google_cloud: "Cloud",
+  microsoft365: "Productivity",
   slack: "Communication",
   salesforce: "CRM",
   hubspot: "CRM",

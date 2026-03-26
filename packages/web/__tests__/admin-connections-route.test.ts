@@ -56,20 +56,20 @@ describe('/api/admin/connections', () => {
   });
 
   it('creates supported predefined connectors with an explicit auth mode', async () => {
-    createConnectionMock.mockReturnValue({ id: 'conn-linear', type: 'linear', auth_mode: 'oauth_user' });
+    createConnectionMock.mockReturnValue({ id: 'conn-google', type: 'google_workspace', auth_mode: 'oauth_user' });
 
     const req = new Request('http://localhost/api/admin/connections', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'Linear', type: 'linear', authMode: 'oauth_user', config: {} }),
+      body: JSON.stringify({ name: 'Google Workspace', type: 'google_workspace', authMode: 'oauth_user', config: {} }),
     }) as unknown as NextRequest;
 
     const res = await POST(req);
 
     expect(res.status).toBe(201);
     expect(createConnectionMock).toHaveBeenCalledWith(expect.objectContaining({
-      name: 'Linear',
-      type: 'linear',
+      name: 'Google Workspace',
+      type: 'google_workspace',
       authMode: 'oauth_user',
     }));
   });
