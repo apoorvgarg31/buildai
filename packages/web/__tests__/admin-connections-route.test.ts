@@ -37,6 +37,24 @@ describe('/api/admin/connections', () => {
     expect(createConnectionMock).not.toHaveBeenCalled();
   });
 
+  it('rejects retired infrastructure-only connector types', async () => {
+    for (const type of ['documents', 'llm']) {
+      const req = new Request('http://localhost/api/admin/connections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: `Retired ${type}`, type, config: {} }),
+      }) as unknown as NextRequest;
+
+      const res = await POST(req);
+      const body = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(body.error).toContain('Unsupported connector type');
+    }
+
+    expect(createConnectionMock).not.toHaveBeenCalled();
+  });
+
   it('creates supported predefined connectors with an explicit auth mode', async () => {
     createConnectionMock.mockReturnValue({ id: 'conn-linear', type: 'linear', auth_mode: 'oauth_user' });
 

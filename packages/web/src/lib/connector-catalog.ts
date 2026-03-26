@@ -21,8 +21,6 @@ export const CONNECTOR_CATALOG: ConnectorCatalogEntry[] = [
   { type: 'salesforce', label: 'Salesforce', category: 'CRM', defaultAuthMode: 'oauth_user' },
   { type: 'hubspot', label: 'HubSpot', category: 'CRM', defaultAuthMode: 'oauth_user' },
   { type: 'database', label: 'Database', category: 'Data', defaultAuthMode: 'shared' },
-  { type: 'documents', label: 'Document Store', category: 'Documents', defaultAuthMode: 'shared' },
-  { type: 'llm', label: 'LLM Provider', category: 'AI', defaultAuthMode: 'token_user' },
 ];
 
 const CATALOG_BY_TYPE = new Map(CONNECTOR_CATALOG.map((entry) => [entry.type, entry]));

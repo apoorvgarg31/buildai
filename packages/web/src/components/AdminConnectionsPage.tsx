@@ -19,19 +19,15 @@ interface Connection {
 const typeIcons: Record<string, string> = {
   database: "🗄️",
   procore: "🏗️",
-  documents: "📁",
   p6: "📅",
   unifier: "💰",
-  llm: "🧠",
 };
 
 const typeLabels: Record<string, string> = {
   database: "Database",
   procore: "PMIS",
-  documents: "Documents",
   p6: "Scheduling",
   unifier: "Cost management",
-  llm: "LLM provider",
   linear: "Project tracking",
   github: "Developer tools",
   gitlab: "Developer tools",
