@@ -7,6 +7,8 @@ import { assertCanManageAgent, requireAdmin } from '@/lib/api-guard';
 import { apiError } from '@/lib/api-error';
 import { checkMutationPolicy } from '@/lib/policy';
 
+type UserLookup = { id?: string } | undefined;
+
 function maskSecret(secret: string | null | undefined): string | null {
   const value = typeof secret === 'string' ? secret.trim() : '';
   if (!value) return null;
@@ -43,6 +45,18 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const body = await request.json();
+    const { getDb } = await import('@/lib/admin-db-server');
+    const db = getDb();
+    const nextUserId = body?.userId;
+
+    if (nextUserId !== undefined && nextUserId !== null && typeof nextUserId !== 'string') {
+      return apiError('validation_error', 'userId must be a string or null', 400);
+    }
+    if (typeof nextUserId === 'string') {
+      const assignedUser = db.prepare('SELECT id FROM users WHERE id = ? LIMIT 1').get(nextUserId) as UserLookup;
+      if (!assignedUser?.id) return apiError('not_found', 'Assigned user not found', 404);
+    }
+
     const patch = body?.apiKey === undefined
       ? body
       : { ...body, apiKey: maskSecret(body.apiKey) };
@@ -55,6 +69,18 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (body.connectionIds) await provisionSkills(id, body.connectionIds);
     const updated = updateAgent(id, patch);
     if (!updated) return apiError('not_found', 'Not found', 404);
+
+    if (nextUserId !== undefined) {
+      if (existing.user_id && existing.user_id !== nextUserId) {
+        db.prepare("UPDATE users SET agent_id = NULL, updated_at = datetime('now') WHERE id = ? AND agent_id = ?")
+          .run(existing.user_id, id);
+      }
+      if (typeof nextUserId === 'string') {
+        db.prepare("UPDATE users SET agent_id = ?, updated_at = datetime('now') WHERE id = ?")
+          .run(id, nextUserId);
+      }
+    }
+
     return NextResponse.json({ ...updated, api_key: maskSecret(updated.api_key) });
   } catch (err) {
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') return apiError('unauthenticated', 'Not authenticated', 401);

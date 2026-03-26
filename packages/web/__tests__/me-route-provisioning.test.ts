@@ -146,4 +146,59 @@ describe('/api/me provisioning flow', () => {
     expect(res.status).toBe(200);
     expect(data.role).toBe('user');
   });
+
+  it('keeps an existing active personal agent without reprovisioning a replacement', async () => {
+    testDb.prepare('INSERT INTO users (id, email, name, role, agent_id) VALUES (?, ?, ?, ?, ?)').run(
+      'user-1',
+      'user@example.com',
+      'Test User',
+      'user',
+      'existing-agent',
+    );
+    testDb.prepare('INSERT INTO agents (id, name, user_id, model, api_key, workspace_dir, status) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+      'existing-agent',
+      'Existing Agent',
+      'user-1',
+      'google/gemini-2.0-flash',
+      null,
+      '../../workspaces/existing-agent',
+      'active',
+    );
+
+    const res = await POST({} as never);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.agentId).toBe('existing-agent');
+    expect((testDb.prepare('SELECT COUNT(*) AS count FROM agents').get() as { count: number }).count).toBe(1);
+    expect(provisionWorkspaceMock).not.toHaveBeenCalled();
+    expect(addAgentToConfigMock).not.toHaveBeenCalled();
+  });
+
+  it('reprovisions a new personal agent when the assigned agent is inactive', async () => {
+    testDb.prepare('INSERT INTO users (id, email, name, role, agent_id) VALUES (?, ?, ?, ?, ?)').run(
+      'user-1',
+      'user@example.com',
+      'Test User',
+      'user',
+      'inactive-agent',
+    );
+    testDb.prepare('INSERT INTO agents (id, name, user_id, model, api_key, workspace_dir, status) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+      'inactive-agent',
+      'Inactive Agent',
+      'user-1',
+      'google/gemini-2.0-flash',
+      null,
+      '../../workspaces/inactive-agent',
+      'inactive',
+    );
+
+    const res = await POST({} as never);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.agentId).toBe('test-user-assistant-user-1');
+    expect(provisionWorkspaceMock).toHaveBeenCalledTimes(1);
+    expect((testDb.prepare('SELECT agent_id FROM users WHERE id = ?').get('user-1') as { agent_id: string }).agent_id).toBe('test-user-assistant-user-1');
+  });
 });
