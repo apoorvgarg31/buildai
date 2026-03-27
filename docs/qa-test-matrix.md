@@ -27,7 +27,7 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 | Workflow | Status | Primary automated coverage | Notes / next gaps |
 | --- | --- | --- | --- |
 | First user becomes admin | `Covered` | `packages/web/__tests__/admin-flow.test.ts` | Core provisioning and role behavior covered. |
-| Create/update/delete users | `Partial` | `packages/web/__tests__/admin-db.integration.test.ts` | DB lifecycle covered; route-level admin user API tests still need broadening. |
+| Create/update/delete users | `Covered` | `packages/web/__tests__/admin-db.integration.test.ts`, `packages/web/__tests__/admin-users-route.test.ts` | DB lifecycle plus route auth/validation/not-found/failure branches are covered. |
 | Disable users | `Gap` | None | Needs explicit product behavior and tests once disable semantics are finalized. |
 | Create/update/delete agents | `Covered` | `packages/web/__tests__/admin-agent-route-atomicity.test.ts`, `packages/web/__tests__/admin-db.integration.test.ts` | Covers rollback/failure paths and DB state. |
 | Shared LLM settings inherited to agents | `Covered` | `packages/web/__tests__/admin-settings-route.test.ts`, `packages/web/__tests__/admin-settings-page.test.tsx`, `packages/web/__tests__/runtime-sync.integration.test.ts` | Includes persistence and runtime propagation. |
