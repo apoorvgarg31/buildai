@@ -63,10 +63,13 @@ async function readMeState(userId: string) {
 async function provisionMe(userId: string) {
   const { getDb } = await import('@/lib/admin-db-server');
   const { createAgent } = await import('@/lib/admin-db');
+  const { getAdminSettings } = await import('@/lib/admin-settings');
   const { provisionWorkspace, workspaceExists } = await import('@/lib/workspace-provisioner');
   const { addAgentToConfig } = await import('@/lib/engine-config');
+  const { syncRuntimeFromAdminState } = await import('@/lib/runtime-sync');
 
   const db = getDb();
+  const settings = getAdminSettings();
   let row = await getUserProfile(userId);
   if (!row) {
     const clerkUser = await currentUser();
@@ -88,8 +91,8 @@ async function provisionMe(userId: string) {
     selectedAgentId = null;
 
     if (!selectedAgentId) {
-      const model = process.env.BUILDAI_DEFAULT_MODEL || 'google/gemini-2.0-flash';
-      const envApiKey =
+      const model = settings.defaultModel || process.env.BUILDAI_DEFAULT_MODEL || 'google/gemini-2.0-flash';
+      const envApiKey = settings.sharedApiKey ||
         process.env.GEMINI_API_KEY ||
         process.env.GOOGLE_API_KEY ||
         process.env.BUILDAI_LLM_API_KEY ||
@@ -127,6 +130,8 @@ async function provisionMe(userId: string) {
     if (selectedAgentId) {
       db.prepare("UPDATE users SET agent_id = ?, updated_at = datetime('now') WHERE id = ?").run(selectedAgentId, userId);
     }
+
+    await syncRuntimeFromAdminState();
   }
 
   return readMeState(userId);

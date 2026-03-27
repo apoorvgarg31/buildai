@@ -2,7 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import type { Agent, McpServerRecord, ToolPolicy } from './admin-db';
 import { listAgents, listMcpServers, listToolPolicies } from './admin-db';
-import { reloadEngine } from './engine-config';
+import { reloadEngine, writeAgentAuthProfile } from './engine-config';
+import { getAdminSettings } from './admin-settings';
 
 const CONFIG_PATH = path.resolve(
   process.env.BUILDAI_ENGINE_CONFIG || path.join(process.cwd(), '../../packages/engine/buildai.config.json5')
@@ -14,11 +15,35 @@ interface RuntimeConfig {
     deny?: string[];
     [key: string]: unknown;
   };
+  agents?: {
+    defaults?: Record<string, unknown>;
+    list?: Array<Record<string, unknown>>;
+  };
   skills?: {
     allowBundled?: string[];
     [key: string]: unknown;
   };
   [key: string]: unknown;
+}
+
+export function buildManagedRuntimeDefaults(defaultModel: string) {
+  return {
+    agents: {
+      defaults: {
+        model: { primary: defaultModel },
+        sandbox: {
+          mode: 'all',
+          scope: 'agent',
+          workspaceAccess: 'rw',
+        },
+      },
+    },
+    tools: {
+      elevated: {
+        enabled: false,
+      },
+    },
+  };
 }
 
 interface RuntimeManifestEntry {
@@ -187,15 +212,45 @@ export async function syncRuntimeFromAdminState(): Promise<void> {
   const policies = listToolPolicies();
   const agents = listAgents();
   const servers = listMcpServers();
+  const settings = getAdminSettings();
 
   const config = readRuntimeConfig();
   const managedTools = buildManagedToolPolicy(policies);
   const shouldAllowMcporter = shouldEnableMcporterSkill(servers);
+  const runtimeDefaults = buildManagedRuntimeDefaults(settings.defaultModel);
+
+  config.agents = {
+    ...(config.agents || {}),
+    defaults: {
+      ...(config.agents?.defaults || {}),
+      ...(runtimeDefaults.agents.defaults || {}),
+    },
+    list: Array.isArray(config.agents?.list)
+      ? config.agents?.list?.map((entry) => {
+        const agentId = typeof entry.id === 'string' ? entry.id : '';
+        const matchingAgent = agents.find((agent) => agent.id === agentId);
+        const primaryModel = matchingAgent?.model || settings.defaultModel;
+        return {
+          ...entry,
+          model: { primary: primaryModel },
+          sandbox: {
+            mode: 'all',
+            scope: 'agent',
+            workspaceAccess: 'rw',
+          },
+        };
+      })
+      : config.agents?.list,
+  };
 
   config.tools = {
     ...(config.tools || {}),
     allow: managedTools.allow,
     deny: managedTools.deny,
+    elevated: {
+      ...((config.tools && typeof config.tools.elevated === 'object' && config.tools.elevated) ? config.tools.elevated : {}),
+      ...(runtimeDefaults.tools.elevated || {}),
+    },
   };
 
   const existingAllowBundled = Array.isArray(config.skills?.allowBundled)
@@ -211,6 +266,9 @@ export async function syncRuntimeFromAdminState(): Promise<void> {
 
   for (const agent of agents) {
     syncWorkspaceRuntimeFiles(agent.id, buildWorkspaceMcpRuntimeFiles(agent, servers));
+    if (settings.sharedApiKey) {
+      writeAgentAuthProfile(agent.id, agent.model || settings.defaultModel, settings.sharedApiKey);
+    }
   }
 
   await reloadEngine();

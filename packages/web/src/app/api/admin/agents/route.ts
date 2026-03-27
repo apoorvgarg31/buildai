@@ -8,6 +8,7 @@ import { requireAdmin } from '@/lib/api-guard';
 import { auth } from '@clerk/nextjs/server';
 import { apiError } from '@/lib/api-error';
 import { checkMutationPolicy } from '@/lib/policy';
+import { getAdminSettings } from '@/lib/admin-settings';
 
 function maskSecret(secret: string | null | undefined): string | null {
   const value = typeof secret === 'string' ? secret.trim() : '';
@@ -32,9 +33,12 @@ export async function POST(request: NextRequest) {
     const actor = await requireAdmin();
     const body = await request.json();
     const { name, userId, model, apiKey, connectionIds } = body;
+    const settings = getAdminSettings();
     const { userId: currentUserId } = await auth();
     const assignedUserId = userId || currentUserId || undefined;
-    const maskedApiKey = maskSecret(apiKey);
+    const effectiveModel = typeof model === 'string' && model.trim().length > 0 ? model : settings.defaultModel;
+    const effectiveApiKey = typeof apiKey === 'string' && apiKey.trim().length > 0 ? apiKey : (settings.sharedApiKey || undefined);
+    const maskedApiKey = maskSecret(effectiveApiKey);
 
     const { getDb } = await import('@/lib/admin-db-server');
     const db = getDb();
@@ -43,7 +47,7 @@ export async function POST(request: NextRequest) {
       : undefined;
 
     if (!name) return apiError('validation_error', 'name is required', 400);
-    if (!apiKey) return apiError('validation_error', 'apiKey is required', 400);
+    if (!effectiveApiKey) return apiError('validation_error', 'apiKey is required', 400);
     if (assignedUserId && !assignedUser?.id) return apiError('not_found', 'Assigned user not found', 404);
 
     const policy = checkMutationPolicy({ action: 'admin.agent.create', actor, subjectType: 'agent' });
@@ -63,15 +67,15 @@ export async function POST(request: NextRequest) {
       await addAgentToConfig(agentId, {
         name,
         workspace: workspaceDir,
-        model: model || 'google/gemini-2.0-flash',
-        apiKey: apiKey || undefined,
+        model: effectiveModel,
+        apiKey: effectiveApiKey,
       });
       configAdded = true;
 
       const agent = createAgent({
         name,
         userId: assignedUserId,
-        model,
+        model: effectiveModel,
         apiKey: maskedApiKey || undefined,
         workspaceDir,
         connectionIds,

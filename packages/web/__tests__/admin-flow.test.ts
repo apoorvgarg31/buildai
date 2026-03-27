@@ -36,6 +36,17 @@ let testDb: InstanceType<typeof Database>;
 const provisionWorkspaceMock = vi.hoisted(() => vi.fn(async (agentId: string) => `../../workspaces/${agentId}`));
 const workspaceExistsMock = vi.hoisted(() => vi.fn(() => false));
 const addAgentToConfigMock = vi.hoisted(() => vi.fn(async () => undefined));
+const syncRuntimeFromAdminStateMock = vi.hoisted(() => vi.fn(async () => undefined));
+const getAdminSettingsMock = vi.hoisted(() => vi.fn(() => ({
+  companyName: 'Mira',
+  defaultModel: 'google/gemini-2.0-flash',
+  responseStyle: 'professional',
+  maxQueriesPerDay: 500,
+  maxAgents: 10,
+  dataRetentionDays: 90,
+  hasSharedApiKey: false,
+  sharedApiKey: null,
+})));
 
 function resetDb() {
   testDb = new Database(':memory:');
@@ -107,6 +118,14 @@ vi.mock('@/lib/engine-config', () => ({
   addAgentToConfig: addAgentToConfigMock,
 }));
 
+vi.mock('@/lib/runtime-sync', () => ({
+  syncRuntimeFromAdminState: syncRuntimeFromAdminStateMock,
+}));
+
+vi.mock('@/lib/admin-settings', () => ({
+  getAdminSettings: getAdminSettingsMock,
+}));
+
 vi.mock('@/lib/admin-db', () => ({
   createAgent: vi.fn(({ id, name, userId, model, apiKey, workspaceDir }: {
     id: string;
@@ -142,6 +161,18 @@ describe('Admin Flow — Auto-provisioning', () => {
     workspaceExistsMock.mockReset();
     workspaceExistsMock.mockReturnValue(false);
     addAgentToConfigMock.mockClear();
+    syncRuntimeFromAdminStateMock.mockClear();
+    getAdminSettingsMock.mockClear();
+    getAdminSettingsMock.mockReturnValue({
+      companyName: 'Mira',
+      defaultModel: 'google/gemini-2.0-flash',
+      responseStyle: 'professional',
+      maxQueriesPerDay: 500,
+      maxAgents: 10,
+      dataRetentionDays: 90,
+      hasSharedApiKey: false,
+      sharedApiKey: null,
+    });
   });
 
   it('first user is auto-created as admin', async () => {
@@ -223,6 +254,18 @@ describe('Admin Flow — Auto-provisioning', () => {
 describe('Admin Flow — Agent Assignment', () => {
   beforeEach(() => {
     resetDb();
+    syncRuntimeFromAdminStateMock.mockClear();
+    getAdminSettingsMock.mockClear();
+    getAdminSettingsMock.mockReturnValue({
+      companyName: 'Mira',
+      defaultModel: 'google/gemini-2.0-flash',
+      responseStyle: 'professional',
+      maxQueriesPerDay: 500,
+      maxAgents: 10,
+      dataRetentionDays: 90,
+      hasSharedApiKey: false,
+      sharedApiKey: null,
+    });
   });
 
   it('user with assigned agent gets agentId from /api/me', async () => {

@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   provisionSkills: vi.fn(),
   getDb: vi.fn(),
   syncRuntimeFromAdminState: vi.fn(),
+  getAdminSettings: vi.fn(),
 }));
 
 vi.mock('@clerk/nextjs/server', () => ({
@@ -64,6 +65,10 @@ vi.mock('@/lib/runtime-sync', () => ({
   syncRuntimeFromAdminState: mocks.syncRuntimeFromAdminState,
 }));
 
+vi.mock('@/lib/admin-settings', () => ({
+  getAdminSettings: mocks.getAdminSettings,
+}));
+
 import { POST as createAgentRoute } from '../src/app/api/admin/agents/route';
 import { DELETE as deleteAgentRoute, GET as getAgentRoute, PUT as updateAgentRoute } from '../src/app/api/admin/agents/[id]/route';
 
@@ -93,6 +98,16 @@ describe('admin agent route atomicity and secret masking', () => {
     mocks.provisionSkills.mockResolvedValue(undefined);
     mocks.deleteAgent.mockReturnValue(true);
     mocks.syncRuntimeFromAdminState.mockResolvedValue(undefined);
+    mocks.getAdminSettings.mockReturnValue({
+      companyName: 'Mira',
+      defaultModel: 'google/gemini-2.0-flash',
+      responseStyle: 'professional',
+      maxQueriesPerDay: 500,
+      maxAgents: 10,
+      dataRetentionDays: 90,
+      hasSharedApiKey: false,
+      sharedApiKey: null,
+    });
     mocks.getDb.mockReturnValue({
       prepare: vi.fn(() => ({
         get: vi.fn(() => ({ id: 'admin-1' })),
@@ -124,6 +139,39 @@ describe('admin agent route atomicity and secret masking', () => {
       expect.objectContaining({ apiKey: 'secret-1234' }),
     );
     expect(mocks.syncRuntimeFromAdminState).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows agent creation without a per-agent api key when the admin shared key exists', async () => {
+    mocks.getAdminSettings.mockReturnValue({
+      companyName: 'Mira',
+      defaultModel: 'openai/gpt-4o',
+      responseStyle: 'professional',
+      maxQueriesPerDay: 500,
+      maxAgents: 10,
+      dataRetentionDays: 90,
+      hasSharedApiKey: true,
+      sharedApiKey: 'shared-admin-key',
+    });
+    mocks.createAgent.mockImplementation(({ apiKey, model }: { apiKey?: string; model?: string }) => ({
+      id: 'agent-1',
+      name: 'Agent One',
+      user_id: 'admin-1',
+      model: model ?? 'openai/gpt-4o',
+      api_key: apiKey ?? null,
+      workspace_dir: '../../workspaces/agent-1',
+      status: 'active',
+      connection_ids: [],
+    }));
+
+    const res = await createAgentRoute(jsonRequest({ name: 'Agent One' }));
+    const body = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(body.model).toBe('openai/gpt-4o');
+    expect(mocks.addAgentToConfig).toHaveBeenCalledWith(
+      'agent-one',
+      expect.objectContaining({ apiKey: 'shared-admin-key', model: 'openai/gpt-4o' }),
+    );
   });
 
   it('rolls back db/config/workspace when post-create provisioning fails', async () => {

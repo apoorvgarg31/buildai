@@ -13,6 +13,7 @@ export interface BuildAIUser {
   title: string;
   avatar: string;      // initials
   agentId?: string;    // assigned agent
+  needsProvisioning: boolean;
 }
 
 function getInitials(name: string): string {
@@ -36,6 +37,7 @@ export function useCurrentUser(): { user: BuildAIUser | null; isLoaded: boolean 
     name: string;
     role: Role;
     agentId: string | null;
+    needsProvisioning: boolean;
   } | null>(null);
   const [meLoaded, setMeLoaded] = useState(false);
 
@@ -55,6 +57,7 @@ export function useCurrentUser(): { user: BuildAIUser | null; isLoaded: boolean 
             name: data.name || clerkUser.fullName || clerkUser.firstName || 'User',
             role: data.role === 'admin' ? 'admin' : 'user',
             agentId: data.agentId || null,
+            needsProvisioning: !!data.needsProvisioning,
           });
         }
         setMeLoaded(true);
@@ -82,6 +85,7 @@ export function useCurrentUser(): { user: BuildAIUser | null; isLoaded: boolean 
       title,
       avatar: getInitials(meData.name),
       agentId: meData.agentId || undefined,
+      needsProvisioning: meData.needsProvisioning,
     },
     isLoaded: true,
   };

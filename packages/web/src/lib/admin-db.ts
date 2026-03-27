@@ -129,6 +129,18 @@ function initSchema(db: Database.Database) {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS app_setting_secrets (
+      key TEXT PRIMARY KEY,
+      encrypted_data TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS mcp_servers (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -582,6 +594,98 @@ export function deleteUserSkillInstall(userId: string, skillId: string): boolean
 
 export interface ToolPolicy extends AdminToolCatalogEntry {
   enabled: boolean;
+}
+
+export interface AdminSettings {
+  companyName: string;
+  defaultModel: string;
+  responseStyle: string;
+  maxQueriesPerDay: number;
+  maxAgents: number;
+  dataRetentionDays: number;
+  hasSharedApiKey: boolean;
+  sharedApiKey: string | null;
+}
+
+const ADMIN_SETTINGS_DEFAULTS: Omit<AdminSettings, 'hasSharedApiKey' | 'sharedApiKey'> = {
+  companyName: 'Mira',
+  defaultModel: 'google/gemini-2.0-flash',
+  responseStyle: 'professional',
+  maxQueriesPerDay: 500,
+  maxAgents: 10,
+  dataRetentionDays: 90,
+};
+
+function readAppSetting(key: string): string | null {
+  const row = getDb().prepare('SELECT value FROM app_settings WHERE key = ?').get(key) as { value: string } | undefined;
+  return row?.value ?? null;
+}
+
+function writeAppSetting(key: string, value: string): void {
+  getDb().prepare(`
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES (?, ?, datetime('now'))
+    ON CONFLICT(key)
+    DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+  `).run(key, value);
+}
+
+function readAppSecret(key: string): string | null {
+  const row = getDb().prepare('SELECT encrypted_data FROM app_setting_secrets WHERE key = ?').get(key) as { encrypted_data: string } | undefined;
+  if (!row) return null;
+  return decrypt(row.encrypted_data);
+}
+
+function writeAppSecret(key: string, value: string | null): void {
+  const db = getDb();
+  if (!value) {
+    db.prepare('DELETE FROM app_setting_secrets WHERE key = ?').run(key);
+    return;
+  }
+  db.prepare(`
+    INSERT INTO app_setting_secrets (key, encrypted_data, updated_at)
+    VALUES (?, ?, datetime('now'))
+    ON CONFLICT(key)
+    DO UPDATE SET encrypted_data = excluded.encrypted_data, updated_at = datetime('now')
+  `).run(key, encrypt(value));
+}
+
+function parsePositiveInt(value: string | null, fallback: number): number {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+export function getAdminSettings(): AdminSettings {
+  const sharedApiKey = readAppSecret('sharedApiKey');
+  return {
+    companyName: readAppSetting('companyName') || ADMIN_SETTINGS_DEFAULTS.companyName,
+    defaultModel: readAppSetting('defaultModel') || ADMIN_SETTINGS_DEFAULTS.defaultModel,
+    responseStyle: readAppSetting('responseStyle') || ADMIN_SETTINGS_DEFAULTS.responseStyle,
+    maxQueriesPerDay: parsePositiveInt(readAppSetting('maxQueriesPerDay'), ADMIN_SETTINGS_DEFAULTS.maxQueriesPerDay),
+    maxAgents: parsePositiveInt(readAppSetting('maxAgents'), ADMIN_SETTINGS_DEFAULTS.maxAgents),
+    dataRetentionDays: parsePositiveInt(readAppSetting('dataRetentionDays'), ADMIN_SETTINGS_DEFAULTS.dataRetentionDays),
+    hasSharedApiKey: !!sharedApiKey,
+    sharedApiKey,
+  };
+}
+
+export function updateAdminSettings(data: Partial<{
+  companyName: string;
+  defaultModel: string;
+  responseStyle: string;
+  maxQueriesPerDay: number;
+  maxAgents: number;
+  dataRetentionDays: number;
+  sharedApiKey: string | null;
+}>): AdminSettings {
+  if (data.companyName !== undefined) writeAppSetting('companyName', data.companyName.trim() || ADMIN_SETTINGS_DEFAULTS.companyName);
+  if (data.defaultModel !== undefined) writeAppSetting('defaultModel', data.defaultModel.trim() || ADMIN_SETTINGS_DEFAULTS.defaultModel);
+  if (data.responseStyle !== undefined) writeAppSetting('responseStyle', data.responseStyle.trim() || ADMIN_SETTINGS_DEFAULTS.responseStyle);
+  if (data.maxQueriesPerDay !== undefined) writeAppSetting('maxQueriesPerDay', String(data.maxQueriesPerDay));
+  if (data.maxAgents !== undefined) writeAppSetting('maxAgents', String(data.maxAgents));
+  if (data.dataRetentionDays !== undefined) writeAppSetting('dataRetentionDays', String(data.dataRetentionDays));
+  if (data.sharedApiKey !== undefined) writeAppSecret('sharedApiKey', data.sharedApiKey ? data.sharedApiKey.trim() : null);
+  return getAdminSettings();
 }
 
 export function listToolPolicies(): ToolPolicy[] {

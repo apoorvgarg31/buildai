@@ -56,6 +56,59 @@ function writeConfig(config: EngineConfig): void {
   fs.writeFileSync(CONFIG_PATH, json, 'utf-8');
 }
 
+function resolveProvider(model: string): string {
+  return model.split('/')[0] || 'google';
+}
+
+export function writeAgentAuthProfile(agentId: string, model: string, apiKey: string): void {
+  const provider = resolveProvider(model || 'google/gemini-2.0-flash');
+
+  const envDir = path.resolve(path.dirname(CONFIG_PATH), '../../data/agent-env');
+  if (!fs.existsSync(envDir)) fs.mkdirSync(envDir, { recursive: true });
+  const envPath = path.join(envDir, `${agentId}.env`);
+  const envLines: string[] = [];
+  if (provider === 'anthropic') {
+    envLines.push(`ANTHROPIC_API_KEY=${apiKey}`);
+  } else if (provider === 'openai') {
+    envLines.push(`OPENAI_API_KEY=${apiKey}`);
+  } else if (provider === 'google') {
+    envLines.push(`GEMINI_API_KEY=${apiKey}`);
+  } else {
+    envLines.push(`LLM_API_KEY=${apiKey}`);
+  }
+  fs.writeFileSync(envPath, envLines.join('\n') + '\n', 'utf-8');
+
+  const stateDir = path.resolve(path.dirname(CONFIG_PATH), '.clawdbot-state');
+  const authDir = path.join(stateDir, 'agents', agentId, 'agent');
+  const authPath = path.join(authDir, 'auth-profiles.json');
+  if (!fs.existsSync(authDir)) fs.mkdirSync(authDir, { recursive: true });
+
+  type AuthFile = {
+    version: number;
+    profiles: Record<string, { type: string; provider: string; token?: string; access?: string; refresh?: string }>;
+  };
+
+  let authFile: AuthFile = { version: 1, profiles: {} };
+  try {
+    if (fs.existsSync(authPath)) {
+      authFile = JSON.parse(fs.readFileSync(authPath, 'utf-8')) as AuthFile;
+      if (!authFile.version) authFile.version = 1;
+      if (!authFile.profiles) authFile.profiles = {};
+    }
+  } catch {
+    authFile = { version: 1, profiles: {} };
+  }
+
+  authFile.profiles[`${provider}:default`] = {
+    type: 'token',
+    provider,
+    token: apiKey,
+  };
+
+  fs.writeFileSync(authPath, JSON.stringify(authFile, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 });
+  console.log(`[engine-config] Wrote auth profile for agent ${agentId} (${provider}) → ${authPath}`);
+}
+
 /**
  * Add an agent to the engine config.
  */
@@ -95,54 +148,7 @@ export async function addAgentToConfig(
 
   // Write agent-specific credentials if API key is provided.
   if (opts.apiKey) {
-    const provider = (opts.model || 'google/gemini-2.0-flash').split('/')[0];
-
-    // 1) Legacy env file (kept for compatibility)
-    const envDir = path.resolve(path.dirname(CONFIG_PATH), '../../data/agent-env');
-    if (!fs.existsSync(envDir)) fs.mkdirSync(envDir, { recursive: true });
-    const envPath = path.join(envDir, `${agentId}.env`);
-    const envLines: string[] = [];
-    if (provider === 'anthropic') {
-      envLines.push(`ANTHROPIC_API_KEY=${opts.apiKey}`);
-    } else if (provider === 'openai') {
-      envLines.push(`OPENAI_API_KEY=${opts.apiKey}`);
-    } else if (provider === 'google') {
-      envLines.push(`GEMINI_API_KEY=${opts.apiKey}`);
-    } else {
-      envLines.push(`LLM_API_KEY=${opts.apiKey}`);
-    }
-    fs.writeFileSync(envPath, envLines.join('\n') + '\n', 'utf-8');
-
-    // 2) First-class OpenClaw auth store (what the agent runtime actually reads)
-    const stateDir = path.resolve(path.dirname(CONFIG_PATH), '.clawdbot-state');
-    const authDir = path.join(stateDir, 'agents', agentId, 'agent');
-    const authPath = path.join(authDir, 'auth-profiles.json');
-    if (!fs.existsSync(authDir)) fs.mkdirSync(authDir, { recursive: true });
-
-    type AuthFile = {
-      version: number;
-      profiles: Record<string, { type: string; provider: string; token?: string; access?: string; refresh?: string }>;
-    };
-
-    let authFile: AuthFile = { version: 1, profiles: {} };
-    try {
-      if (fs.existsSync(authPath)) {
-        authFile = JSON.parse(fs.readFileSync(authPath, 'utf-8')) as AuthFile;
-        if (!authFile.version) authFile.version = 1;
-        if (!authFile.profiles) authFile.profiles = {};
-      }
-    } catch {
-      authFile = { version: 1, profiles: {} };
-    }
-
-    authFile.profiles[`${provider}:default`] = {
-      type: 'token',
-      provider,
-      token: opts.apiKey,
-    };
-
-    fs.writeFileSync(authPath, JSON.stringify(authFile, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 });
-    console.log(`[engine-config] Wrote auth profile for agent ${agentId} (${provider}) → ${authPath}`);
+    writeAgentAuthProfile(agentId, opts.model || 'google/gemini-2.0-flash', opts.apiKey);
   }
 
   await reloadEngine();

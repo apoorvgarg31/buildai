@@ -20,6 +20,7 @@ import PersonalityStudio from "@/components/PersonalityStudio";
 import WatchlistPage from "@/components/WatchlistPage";
 import SchedulePage from "@/components/SchedulePage";
 import ArtifactsPage from "@/components/ArtifactsPage";
+import WorkspaceOnboardingPage from "@/components/WorkspaceOnboardingPage";
 import { RedirectToSignIn } from "@clerk/nextjs";
 
 export default function Home() {
@@ -40,6 +41,30 @@ export default function Home() {
 
   if (!user) {
     return <RedirectToSignIn />;
+  }
+
+  if (user.needsProvisioning) {
+    return (
+      <div className="flex h-full overflow-hidden bg-transparent">
+        <Sidebar
+          user={user}
+          activePage={activePage}
+          onNavigate={setActivePage}
+          mode={mode}
+          onToggleMode={() => {
+            if (user.role !== "admin") return;
+            const order: Array<"user" | "admin"> = ["user", "admin"];
+            const idx = order.indexOf(mode);
+            const nextMode = order[(idx + 1) % order.length];
+            setMode(nextMode);
+            setActivePage(nextMode === "admin" ? "dashboard" : "chat");
+          }}
+        />
+        <main className="min-w-0 flex-1 overflow-hidden">
+          <WorkspaceOnboardingPage user={{ name: user.name, role: user.role }} />
+        </main>
+      </div>
+    );
   }
 
   const renderPage = () => {

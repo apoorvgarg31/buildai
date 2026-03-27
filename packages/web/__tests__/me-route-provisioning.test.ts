@@ -14,6 +14,17 @@ let testDb: InstanceType<typeof Database>;
 const provisionWorkspaceMock = vi.hoisted(() => vi.fn(async (agentId: string) => `../../workspaces/${agentId}`));
 const workspaceExistsMock = vi.hoisted(() => vi.fn(() => false));
 const addAgentToConfigMock = vi.hoisted(() => vi.fn(async () => undefined));
+const syncRuntimeFromAdminStateMock = vi.hoisted(() => vi.fn(async () => undefined));
+const getAdminSettingsMock = vi.hoisted(() => vi.fn(() => ({
+  companyName: 'Mira',
+  defaultModel: 'google/gemini-2.0-flash',
+  responseStyle: 'professional',
+  maxQueriesPerDay: 500,
+  maxAgents: 10,
+  dataRetentionDays: 90,
+  hasSharedApiKey: false,
+  sharedApiKey: null,
+})));
 
 vi.mock('@clerk/nextjs/server', () => ({
   auth: vi.fn(async () => ({ userId: mockUserId })),
@@ -31,6 +42,14 @@ vi.mock('@/lib/workspace-provisioner', () => ({
 
 vi.mock('@/lib/engine-config', () => ({
   addAgentToConfig: addAgentToConfigMock,
+}));
+
+vi.mock('@/lib/runtime-sync', () => ({
+  syncRuntimeFromAdminState: syncRuntimeFromAdminStateMock,
+}));
+
+vi.mock('@/lib/admin-settings', () => ({
+  getAdminSettings: getAdminSettingsMock,
 }));
 
 vi.mock('@/lib/admin-db', () => ({
@@ -92,6 +111,18 @@ describe('/api/me provisioning flow', () => {
     workspaceExistsMock.mockReset();
     workspaceExistsMock.mockReturnValue(false);
     addAgentToConfigMock.mockClear();
+    syncRuntimeFromAdminStateMock.mockClear();
+    getAdminSettingsMock.mockClear();
+    getAdminSettingsMock.mockReturnValue({
+      companyName: 'Mira',
+      defaultModel: 'google/gemini-2.0-flash',
+      responseStyle: 'professional',
+      maxQueriesPerDay: 500,
+      maxAgents: 10,
+      dataRetentionDays: 90,
+      hasSharedApiKey: false,
+      sharedApiKey: null,
+    });
   });
 
   it('GET stays read-only for an unprovisioned signed-in user', async () => {
@@ -200,5 +231,31 @@ describe('/api/me provisioning flow', () => {
     expect(data.agentId).toBe('test-user-assistant-user-1');
     expect(provisionWorkspaceMock).toHaveBeenCalledTimes(1);
     expect((testDb.prepare('SELECT agent_id FROM users WHERE id = ?').get('user-1') as { agent_id: string }).agent_id).toBe('test-user-assistant-user-1');
+  });
+
+  it('inherits the admin default model and shared api key during provisioning', async () => {
+    getAdminSettingsMock.mockReturnValue({
+      companyName: 'Mira',
+      defaultModel: 'anthropic/claude-sonnet-4-20250514',
+      responseStyle: 'professional',
+      maxQueriesPerDay: 500,
+      maxAgents: 10,
+      dataRetentionDays: 90,
+      hasSharedApiKey: true,
+      sharedApiKey: 'shared-admin-key',
+    });
+
+    const res = await POST({} as never);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.agentId).toBe('test-user-assistant-user-1');
+    expect(addAgentToConfigMock).toHaveBeenCalledWith(
+      'test-user-assistant-user-1',
+      expect.objectContaining({
+        model: 'anthropic/claude-sonnet-4-20250514',
+        apiKey: 'shared-admin-key',
+      }),
+    );
   });
 });

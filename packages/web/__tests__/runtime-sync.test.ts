@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Agent, McpServerRecord, ToolPolicy } from '../src/lib/admin-db';
 import {
+  buildManagedRuntimeDefaults,
   buildManagedToolPolicy,
   buildWorkspaceMcpRuntimeFiles,
   selectRuntimeMcpServersForAgent,
@@ -67,6 +68,18 @@ describe('runtime-sync', () => {
 
     expect(policy.allow).toEqual(['read', 'write']);
     expect(policy.deny).toEqual(['browser']);
+  });
+
+  it('builds hardened runtime defaults for per-agent sandbox isolation', () => {
+    const defaults = buildManagedRuntimeDefaults('anthropic/claude-sonnet-4-20250514');
+
+    expect(defaults.agents.defaults.model).toEqual({ primary: 'anthropic/claude-sonnet-4-20250514' });
+    expect(defaults.agents.defaults.sandbox).toEqual({
+      mode: 'all',
+      scope: 'agent',
+      workspaceAccess: 'rw',
+    });
+    expect(defaults.tools.elevated).toEqual({ enabled: false });
   });
 
   it('selects only runnable standalone servers and assigned connector-linked servers for an agent', () => {
