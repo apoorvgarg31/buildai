@@ -103,6 +103,30 @@ function initSchema(db: Database.Database) {
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       PRIMARY KEY (user_id, skill_id)
     );
+
+    CREATE TABLE IF NOT EXISTS tool_settings (
+      tool_name TEXT PRIMARY KEY,
+      enabled INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS mcp_servers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      server_kind TEXT NOT NULL DEFAULT 'standalone',
+      connection_id TEXT UNIQUE REFERENCES connections(id) ON DELETE SET NULL,
+      transport TEXT NOT NULL DEFAULT 'stdio',
+      command TEXT,
+      args_json TEXT NOT NULL DEFAULT '[]',
+      env_json TEXT NOT NULL DEFAULT '{}',
+      url TEXT,
+      status TEXT NOT NULL DEFAULT 'configured',
+      enabled INTEGER NOT NULL DEFAULT 1,
+      notes TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   ensureColumn(db, 'connections', 'auth_mode', "auth_mode TEXT NOT NULL DEFAULT 'shared'");

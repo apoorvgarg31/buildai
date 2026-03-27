@@ -17,6 +17,8 @@ const adminNav: NavItem[] = [
   { name: "Users", icon: "◌", page: "users" },
   { name: "Agents", icon: "✦", page: "agents" },
   { name: "Connectors", icon: "⟷", page: "connections" },
+  { name: "Tools", icon: "⚙", page: "tools" },
+  { name: "MCP Servers", icon: "⌘", page: "mcp_servers" },
   { name: "Marketplace", icon: "◇", page: "marketplace" },
   { name: "Settings", icon: "⊙", page: "settings" },
 ];
@@ -34,7 +36,7 @@ const userNav: NavItem[] = [
 ];
 
 export type UserPage = "chat" | "connectors" | "artifacts" | "schedule" | "watchlist" | "personality" | "marketplace" | "usage" | "settings";
-export type AdminPage = "dashboard" | "users" | "agents" | "connections";
+export type AdminPage = "dashboard" | "users" | "agents" | "connections" | "tools" | "mcp_servers";
 export type Page = UserPage | AdminPage;
 
 interface SidebarProps {

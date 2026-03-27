@@ -12,6 +12,8 @@ interface Stats {
   users: { total: number; admins: number };
   connections: { total: number; connected: number };
   agents: { total: number; active: number };
+  tools: { total: number; enabled: number };
+  mcpServers: { total: number; enabled: number };
   recentUsers: { id: string; name: string; email: string; role: string; agent_id: string | null }[];
   recentConnections: { id: string; name: string; type: string; status: string }[];
 }
@@ -56,10 +58,16 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
         icon: "⟷",
       },
       {
-        label: "Engine",
-        value: "Online",
-        detail: "Runtime healthy",
-        icon: "⚡",
+        label: "Tools",
+        value: stats?.tools.total ?? "—",
+        detail: stats ? `${stats.tools.enabled} enabled` : "",
+        icon: "⚙",
+      },
+      {
+        label: "MCP",
+        value: stats?.mcpServers.total ?? "—",
+        detail: stats ? `${stats.mcpServers.enabled} enabled` : "",
+        icon: "⌘",
       },
     ],
     [stats]
@@ -72,7 +80,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
       eyebrow="Admin workspace"
     >
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
           {cards.map((card) => (
             <SectionCard key={card.label} className="relative overflow-hidden">
               <div className="flex items-start justify-between gap-3">

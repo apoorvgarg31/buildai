@@ -7,6 +7,8 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import crypto from 'crypto';
 import fs from 'fs';
+import { ADMIN_TOOL_CATALOG, getAdminToolCatalogEntry, type AdminToolCatalogEntry, type AdminToolRisk } from './tool-catalog';
+import type { McpServerKind, McpTransport } from './mcp-server-catalog';
 
 const DB_PATH = path.resolve(process.cwd(), '../../data/buildai-admin.db');
 
@@ -118,6 +120,30 @@ function initSchema(db: Database.Database) {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       PRIMARY KEY (user_id, skill_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS tool_settings (
+      tool_name TEXT PRIMARY KEY,
+      enabled INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS mcp_servers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      server_kind TEXT NOT NULL DEFAULT 'standalone',
+      connection_id TEXT UNIQUE REFERENCES connections(id) ON DELETE SET NULL,
+      transport TEXT NOT NULL DEFAULT 'stdio',
+      command TEXT,
+      args_json TEXT NOT NULL DEFAULT '[]',
+      env_json TEXT NOT NULL DEFAULT '{}',
+      url TEXT,
+      status TEXT NOT NULL DEFAULT 'configured',
+      enabled INTEGER NOT NULL DEFAULT 1,
+      notes TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
 
@@ -552,4 +578,196 @@ export function upsertUserSkillInstall(data: { userId: string; skillId: string; 
 export function deleteUserSkillInstall(userId: string, skillId: string): boolean {
   const res = getDb().prepare('DELETE FROM user_skill_installs WHERE user_id = ? AND skill_id = ?').run(userId, skillId);
   return res.changes > 0;
+}
+
+export interface ToolPolicy extends AdminToolCatalogEntry {
+  enabled: boolean;
+}
+
+export function listToolPolicies(): ToolPolicy[] {
+  const db = getDb();
+  const rows = db.prepare('SELECT tool_name, enabled FROM tool_settings').all() as Array<{ tool_name: string; enabled: number }>;
+  const byName = new Map(rows.map((row) => [row.tool_name, !!row.enabled]));
+  return ADMIN_TOOL_CATALOG.map((tool) => ({
+    ...tool,
+    enabled: byName.has(tool.name) ? !!byName.get(tool.name) : tool.defaultEnabled,
+  }));
+}
+
+export function updateToolPolicy(toolName: string, data: { enabled: boolean }): ToolPolicy | undefined {
+  const catalogEntry = getAdminToolCatalogEntry(toolName);
+  if (!catalogEntry) return undefined;
+
+  getDb().prepare(`
+    INSERT INTO tool_settings (tool_name, enabled)
+    VALUES (?, ?)
+    ON CONFLICT(tool_name)
+    DO UPDATE SET enabled = excluded.enabled, updated_at = datetime('now')
+  `).run(toolName, data.enabled ? 1 : 0);
+
+  return {
+    ...catalogEntry,
+    enabled: data.enabled,
+  };
+}
+
+export interface McpServerRecord {
+  id: string;
+  name: string;
+  server_kind: McpServerKind;
+  connection_id: string | null;
+  connection_name: string | null;
+  connection_type: string | null;
+  transport: McpTransport;
+  command: string | null;
+  args: string[];
+  env: Record<string, string>;
+  url: string | null;
+  status: string;
+  enabled: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function hydrateMcpServer(row: Record<string, unknown>): McpServerRecord {
+  let args: string[] = [];
+  let env: Record<string, string> = {};
+
+  try {
+    const parsedArgs = JSON.parse(String(row.args_json || '[]'));
+    if (Array.isArray(parsedArgs)) {
+      args = parsedArgs.map((entry) => String(entry));
+    }
+  } catch {
+    args = [];
+  }
+
+  try {
+    const parsedEnv = JSON.parse(String(row.env_json || '{}'));
+    if (parsedEnv && typeof parsedEnv === 'object' && !Array.isArray(parsedEnv)) {
+      env = Object.fromEntries(Object.entries(parsedEnv).map(([key, value]) => [key, String(value)]));
+    }
+  } catch {
+    env = {};
+  }
+
+  return {
+    id: String(row.id),
+    name: String(row.name),
+    server_kind: row.server_kind === 'connector_linked' ? 'connector_linked' : 'standalone',
+    connection_id: typeof row.connection_id === 'string' ? row.connection_id : null,
+    connection_name: typeof row.connection_name === 'string' ? row.connection_name : null,
+    connection_type: typeof row.connection_type === 'string' ? row.connection_type : null,
+    transport: row.transport === 'http' || row.transport === 'sse' ? row.transport : 'stdio',
+    command: typeof row.command === 'string' ? row.command : null,
+    args,
+    env,
+    url: typeof row.url === 'string' ? row.url : null,
+    status: typeof row.status === 'string' ? row.status : 'configured',
+    enabled: !!row.enabled,
+    notes: typeof row.notes === 'string' ? row.notes : null,
+    created_at: String(row.created_at),
+    updated_at: String(row.updated_at),
+  };
+}
+
+export function listMcpServers(): McpServerRecord[] {
+  const rows = getDb().prepare(`
+    SELECT m.*, c.name as connection_name, c.type as connection_type
+    FROM mcp_servers m
+    LEFT JOIN connections c ON c.id = m.connection_id
+    ORDER BY m.created_at DESC
+  `).all() as Record<string, unknown>[];
+
+  return rows.map(hydrateMcpServer);
+}
+
+export function getMcpServer(id: string): McpServerRecord | undefined {
+  const row = getDb().prepare(`
+    SELECT m.*, c.name as connection_name, c.type as connection_type
+    FROM mcp_servers m
+    LEFT JOIN connections c ON c.id = m.connection_id
+    WHERE m.id = ?
+  `).get(id) as Record<string, unknown> | undefined;
+
+  return row ? hydrateMcpServer(row) : undefined;
+}
+
+export function listAvailableConnectorMcpTargets(): Array<{ connection_id: string; connection_name: string; connection_type: string }> {
+  return getDb().prepare(`
+    SELECT c.id as connection_id, c.name as connection_name, c.type as connection_type
+    FROM connections c
+    LEFT JOIN mcp_servers m ON m.connection_id = c.id
+    WHERE m.connection_id IS NULL
+    ORDER BY c.created_at DESC
+  `).all() as Array<{ connection_id: string; connection_name: string; connection_type: string }>;
+}
+
+export function createMcpServer(data: {
+  name: string;
+  serverKind: McpServerKind;
+  connectionId?: string | null;
+  transport: McpTransport;
+  command?: string | null;
+  args?: string[];
+  env?: Record<string, string>;
+  url?: string | null;
+  notes?: string | null;
+}): McpServerRecord {
+  const id = genId('mcp');
+  getDb().prepare(`
+    INSERT INTO mcp_servers (id, name, server_kind, connection_id, transport, command, args_json, env_json, url, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    data.name,
+    data.serverKind,
+    data.connectionId || null,
+    data.transport,
+    data.command || null,
+    JSON.stringify(data.args || []),
+    JSON.stringify(data.env || {}),
+    data.url || null,
+    data.notes || null,
+  );
+  return getMcpServer(id)!;
+}
+
+export function updateMcpServer(id: string, data: Partial<{
+  name: string;
+  transport: McpTransport;
+  command: string | null;
+  args: string[];
+  env: Record<string, string>;
+  url: string | null;
+  status: string;
+  enabled: boolean;
+  notes: string | null;
+}>): McpServerRecord | undefined {
+  const existing = getMcpServer(id);
+  if (!existing) return undefined;
+
+  const fields: string[] = [];
+  const values: unknown[] = [];
+  if (data.name !== undefined) { fields.push('name = ?'); values.push(data.name); }
+  if (data.transport !== undefined) { fields.push('transport = ?'); values.push(data.transport); }
+  if (data.command !== undefined) { fields.push('command = ?'); values.push(data.command); }
+  if (data.args !== undefined) { fields.push('args_json = ?'); values.push(JSON.stringify(data.args)); }
+  if (data.env !== undefined) { fields.push('env_json = ?'); values.push(JSON.stringify(data.env)); }
+  if (data.url !== undefined) { fields.push('url = ?'); values.push(data.url); }
+  if (data.status !== undefined) { fields.push('status = ?'); values.push(data.status); }
+  if (data.enabled !== undefined) { fields.push('enabled = ?'); values.push(data.enabled ? 1 : 0); }
+  if (data.notes !== undefined) { fields.push('notes = ?'); values.push(data.notes); }
+  if (fields.length === 0) return existing;
+
+  fields.push("updated_at = datetime('now')");
+  values.push(id);
+  getDb().prepare(`UPDATE mcp_servers SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+  return getMcpServer(id);
+}
+
+export function deleteMcpServer(id: string): boolean {
+  const result = getDb().prepare('DELETE FROM mcp_servers WHERE id = ?').run(id);
+  return result.changes > 0;
 }

@@ -36,6 +36,7 @@ packages/engine/.clawdbot-home/
 # Test coverage
 coverage/
 .nyc_output/
+playwright-artifacts/
 
 # Turbo
 .turbo/

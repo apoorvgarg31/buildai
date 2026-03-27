@@ -10,6 +10,8 @@ import AdminDashboard from "@/components/AdminDashboard";
 import AdminUsersPage from "@/components/AdminUsersPage";
 import AdminAgentsPage from "@/components/AdminAgentsPage";
 import AdminConnectionsPage from "@/components/AdminConnectionsPage";
+import AdminToolsPage from "@/components/AdminToolsPage";
+import AdminMcpServersPage from "@/components/AdminMcpServersPage";
 import AdminSettingsPage from "@/components/AdminSettingsPage";
 import MarketplacePage from "@/components/MarketplacePage";
 import UsagePage from "@/components/UsagePage";
@@ -64,6 +66,8 @@ export default function Home() {
       case "users": return <AdminUsersPage />;
       case "agents": return <AdminAgentsPage />;
       case "connections": return <AdminConnectionsPage />;
+      case "tools": return <AdminToolsPage />;
+      case "mcp_servers": return <AdminMcpServersPage />;
       case "marketplace": return <MarketplacePage />;
       case "settings": return <AdminSettingsPage />;
       default: return <AdminDashboard user={user} />;
