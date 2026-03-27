@@ -42,6 +42,29 @@ describe('/api/admin/mcp-servers', () => {
     expect(body.availableConnectorTargets).toHaveLength(1);
   });
 
+  it('returns 401 when the caller is not authenticated', async () => {
+    requireAdminMock.mockRejectedValueOnce(new Error('UNAUTHENTICATED'));
+
+    const res = await GET();
+
+    expect(res.status).toBe(401);
+    await expect(res.json()).resolves.toEqual({ error: 'Not authenticated' });
+  });
+
+  it('rejects POST requests that omit the required runtime fields', async () => {
+    const req = new Request('http://localhost/api/admin/mcp-servers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ serverKind: 'standalone' }),
+    }) as unknown as NextRequest;
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({ error: 'name, serverKind, and transport are required' });
+    expect(createMcpServerMock).not.toHaveBeenCalled();
+  });
+
   it('creates a connector-linked MCP server', async () => {
     createMcpServerMock.mockReturnValue({ id: 'mcp-linear', server_kind: 'connector_linked', connection_id: 'conn-linear' });
 
@@ -69,6 +92,23 @@ describe('/api/admin/mcp-servers', () => {
     expect(syncRuntimeFromAdminStateMock).toHaveBeenCalledTimes(1);
   });
 
+  it('rejects standalone MCP servers that do not provide a command or url', async () => {
+    const req = new Request('http://localhost/api/admin/mcp-servers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Broken standalone',
+        serverKind: 'standalone',
+        transport: 'stdio',
+      }),
+    }) as unknown as NextRequest;
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({ error: 'Standalone MCP servers need a command or url' });
+  });
+
   it('rejects connector-linked servers without a connection id', async () => {
     const req = new Request('http://localhost/api/admin/mcp-servers', {
       method: 'POST',
@@ -82,5 +122,28 @@ describe('/api/admin/mcp-servers', () => {
     expect(res.status).toBe(400);
     expect(body.error).toContain('connectionId is required');
     expect(createMcpServerMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when MCP server creation fails unexpectedly', async () => {
+    createMcpServerMock.mockImplementationOnce(() => {
+      throw new Error('db offline');
+    });
+
+    const req = new Request('http://localhost/api/admin/mcp-servers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Linear MCP',
+        serverKind: 'connector_linked',
+        connectionId: 'conn-linear',
+        transport: 'stdio',
+        command: 'npx',
+      }),
+    }) as unknown as NextRequest;
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({ error: 'Failed to create MCP server' });
   });
 });
