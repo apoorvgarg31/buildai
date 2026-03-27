@@ -559,6 +559,17 @@ This skill is in development. Contact your Mira admin for early access.`,
     tags: ['skills', 'evaluation', 'benchmarking', 'anthropic'],
     readme: readBundledSkillReadme('skill-creator'),
   },
+  {
+    id: 'internal-comms',
+    name: 'Internal Comms',
+    description: 'Draft internal communication artifacts with the upstream Anthropic internal-comms skill.',
+    category: 'Communication',
+    icon: '📣',
+    vendor: 'Anthropic',
+    version: 'main',
+    tags: ['communication', 'announcements', 'newsletter', 'anthropic'],
+    readme: readBundledSkillReadme('internal-comms'),
+  },
 ];
 
 /**
