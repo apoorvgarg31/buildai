@@ -6,10 +6,38 @@ const getDbMock = vi.hoisted(() => vi.fn());
 const verifyInstallTokenMock = vi.hoisted(() => vi.fn());
 const getMarketplaceSkillMock = vi.hoisted(() => vi.fn());
 const packageSkillMock = vi.hoisted(() => vi.fn());
+const safeJoinWithinMock = vi.hoisted(() => vi.fn(() => '/tmp/workspaces/agent-a/skills/buildai-procore'));
+const isValidAgentIdMock = vi.hoisted(() => vi.fn(() => true));
+const upsertUserSkillInstallMock = vi.hoisted(() => vi.fn());
+const buildSkillInstallInstructionsMock = vi.hoisted(() => vi.fn(() => 'Install skill instructions'));
+const resolveSkillConnectionRequirementsMock = vi.hoisted(() => vi.fn(() => ({
+  requirementStates: [],
+  requirementsSatisfied: true,
+})));
+const fsMock = vi.hoisted(() => ({
+  existsSync: vi.fn(() => true),
+  mkdirSync: vi.fn(),
+  readdirSync: vi.fn(() => []),
+  copyFileSync: vi.fn(),
+}));
 
 vi.mock('@/lib/api-guard', () => ({
   requireSignedIn: requireSignedInMock,
   canAccessAgent: canAccessAgentMock,
+}));
+
+vi.mock('@/lib/security', () => ({
+  isValidAgentId: isValidAgentIdMock,
+  safeJoinWithin: safeJoinWithinMock,
+}));
+
+vi.mock('@/lib/admin-db', () => ({
+  upsertUserSkillInstall: upsertUserSkillInstallMock,
+}));
+
+vi.mock('@/lib/connector-runtime', () => ({
+  buildSkillInstallInstructions: buildSkillInstallInstructionsMock,
+  resolveSkillConnectionRequirements: resolveSkillConnectionRequirementsMock,
 }));
 
 vi.mock('@/lib/admin-db-server', () => ({
@@ -22,7 +50,11 @@ vi.mock('@/lib/marketplace', () => ({
   packageSkill: packageSkillMock,
 }));
 
-import { GET } from '../src/app/api/marketplace/skills/[id]/install/route';
+vi.mock('fs', () => ({
+  default: fsMock,
+}));
+
+import { GET, POST } from '../src/app/api/marketplace/skills/[id]/install/route';
 
 type DbPrepareResult = {
   all?: (value?: unknown) => unknown;
@@ -55,6 +87,7 @@ describe('/api/marketplace/skills/[id]/install', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     requireSignedInMock.mockResolvedValue({ userId: 'user-1', role: 'user', agentId: 'agent-a', email: 'user@example.com' });
+    canAccessAgentMock.mockReturnValue(true);
     verifyInstallTokenMock.mockReturnValue({ skillId: 'buildai-procore', agentId: 'agent-a' });
     getMarketplaceSkillMock.mockReturnValue({
       id: 'buildai-procore',
@@ -68,10 +101,119 @@ describe('/api/marketplace/skills/[id]/install', () => {
       name: 'Procore Integration',
       files: [{ path: 'SKILL.md', content: '# Skill' }],
     });
+    isValidAgentIdMock.mockReturnValue(true);
+    safeJoinWithinMock.mockReturnValue('/tmp/workspaces/agent-a/skills/buildai-procore');
+    buildSkillInstallInstructionsMock.mockReturnValue('Install skill instructions');
+    resolveSkillConnectionRequirementsMock.mockReturnValue({
+      requirementStates: [],
+      requirementsSatisfied: true,
+    });
+    fsMock.existsSync.mockReturnValue(true);
+    fsMock.readdirSync.mockReturnValue([]);
+  });
+
+  it('rejects invalid JSON on POST before attempting install', async () => {
+    const req = {
+      json: vi.fn(async () => {
+        throw new Error('bad json');
+      }),
+    } as never;
+
+    const res = await POST(req, { params: Promise.resolve({ id: 'buildai-procore' }) });
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({ error: 'Invalid JSON body' });
+    expect(requireSignedInMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects install requests when token skill does not match the requested skill', async () => {
+    verifyInstallTokenMock.mockReturnValue({ skillId: 'different-skill', agentId: 'agent-a' });
+
+    const req = {
+      json: vi.fn(async () => ({ token: 'test-token' })),
+    } as never;
+
+    const res = await POST(req, { params: Promise.resolve({ id: 'buildai-procore' }) });
+    const data = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(data.code).toBe('forbidden');
+    expect(String(data.error)).toContain('Token does not match');
+  });
+
+  it('rejects installs for invalid agent identifiers', async () => {
+    isValidAgentIdMock.mockReturnValue(false);
+
+    const req = {
+      json: vi.fn(async () => ({ agentId: '../agent-a' })),
+    } as never;
+
+    const res = await POST(req, { params: Promise.resolve({ id: 'buildai-procore' }) });
+    const data = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(data.code).toBe('validation_error');
+    expect(String(data.error)).toContain('Invalid agentId');
+  });
+
+  it('rejects installs when the signed-in actor cannot access the target agent', async () => {
+    canAccessAgentMock.mockReturnValue(false);
+
+    const req = {
+      json: vi.fn(async () => ({ agentId: 'agent-b' })),
+    } as never;
+
+    const res = await POST(req, { params: Promise.resolve({ id: 'buildai-procore' }) });
+    const data = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(data.code).toBe('forbidden_agent_access');
+    expect(data.details).toEqual({ reason: 'AGENT_ACCESS_DENIED' });
+  });
+
+  it('installs a skill into the agent workspace and records the user install', async () => {
+    getDbMock.mockReturnValue(createDb());
+
+    const req = {
+      json: vi.fn(async () => ({ agentId: 'agent-a' })),
+    } as never;
+
+    const res = await POST(req, { params: Promise.resolve({ id: 'buildai-procore' }) });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(data.installedTo).toBe('workspaces/agent-a/skills/buildai-procore');
+    expect(fsMock.mkdirSync).toHaveBeenCalled();
+    expect(upsertUserSkillInstallMock).toHaveBeenCalledWith({
+      userId: 'user-1',
+      skillId: 'buildai-procore',
+      source: 'public',
+    });
+  });
+
+  it('rejects GET requests with an invalid agent id in the token payload', async () => {
+    isValidAgentIdMock.mockReturnValue(false);
+
+    const req = { nextUrl: new URL('http://localhost/api/marketplace/skills/buildai-procore/install?token=test-token') } as never;
+    const res = await GET(req, { params: Promise.resolve({ id: 'buildai-procore' }) });
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({ error: 'Invalid agentId in token.' });
   });
 
   it('returns connector requirements that tell the agent admin setup is missing', async () => {
     getDbMock.mockReturnValue(createDb());
+    resolveSkillConnectionRequirementsMock.mockReturnValue({
+      requirementStates: [
+        {
+          type: 'procore',
+          blockedReason: 'admin_setup_required',
+          statusLabel: 'Admin setup needed',
+        },
+      ],
+      requirementsSatisfied: false,
+    });
+    buildSkillInstallInstructionsMock.mockReturnValue('Ask your admin to configure this in Connectors.');
 
     const req = { nextUrl: new URL('http://localhost/api/marketplace/skills/buildai-procore/install?token=test-token') } as never;
     const res = await GET(req, { params: Promise.resolve({ id: 'buildai-procore' }) });
@@ -103,6 +245,19 @@ describe('/api/marketplace/skills/[id]/install', () => {
       ],
       tokenRows: [{ connection_id: 'conn-procore', expires_at: 1 }],
     }));
+    resolveSkillConnectionRequirementsMock.mockReturnValue({
+      requirementStates: [
+        {
+          type: 'procore',
+          blockedReason: 'reconnect_required',
+          reconnectRequired: true,
+          statusLabel: 'Reconnect required',
+          actionLabel: 'Reconnect account',
+        },
+      ],
+      requirementsSatisfied: false,
+    });
+    buildSkillInstallInstructionsMock.mockReturnValue('Please reconnect this account from Connectors.');
 
     const req = { nextUrl: new URL('http://localhost/api/marketplace/skills/buildai-procore/install?token=test-token') } as never;
     const res = await GET(req, { params: Promise.resolve({ id: 'buildai-procore' }) });

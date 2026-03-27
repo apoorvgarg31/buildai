@@ -43,6 +43,35 @@ describe('/api/admin/tools', () => {
     expect(listToolPoliciesMock).toHaveBeenCalledTimes(1);
   });
 
+  it('returns 401 when the caller is not signed in', async () => {
+    requireAdminMock.mockRejectedValueOnce(new Error('UNAUTHENTICATED'));
+
+    const res = await GET();
+
+    expect(res.status).toBe(401);
+    await expect(res.json()).resolves.toEqual({ error: 'Not authenticated' });
+  });
+
+  it('returns 403 when the caller is not allowed to manage tools', async () => {
+    requireAdminMock.mockRejectedValueOnce(new Error('FORBIDDEN'));
+
+    const res = await GET();
+
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toEqual({ error: 'Forbidden' });
+  });
+
+  it('returns 500 when tool listing fails unexpectedly', async () => {
+    listToolPoliciesMock.mockImplementationOnce(() => {
+      throw new Error('db offline');
+    });
+
+    const res = await GET();
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({ error: 'Failed to list tools' });
+  });
+
   it('updates a supported tool toggle', async () => {
     updateToolPolicyMock.mockReturnValue({ name: 'browser', enabled: true });
 
