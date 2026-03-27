@@ -48,7 +48,7 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 | Files save/read in workspace | `Partial` | `packages/web/__tests__/files-api.test.ts`, `packages/web/__tests__/runtime-isolation-file-artifact-api.test.ts` | Needs broader end-to-end workspace artifact lifecycle coverage. |
 | Watchlist create/update/delete | `Covered` | `packages/web/__tests__/watchlist-api.test.ts` | Good route coverage exists. |
 | Schedule create/pause/run/delete | `Covered` | `packages/web/__tests__/schedule-page-timezone.test.tsx`, `packages/web/__tests__/api-schedule-ownership.test.ts` | UI and API coverage now both exist. |
-| Chat send and error handling | `Partial` | `packages/web/__tests__/api-chat.test.ts`, `packages/web/__tests__/api-chat-streaming.test.ts`, `packages/web/__tests__/chat-ui.test.tsx` | Core send/stream flows are covered, but longer history and recovery flows need more depth. |
+| Chat send and error handling | `Covered` | `packages/web/__tests__/api-chat.test.ts`, `packages/web/__tests__/api-chat-streaming.test.ts`, `packages/web/__tests__/chat-ui.test.tsx`, `packages/web/__tests__/chat-area-send.test.tsx` | Covers send, streaming accumulation, UI error warnings, and session-key continuity. |
 | Chat history reload | `Covered` | `packages/web/__tests__/api-chat-history.test.ts`, `packages/web/__tests__/chat-area-history.test.tsx` | API ownership/history normalization and UI reload/compaction behavior are covered. |
 
 ## Connectors, Skills, and Marketplace
@@ -71,7 +71,7 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 | Workspace isolation between users | `Partial` | `packages/web/__tests__/runtime-isolation-file-artifact-api.test.ts` | File-level isolation covered; full multi-user runtime isolation still needs stronger end-to-end testing. |
 | Cron / scheduled runtime loop | `Gap` | None | Needs direct runtime loop coverage beyond schedule creation APIs. |
 | Agent tool loop behavior | `Gap` | None | Needs runtime/integration coverage against real agent execution. |
-| Message send loop / session persistence | `Gap` | None | Needs deeper session-history and recovery scenarios. |
+| Message send loop / session persistence | `Partial` | `packages/web/__tests__/chat-area-send.test.tsx`, `packages/web/__tests__/api-chat-history.test.ts`, `packages/web/__tests__/chat-area-history.test.tsx` | In-session continuity and history reload are covered; longer-lived persistence/restart scenarios still need runtime-level tests. |
 
 ## Browser-Level Journeys
 
@@ -88,9 +88,9 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 
 1. Admin user route coverage for create/update/delete/disable semantics.
 2. User-facing settings persistence coverage.
-3. Chat history and message persistence/reload coverage.
-4. Skill disable/uninstall workflow coverage.
-5. Runtime loop, cron, and multi-user isolation coverage.
-6. Browser E2E for marketplace install and connector auth handoff.
+3. Skill disable/uninstall workflow coverage.
+4. Runtime loop, cron, and multi-user isolation coverage.
+5. Browser E2E for marketplace install and connector auth handoff.
+6. Longer-lived runtime persistence tests across engine restarts.
 
 This matrix is the release bar. New features should add or update the relevant rows before they are considered production-ready.

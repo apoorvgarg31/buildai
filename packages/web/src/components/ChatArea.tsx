@@ -5,8 +5,29 @@ import ChatMessage, { Message } from "./ChatMessage";
 import ChatInput from "./ChatInput";
 import DocumentPanel, { UploadedDoc } from "./DocumentPanel";
 
+function stripControlTokens(text: string): string {
+  return text
+    .replace(/\[\[\s*reply_to[:\s][^\]]*\]\]/gi, "")
+    .replace(/\[\[\s*reply_to_current\s*\]\]/gi, "")
+    .replace(/\bNO_REPLY\b/g, "")
+    .replace(/\bHEARTBEAT_OK\b/g, "");
+}
+
 function sanitizeContent(text: string): string {
-  return text.replace(/\[\[\s*reply_to[:\s][^\]]*\]\]/gi, "").replace(/\[\[\s*reply_to_current\s*\]\]/gi, "").replace(/\bNO_REPLY\b/g, "").replace(/\bHEARTBEAT_OK\b/g, "").trim();
+  return stripControlTokens(text).trim();
+}
+
+function mergeAssistantContent(current: string, incoming: string): string {
+  const sanitizedCurrent = sanitizeContent(current);
+  const sanitizedIncoming = sanitizeContent(incoming);
+
+  if (!sanitizedIncoming) return sanitizedCurrent;
+  if (!sanitizedCurrent) return sanitizedIncoming;
+  if (sanitizedIncoming === sanitizedCurrent) return sanitizedCurrent;
+  if (sanitizedIncoming.startsWith(sanitizedCurrent)) return sanitizedIncoming;
+  if (sanitizedCurrent.endsWith(sanitizedIncoming)) return sanitizedCurrent;
+
+  return sanitizeContent(`${current}${stripControlTokens(incoming)}`);
 }
 
 async function sendChatMessageStream(message: string, sessionId: string | null, onDelta: (text: string) => void, onThinking?: (text: string) => void, onTool?: (name: string) => void, onArtifacts?: (artifacts: Array<{ name: string; size: number; createdAt: string }>) => void): Promise<{ sessionId: string }> {
@@ -98,7 +119,7 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
     const assistantId = crypto.randomUUID(); let receivedFirstDelta = false;
     try {
       setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "", timestamp: new Date(), isThinking: true }]);
-      const result = await sendChatMessageStream(messageToSend, sessionId, (delta) => { if (!receivedFirstDelta) { receivedFirstDelta = true; setIsStreaming(true); } setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: sanitizeContent(delta), isThinking: false } : m)); }, (thinkingText) => setThinkingPreview(thinkingText.slice(0, 240)), (toolName) => setActiveTools((prev) => prev.includes(toolName) ? prev : [...prev, toolName]), (newArtifacts) => setArtifacts((prev) => { const existing = new Set(prev.map((a) => a.name)); const merged = [...prev]; for (const a of newArtifacts) if (!existing.has(a.name)) merged.unshift(a); return merged; }));
+      const result = await sendChatMessageStream(messageToSend, sessionId, (delta) => { if (!receivedFirstDelta) { receivedFirstDelta = true; setIsStreaming(true); } setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: mergeAssistantContent(m.content, delta), isThinking: false } : m)); }, (thinkingText) => setThinkingPreview(thinkingText.slice(0, 240)), (toolName) => setActiveTools((prev) => prev.includes(toolName) ? prev : [...prev, toolName]), (newArtifacts) => setArtifacts((prev) => { const existing = new Set(prev.map((a) => a.name)); const merged = [...prev]; for (const a of newArtifacts) if (!existing.has(a.name)) merged.unshift(a); return merged; }));
       if (result.sessionId) setSessionId(result.sessionId);
     } catch (err) {
       setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: `Warning: ${err instanceof Error ? err.message : "Failed to get response"}. Please try again.`, isThinking: false } : m));
