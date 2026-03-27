@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/api-guard';
 import { deleteMcpServer, getMcpServer, updateMcpServer } from '@/lib/admin-db';
+import { syncRuntimeFromAdminState } from '@/lib/runtime-sync';
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -11,6 +12,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
     const body = await request.json();
     const updated = updateMcpServer(id, body);
+    await syncRuntimeFromAdminState();
     return NextResponse.json(updated);
   } catch (err) {
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') {
@@ -32,6 +34,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
     deleteMcpServer(id);
+    await syncRuntimeFromAdminState();
     return NextResponse.json({ ok: true });
   } catch (err) {
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') {

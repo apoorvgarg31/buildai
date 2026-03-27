@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/api-guard';
 import { updateToolPolicy } from '@/lib/admin-db';
+import { syncRuntimeFromAdminState } from '@/lib/runtime-sync';
 import { isSupportedAdminTool } from '@/lib/tool-catalog';
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ name: string }> }) {
@@ -17,6 +18,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const updated = updateToolPolicy(name, { enabled: body.enabled });
+    await syncRuntimeFromAdminState();
     return NextResponse.json(updated);
   } catch (err) {
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') {

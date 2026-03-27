@@ -164,7 +164,7 @@ export async function removeAgentFromConfig(agentId: string): Promise<void> {
  * Signal the engine to reload config.
  * Tries SIGUSR1 first (hot reload), falls back to no-op (engine will pick up on next session).
  */
-async function reloadEngine(): Promise<void> {
+export async function reloadEngine(): Promise<void> {
   try {
     // Find engine PID from the pidfile or by port
     // Cross-platform: use lsof (macOS/Linux) instead of ss (Linux only)

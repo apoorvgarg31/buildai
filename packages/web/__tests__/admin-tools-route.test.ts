@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 const requireAdminMock = vi.hoisted(() => vi.fn());
 const listToolPoliciesMock = vi.hoisted(() => vi.fn());
 const updateToolPolicyMock = vi.hoisted(() => vi.fn());
+const syncRuntimeFromAdminStateMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/api-guard', () => ({
   requireAdmin: requireAdminMock,
@@ -14,6 +15,10 @@ vi.mock('@/lib/admin-db', () => ({
   updateToolPolicy: updateToolPolicyMock,
 }));
 
+vi.mock('@/lib/runtime-sync', () => ({
+  syncRuntimeFromAdminState: syncRuntimeFromAdminStateMock,
+}));
+
 import { GET } from '../src/app/api/admin/tools/route';
 import { PUT } from '../src/app/api/admin/tools/[name]/route';
 
@@ -21,6 +26,7 @@ describe('/api/admin/tools', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     requireAdminMock.mockResolvedValue({ userId: 'admin-1', role: 'admin', email: 'admin@example.com' });
+    syncRuntimeFromAdminStateMock.mockResolvedValue(undefined);
   });
 
   it('lists the admin tool policy', async () => {
@@ -52,6 +58,7 @@ describe('/api/admin/tools', () => {
     expect(res.status).toBe(200);
     expect(body.enabled).toBe(true);
     expect(updateToolPolicyMock).toHaveBeenCalledWith('browser', { enabled: true });
+    expect(syncRuntimeFromAdminStateMock).toHaveBeenCalledTimes(1);
   });
 
   it('rejects unknown tool names', async () => {

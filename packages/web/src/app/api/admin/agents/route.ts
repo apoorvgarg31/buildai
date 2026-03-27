@@ -3,6 +3,7 @@ import { listAgents, createAgent, deleteAgent, writeAuditEvent } from '@/lib/adm
 import { provisionWorkspace, removeWorkspace } from '@/lib/workspace-provisioner';
 import { addAgentToConfig, removeAgentFromConfig } from '@/lib/engine-config';
 import { provisionSkills } from '@/lib/skill-provisioner';
+import { syncRuntimeFromAdminState } from '@/lib/runtime-sync';
 import { requireAdmin } from '@/lib/api-guard';
 import { auth } from '@clerk/nextjs/server';
 import { apiError } from '@/lib/api-error';
@@ -85,6 +86,8 @@ export async function POST(request: NextRequest) {
       if (connectionIds?.length) {
         await provisionSkills(agentId, connectionIds);
       }
+
+      await syncRuntimeFromAdminState();
 
       return NextResponse.json({ ...agent, api_key: maskSecret(agent.api_key) }, { status: 201 });
     } catch (err) {

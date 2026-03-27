@@ -5,6 +5,7 @@ const requireAdminMock = vi.hoisted(() => vi.fn());
 const listMcpServersMock = vi.hoisted(() => vi.fn());
 const listAvailableConnectorMcpTargetsMock = vi.hoisted(() => vi.fn());
 const createMcpServerMock = vi.hoisted(() => vi.fn());
+const syncRuntimeFromAdminStateMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/api-guard', () => ({
   requireAdmin: requireAdminMock,
@@ -16,12 +17,17 @@ vi.mock('@/lib/admin-db', () => ({
   createMcpServer: createMcpServerMock,
 }));
 
+vi.mock('@/lib/runtime-sync', () => ({
+  syncRuntimeFromAdminState: syncRuntimeFromAdminStateMock,
+}));
+
 import { GET, POST } from '../src/app/api/admin/mcp-servers/route';
 
 describe('/api/admin/mcp-servers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     requireAdminMock.mockResolvedValue({ userId: 'admin-1', role: 'admin', email: 'admin@example.com' });
+    syncRuntimeFromAdminStateMock.mockResolvedValue(undefined);
   });
 
   it('returns registered MCP servers plus available connector targets', async () => {
@@ -60,6 +66,7 @@ describe('/api/admin/mcp-servers', () => {
       serverKind: 'connector_linked',
       connectionId: 'conn-linear',
     }));
+    expect(syncRuntimeFromAdminStateMock).toHaveBeenCalledTimes(1);
   });
 
   it('rejects connector-linked servers without a connection id', async () => {

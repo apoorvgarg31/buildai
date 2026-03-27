@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { listConnections, createConnection } from '@/lib/admin-db';
 import { requireAdmin } from '@/lib/api-guard';
 import { getDefaultConnectorAuthMode, isSupportedConnectorType } from '@/lib/connector-catalog';
+import { syncRuntimeFromAdminState } from '@/lib/runtime-sync';
 
 export async function GET() {
   try {
@@ -31,6 +32,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Unsupported connector type: ${type}` }, { status: 400 });
     }
     const conn = createConnection({ name, type, authMode: authMode || getDefaultConnectorAuthMode(type), config: config || {}, secrets });
+    await syncRuntimeFromAdminState();
     return NextResponse.json(conn, { status: 201 });
   } catch (err) {
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') {

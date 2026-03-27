@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 const requireAdminMock = vi.hoisted(() => vi.fn());
 const createConnectionMock = vi.hoisted(() => vi.fn());
 const listConnectionsMock = vi.hoisted(() => vi.fn());
+const syncRuntimeFromAdminStateMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/api-guard', () => ({
   requireAdmin: requireAdminMock,
@@ -14,12 +15,17 @@ vi.mock('@/lib/admin-db', () => ({
   listConnections: listConnectionsMock,
 }));
 
+vi.mock('@/lib/runtime-sync', () => ({
+  syncRuntimeFromAdminState: syncRuntimeFromAdminStateMock,
+}));
+
 import { POST } from '../src/app/api/admin/connections/route';
 
 describe('/api/admin/connections', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     requireAdminMock.mockResolvedValue({ userId: 'admin-1', role: 'admin', email: 'admin@example.com' });
+    syncRuntimeFromAdminStateMock.mockResolvedValue(undefined);
   });
 
   it('rejects connector types outside the predefined catalog', async () => {
@@ -72,5 +78,6 @@ describe('/api/admin/connections', () => {
       type: 'google_workspace',
       authMode: 'oauth_user',
     }));
+    expect(syncRuntimeFromAdminStateMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -3,6 +3,7 @@ import { getAgent, updateAgent, deleteAgent, writeAuditEvent } from '@/lib/admin
 import { addAgentToConfig, removeAgentFromConfig } from '@/lib/engine-config';
 import { removeWorkspace } from '@/lib/workspace-provisioner';
 import { provisionSkills } from '@/lib/skill-provisioner';
+import { syncRuntimeFromAdminState } from '@/lib/runtime-sync';
 import { assertCanManageAgent, requireAdmin } from '@/lib/api-guard';
 import { apiError } from '@/lib/api-error';
 import { checkMutationPolicy } from '@/lib/policy';
@@ -81,6 +82,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
+    await syncRuntimeFromAdminState();
+
     return NextResponse.json({ ...updated, api_key: maskSecret(updated.api_key) });
   } catch (err) {
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') return apiError('unauthenticated', 'Not authenticated', 401);
@@ -124,6 +127,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
     const deleted = deleteAgent(id);
     if (!deleted) return apiError('not_found', 'Not found', 404);
+    await syncRuntimeFromAdminState();
     return NextResponse.json({ ok: true });
   } catch (err) {
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') return apiError('unauthenticated', 'Not authenticated', 401);

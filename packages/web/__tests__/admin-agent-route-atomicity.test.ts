@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   removeAgentFromConfig: vi.fn(),
   provisionSkills: vi.fn(),
   getDb: vi.fn(),
+  syncRuntimeFromAdminState: vi.fn(),
 }));
 
 vi.mock('@clerk/nextjs/server', () => ({
@@ -59,6 +60,10 @@ vi.mock('@/lib/admin-db-server', () => ({
   getDb: mocks.getDb,
 }));
 
+vi.mock('@/lib/runtime-sync', () => ({
+  syncRuntimeFromAdminState: mocks.syncRuntimeFromAdminState,
+}));
+
 import { POST as createAgentRoute } from '../src/app/api/admin/agents/route';
 import { DELETE as deleteAgentRoute, GET as getAgentRoute, PUT as updateAgentRoute } from '../src/app/api/admin/agents/[id]/route';
 
@@ -87,6 +92,7 @@ describe('admin agent route atomicity and secret masking', () => {
     mocks.removeWorkspace.mockResolvedValue(undefined);
     mocks.provisionSkills.mockResolvedValue(undefined);
     mocks.deleteAgent.mockReturnValue(true);
+    mocks.syncRuntimeFromAdminState.mockResolvedValue(undefined);
     mocks.getDb.mockReturnValue({
       prepare: vi.fn(() => ({
         get: vi.fn(() => ({ id: 'admin-1' })),
@@ -117,6 +123,7 @@ describe('admin agent route atomicity and secret masking', () => {
       'agent-one',
       expect.objectContaining({ apiKey: 'secret-1234' }),
     );
+    expect(mocks.syncRuntimeFromAdminState).toHaveBeenCalledTimes(1);
   });
 
   it('rolls back db/config/workspace when post-create provisioning fails', async () => {
@@ -181,6 +188,7 @@ describe('admin agent route atomicity and secret masking', () => {
 
     expect(mocks.updateAgent).toHaveBeenCalledWith('agent-1', expect.objectContaining({ apiKey: '••••5678' }));
     expect(putBody.api_key).toBe('••••5678');
+    expect(mocks.syncRuntimeFromAdminState).toHaveBeenCalledTimes(1);
   });
 
   it('aborts delete and restores config when workspace cleanup fails', async () => {
@@ -251,6 +259,7 @@ describe('admin agent route atomicity and secret masking', () => {
 
     expect(res.status).toBe(200);
     expect(body.user_id).toBe('user-2');
+    expect(mocks.syncRuntimeFromAdminState).toHaveBeenCalledTimes(1);
     expect(prepareMock).toHaveBeenCalledWith('SELECT id FROM users WHERE id = ? LIMIT 1');
     expect(prepareMock).toHaveBeenCalledWith("UPDATE users SET agent_id = NULL, updated_at = datetime('now') WHERE id = ? AND agent_id = ?");
     expect(prepareMock).toHaveBeenCalledWith("UPDATE users SET agent_id = ?, updated_at = datetime('now') WHERE id = ?");

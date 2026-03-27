@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/api-guard';
 import { createMcpServer, listAvailableConnectorMcpTargets, listMcpServers } from '@/lib/admin-db';
+import { syncRuntimeFromAdminState } from '@/lib/runtime-sync';
 
 export async function GET() {
   try {
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
       url,
       notes,
     });
+    await syncRuntimeFromAdminState();
     return NextResponse.json(server, { status: 201 });
   } catch (err) {
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') {
