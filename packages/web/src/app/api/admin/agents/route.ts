@@ -83,6 +83,8 @@ export async function POST(request: NextRequest) {
       agentCreated = true;
 
       if (assignedUserId) {
+        db.prepare("UPDATE agents SET user_id = NULL, updated_at = datetime('now') WHERE user_id = ? AND id != ?")
+          .run(assignedUserId, agent.id);
         db.prepare("UPDATE users SET agent_id = ?, updated_at = datetime('now') WHERE id = ?")
           .run(agent.id, assignedUserId);
       }

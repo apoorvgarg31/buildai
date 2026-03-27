@@ -174,6 +174,36 @@ describe('admin agent route atomicity and secret masking', () => {
     );
   });
 
+  it("clears a user's previous agent ownership when creating a replacement agent", async () => {
+    const prepareMock = vi.fn((sql: string) => {
+      if (sql.includes('SELECT id FROM users')) {
+        return { get: vi.fn(() => ({ id: 'user-2' })) };
+      }
+      return { run: vi.fn(() => ({ changes: 1 })) };
+    });
+
+    mocks.getDb.mockReturnValue({ prepare: prepareMock });
+    mocks.createAgent.mockImplementation(({ userId }: { userId?: string }) => ({
+      id: 'agent-1',
+      name: 'Agent One',
+      user_id: userId ?? null,
+      model: 'google/gemini-2.0-flash',
+      api_key: '••••1234',
+      workspace_dir: '../../workspaces/agent-1',
+      status: 'active',
+      connection_ids: [],
+    }));
+
+    const res = await createAgentRoute(jsonRequest({ name: 'Agent One', apiKey: 'secret-1234', userId: 'user-2' }));
+    const body = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(body.user_id).toBe('user-2');
+    expect(prepareMock).toHaveBeenCalledWith('SELECT id FROM users WHERE id = ? LIMIT 1');
+    expect(prepareMock).toHaveBeenCalledWith("UPDATE agents SET user_id = NULL, updated_at = datetime('now') WHERE user_id = ? AND id != ?");
+    expect(prepareMock).toHaveBeenCalledWith("UPDATE users SET agent_id = ?, updated_at = datetime('now') WHERE id = ?");
+  });
+
   it('rolls back db/config/workspace when post-create provisioning fails', async () => {
     mocks.createAgent.mockReturnValue({
       id: 'agent-one',
@@ -309,7 +339,8 @@ describe('admin agent route atomicity and secret masking', () => {
     expect(body.user_id).toBe('user-2');
     expect(mocks.syncRuntimeFromAdminState).toHaveBeenCalledTimes(1);
     expect(prepareMock).toHaveBeenCalledWith('SELECT id FROM users WHERE id = ? LIMIT 1');
-    expect(prepareMock).toHaveBeenCalledWith("UPDATE users SET agent_id = NULL, updated_at = datetime('now') WHERE id = ? AND agent_id = ?");
+    expect(prepareMock).toHaveBeenCalledWith("UPDATE agents SET user_id = NULL, updated_at = datetime('now') WHERE user_id = ? AND id != ?");
+    expect(prepareMock).toHaveBeenCalledWith("UPDATE users SET agent_id = NULL, updated_at = datetime('now') WHERE agent_id = ? AND id != ?");
     expect(prepareMock).toHaveBeenCalledWith("UPDATE users SET agent_id = ?, updated_at = datetime('now') WHERE id = ?");
   });
 

@@ -72,13 +72,16 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (!updated) return apiError('not_found', 'Not found', 404);
 
     if (nextUserId !== undefined) {
-      if (existing.user_id && existing.user_id !== nextUserId) {
-        db.prepare("UPDATE users SET agent_id = NULL, updated_at = datetime('now') WHERE id = ? AND agent_id = ?")
-          .run(existing.user_id, id);
-      }
       if (typeof nextUserId === 'string') {
+        db.prepare("UPDATE agents SET user_id = NULL, updated_at = datetime('now') WHERE user_id = ? AND id != ?")
+          .run(nextUserId, id);
+        db.prepare("UPDATE users SET agent_id = NULL, updated_at = datetime('now') WHERE agent_id = ? AND id != ?")
+          .run(id, nextUserId);
         db.prepare("UPDATE users SET agent_id = ?, updated_at = datetime('now') WHERE id = ?")
           .run(id, nextUserId);
+      } else {
+        db.prepare("UPDATE users SET agent_id = NULL, updated_at = datetime('now') WHERE agent_id = ?")
+          .run(id);
       }
     }
 
