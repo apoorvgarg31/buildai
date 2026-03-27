@@ -1,4 +1,5 @@
 import { getDefaultConnectorAuthMode } from './connector-catalog';
+import { getConnectorAuthUrl } from './connector-oauth';
 
 export type ConnectorAuthMode = 'shared' | 'oauth_user' | 'token_user';
 
@@ -44,11 +45,6 @@ type SkillLike = { connectionType?: string };
 
 export function getRequiredConnectionTypes(skill: SkillLike): string[] {
   return skill.connectionType ? [skill.connectionType] : [];
-}
-
-export function getConnectorAuthUrl(type: string, connectionId: string): string | undefined {
-  if (type === 'procore') return `/api/procore/auth?connectionId=${connectionId}`;
-  return undefined;
 }
 
 export function buildConnectorRuntimeState(

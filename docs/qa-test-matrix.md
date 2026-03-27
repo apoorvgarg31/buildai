@@ -59,8 +59,8 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 | Skill install | `Covered` | `packages/web/__tests__/marketplace-install-route.test.ts` | Includes validation, access checks, and requirement guidance. |
 | Skill disable/uninstall | `Covered` | `packages/web/__tests__/marketplace-skill-item-route.test.ts`, `packages/web/__tests__/marketplace-page.test.tsx`, `packages/web/__tests__/marketplace-install-route.test.ts` | Covers uninstall, reinstall, refreshed UI state, and workspace copy reset during reinstall. |
 | Connector requirement gating in marketplace | `Covered` | `packages/web/__tests__/marketplace-requirements.test.ts`, `packages/web/__tests__/agent-connections-route.test.ts` | Covers ready, reconnect, and admin-setup-needed states. |
-| User connector auth readiness state | `Partial` | `packages/web/__tests__/connectors-page.test.tsx`, `packages/web/__tests__/procore-connection-guard.test.ts` | Expired/reconnect state covered; more provider-specific auth lifecycle tests still needed. |
-| Refresh / expired token handling | `Partial` | `packages/web/__tests__/marketplace-install-route.test.ts`, `packages/web/__tests__/connectors-page.test.tsx` | Generic readiness exists; end-to-end token refresh flow still limited. |
+| User connector auth readiness state | `Covered` | `packages/web/__tests__/connectors-page.test.tsx`, `packages/web/__tests__/procore-connection-guard.test.ts`, `packages/web/__tests__/connector-oauth.test.ts`, `packages/web/__tests__/connectors-auth-route.test.ts` | Covers generic auth URLs across the current OAuth catalog, callback token storage, missing-auth, expired-token, refresh-success, and refresh-failure paths. |
+| Refresh / expired token handling | `Covered` | `packages/web/__tests__/marketplace-install-route.test.ts`, `packages/web/__tests__/connectors-page.test.tsx`, `packages/web/__tests__/connectors-auth-route.test.ts`, `packages/web/__tests__/procore-connection-guard.test.ts` | Covers missing token, expired token without refresh, refresh success, and refresh failure across dedicated and generic connector auth routes. |
 
 ## Runtime, Isolation, and Persistence
 
@@ -86,8 +86,7 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 
 ## Current Priority Gaps
 
-1. User connector auth lifecycle coverage beyond Procore.
-2. Full multi-user concurrent runtime isolation coverage under real execution.
-3. Agent tool loop behavior under real runtime execution.
+1. Full multi-user concurrent runtime isolation coverage under real execution.
+2. Agent tool loop behavior under real runtime execution.
 
 This matrix is the release bar. New features should add or update the relevant rows before they are considered production-ready.
