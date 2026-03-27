@@ -73,6 +73,9 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid install path.' }, { status: 400 });
     }
 
+    if (fs.existsSync(destDir)) {
+      fs.rmSync(destDir, { recursive: true, force: true });
+    }
     fs.mkdirSync(destDir, { recursive: true });
     copyDirSync(sourceDir, destDir);
 

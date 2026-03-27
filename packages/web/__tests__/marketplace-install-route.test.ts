@@ -19,6 +19,7 @@ const fsMock = vi.hoisted(() => ({
   mkdirSync: vi.fn(),
   readdirSync: vi.fn(() => []),
   copyFileSync: vi.fn(),
+  rmSync: vi.fn(),
 }));
 
 vi.mock('@/lib/api-guard', () => ({
@@ -189,6 +190,26 @@ describe('/api/marketplace/skills/[id]/install', () => {
       skillId: 'buildai-procore',
       source: 'public',
     });
+  });
+
+
+  it('reinstalls a skill by clearing the existing workspace copy first', async () => {
+    getDbMock.mockReturnValue(createDb());
+    fsMock.readdirSync
+      .mockReturnValueOnce([{ name: 'SKILL.md', isDirectory: () => false }])
+      .mockReturnValueOnce([{ name: 'SKILL.md', isDirectory: () => false }]);
+
+    const req = {
+      json: vi.fn(async () => ({ agentId: 'agent-a' })),
+    } as never;
+
+    const res = await POST(req, { params: Promise.resolve({ id: 'buildai-procore' }) });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(fsMock.rmSync).toHaveBeenCalledWith('/tmp/workspaces/agent-a/skills/buildai-procore', { recursive: true, force: true });
+    expect(fsMock.copyFileSync).toHaveBeenCalled();
   });
 
   it('rejects GET requests with an invalid agent id in the token payload', async () => {

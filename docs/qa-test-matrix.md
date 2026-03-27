@@ -57,7 +57,7 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 | --- | --- | --- | --- |
 | Marketplace catalog integrity | `Covered` | `packages/web/__tests__/marketplace-catalog.test.ts` | Covers categories, install token helpers, packaging, and Anthropic skill imports. |
 | Skill install | `Covered` | `packages/web/__tests__/marketplace-install-route.test.ts` | Includes validation, access checks, and requirement guidance. |
-| Skill disable/uninstall | `Partial` | `packages/web/__tests__/marketplace-skill-item-route.test.ts`, `packages/web/__tests__/marketplace-page.test.tsx` | User removal is covered at route and UI level; reinstall/runtime-effect behavior still needs follow-up coverage. |
+| Skill disable/uninstall | `Covered` | `packages/web/__tests__/marketplace-skill-item-route.test.ts`, `packages/web/__tests__/marketplace-page.test.tsx`, `packages/web/__tests__/marketplace-install-route.test.ts` | Covers uninstall, reinstall, refreshed UI state, and workspace copy reset during reinstall. |
 | Connector requirement gating in marketplace | `Covered` | `packages/web/__tests__/marketplace-requirements.test.ts`, `packages/web/__tests__/agent-connections-route.test.ts` | Covers ready, reconnect, and admin-setup-needed states. |
 | User connector auth readiness state | `Partial` | `packages/web/__tests__/connectors-page.test.tsx`, `packages/web/__tests__/procore-connection-guard.test.ts` | Expired/reconnect state covered; more provider-specific auth lifecycle tests still needed. |
 | Refresh / expired token handling | `Partial` | `packages/web/__tests__/marketplace-install-route.test.ts`, `packages/web/__tests__/connectors-page.test.tsx` | Generic readiness exists; end-to-end token refresh flow still limited. |
@@ -87,10 +87,10 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 ## Current Priority Gaps
 
 1. Admin user route coverage for create/update/delete/disable semantics.
-2. Skill disable/uninstall workflow coverage.
-3. Runtime loop, cron, and multi-user isolation coverage.
-4. Browser E2E for marketplace install and connector auth handoff.
-5. Longer-lived runtime persistence tests across engine restarts.
-6. Multiple-admin workflow coverage.
+2. Runtime loop, cron, and multi-user isolation coverage.
+3. Browser E2E for marketplace install and connector auth handoff.
+4. Longer-lived runtime persistence tests across engine restarts.
+5. Multiple-admin workflow coverage.
+6. User connector auth lifecycle coverage beyond Procore.
 
 This matrix is the release bar. New features should add or update the relevant rows before they are considered production-ready.
