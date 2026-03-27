@@ -49,7 +49,7 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 | Watchlist create/update/delete | `Covered` | `packages/web/__tests__/watchlist-api.test.ts` | Good route coverage exists. |
 | Schedule create/pause/run/delete | `Covered` | `packages/web/__tests__/schedule-page-timezone.test.tsx`, `packages/web/__tests__/api-schedule-ownership.test.ts` | UI and API coverage now both exist. |
 | Chat send and error handling | `Partial` | `packages/web/__tests__/api-chat.test.ts`, `packages/web/__tests__/api-chat-streaming.test.ts`, `packages/web/__tests__/chat-ui.test.tsx` | Core send/stream flows are covered, but longer history and recovery flows need more depth. |
-| Chat history reload | `Gap` | None | Needs persistence/reload verification at UI and API level. |
+| Chat history reload | `Covered` | `packages/web/__tests__/api-chat-history.test.ts`, `packages/web/__tests__/chat-area-history.test.tsx` | API ownership/history normalization and UI reload/compaction behavior are covered. |
 
 ## Connectors, Skills, and Marketplace
 
