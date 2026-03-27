@@ -50,12 +50,38 @@ describe('/api/schedule ownership and scoping', () => {
         { id: '2', name: '[owner:user-2] [agent:agent-other] Daily' },
       ],
     });
+    requestMock.mockResolvedValueOnce({ entries: [] });
 
     const res = await GET();
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.jobs).toHaveLength(1);
     expect(data.jobs[0].id).toBe('1');
+  });
+
+  it('includes recent run history for accessible jobs only', async () => {
+    requestMock.mockResolvedValueOnce({
+      jobs: [
+        { id: 'job-1', name: '[owner:user-1] [agent:agent-own] Daily' },
+        { id: 'job-2', name: '[owner:user-2] [agent:agent-other] Daily' },
+      ],
+    });
+    requestMock.mockResolvedValueOnce({
+      entries: [
+        { jobId: 'job-1', action: 'finished', status: 'ok', ts: 1710000000000, summary: 'sent summary' },
+      ],
+    });
+
+    const res = await GET();
+    expect(res.status).toBe(200);
+
+    const data = await res.json();
+    expect(data.jobs).toHaveLength(1);
+    expect(data.jobs[0].recentRuns).toEqual([
+      expect.objectContaining({ jobId: 'job-1', status: 'ok', summary: 'sent summary' }),
+    ]);
+    expect(requestMock).toHaveBeenCalledWith('cron.runs', { jobId: 'job-1', limit: 5 });
+    expect(requestMock).not.toHaveBeenCalledWith('cron.runs', { jobId: 'job-2', limit: 5 });
   });
 
   it('denies update for non-owned schedule and writes deny audit', async () => {
@@ -90,6 +116,22 @@ describe('/api/schedule ownership and scoping', () => {
     expect(body.code).toBe('validation_error');
   });
 
+  it('rejects out-of-range schedule times instead of silently clamping them', async () => {
+    const tooEarly = await POST(req({ action: 'add', hour: -1, minute: 30, tz: 'UTC' }));
+    const tooLate = await POST(req({ action: 'add', hour: 8, minute: 99, tz: 'UTC' }));
+
+    expect(tooEarly.status).toBe(400);
+    expect(tooLate.status).toBe(400);
+  });
+
+  it('requires an explicit boolean when enabling or disabling a job', async () => {
+    const res = await POST(req({ action: 'update', jobId: 'job-1' }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe('validation_error');
+    expect(requestMock).not.toHaveBeenCalled();
+  });
+
   it('hides partially scoped legacy jobs from non-admin users', async () => {
     requestMock.mockResolvedValueOnce({
       jobs: [
@@ -97,6 +139,7 @@ describe('/api/schedule ownership and scoping', () => {
         { id: 'owned', name: '[owner:user-1] [agent:agent-own] Daily' },
       ],
     });
+    requestMock.mockResolvedValueOnce({ entries: [] });
 
     const res = await GET();
     expect(res.status).toBe(200);
@@ -132,5 +175,4 @@ describe('/api/schedule ownership and scoping', () => {
     expect(res.status).toBe(200);
     expect(requestMock).toHaveBeenCalledWith('cron.run', { jobId: 'legacy-admin' });
   });
-
 });

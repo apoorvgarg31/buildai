@@ -17,12 +17,23 @@ type ScheduleBody = {
   agentId?: string;
 };
 
+type CronRunEntry = {
+  jobId?: string;
+  action?: string;
+  status?: string;
+  summary?: string;
+  error?: string;
+  ts?: number;
+  durationMs?: number;
+};
+
 type CronJob = {
   jobId?: string;
   id?: string;
   name?: string;
   enabled?: boolean;
   schedule?: { kind?: string; expr?: string; tz?: string };
+  recentRuns?: CronRunEntry[];
 };
 
 function jobIdOf(job: CronJob): string {
@@ -46,6 +57,10 @@ function getJobsPayload(res: unknown): CronJob[] {
   return (Array.isArray(res) ? res : (res as { jobs?: unknown[] })?.jobs || []) as CronJob[];
 }
 
+function getRunsPayload(res: unknown): CronRunEntry[] {
+  return (Array.isArray(res) ? res : (res as { entries?: unknown[] })?.entries || []) as CronRunEntry[];
+}
+
 function canAccessJob(actor: Awaited<ReturnType<typeof requireSignedIn>>, job: CronJob): boolean {
   const name = String(job.name || '');
   const parsed = parseOwnerFromJobName(name);
@@ -59,16 +74,14 @@ function canAccessJob(actor: Awaited<ReturnType<typeof requireSignedIn>>, job: C
     return false;
   }
 
-  if (parsed.agentId) {
-    try {
-      assertCanAccessAgent(actor, parsed.agentId);
-    } catch {
-      return false;
-    }
+  try {
+    assertCanAccessAgent(actor, parsed.agentId);
+  } catch {
+    return false;
+  }
 
-    if (actor.role !== 'admin') {
-      return actor.agentId === parsed.agentId;
-    }
+  if (actor.role !== 'admin') {
+    return actor.agentId === parsed.agentId;
   }
 
   return true;
@@ -90,6 +103,16 @@ async function loadJobById(client: ReturnType<typeof getGatewayClient>, jobId: s
   return jobs.find((j) => jobIdOf(j) === jobId) || null;
 }
 
+async function loadRecentRuns(client: ReturnType<typeof getGatewayClient>, jobId: string): Promise<CronRunEntry[]> {
+  if (!jobId) return [];
+  try {
+    const runsRes = await client.request('cron.runs', { jobId, limit: 5 });
+    return getRunsPayload(runsRes);
+  } catch {
+    return [];
+  }
+}
+
 function normalizeTimeZone(tz: string | undefined): string {
   const candidate = tz?.trim();
   if (!candidate) return 'UTC';
@@ -101,6 +124,14 @@ function normalizeTimeZone(tz: string | undefined): string {
   }
 }
 
+function isValidHour(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 23;
+}
+
+function isValidMinute(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 59;
+}
+
 export async function GET() {
   try {
     const actor = await requireSignedIn();
@@ -109,8 +140,12 @@ export async function GET() {
 
     const jobs = getJobsPayload(res);
     const filtered = jobs.filter((j) => canAccessJob(actor, j));
+    const hydrated = await Promise.all(filtered.map(async (job) => ({
+      ...job,
+      recentRuns: await loadRecentRuns(client, jobIdOf(job)),
+    })));
 
-    return NextResponse.json({ jobs: filtered });
+    return NextResponse.json({ jobs: hydrated });
   } catch (err) {
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') {
       return apiError('unauthenticated', 'Not authenticated', 401);
@@ -130,11 +165,9 @@ export async function POST(request: NextRequest) {
     const action = body.action || 'add';
 
     if (action === 'add') {
-      if (typeof body.hour !== 'number' || typeof body.minute !== 'number') {
-        return apiError('validation_error', 'hour and minute required', 400);
+      if (!isValidHour(body.hour) || !isValidMinute(body.minute)) {
+        return apiError('validation_error', 'hour must be 0-23 and minute must be 0-59', 400);
       }
-      const hour = Math.max(0, Math.min(23, body.hour));
-      const minute = Math.max(0, Math.min(59, body.minute));
       let tz: string;
       try {
         tz = normalizeTimeZone(body.tz);
@@ -165,7 +198,7 @@ export async function POST(request: NextRequest) {
       const prefix = userJobPrefix(targetAgentId, actor.userId);
       const job = {
         name: `${prefix}${body.name || 'Daily summary'}`,
-        schedule: { kind: 'cron', expr: `${minute} ${hour} * * *`, tz },
+        schedule: { kind: 'cron', expr: `${body.minute} ${body.hour} * * *`, tz },
         payload: {
           kind: 'systemEvent',
           text: body.text || 'Reminder: review project updates and risks.',
@@ -181,6 +214,9 @@ export async function POST(request: NextRequest) {
     if (action === 'update' || action === 'remove' || action === 'run') {
       const jobId = body.jobId || body.id;
       if (!jobId) return apiError('validation_error', 'jobId required', 400);
+      if (action === 'update' && typeof body.enabled !== 'boolean') {
+        return apiError('validation_error', 'enabled must be a boolean', 400);
+      }
 
       const job = await loadJobById(client, jobId);
       if (!job) {

@@ -46,7 +46,20 @@ describe('SchedulePage timezone handling', () => {
     timezoneSpy.mockRestore();
   });
 
-  it('renders existing jobs and supports run, pause, and delete actions', async () => {
+  it('shows the detected timezone in the create panel', async () => {
+    const timezoneSpy = vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(
+      (() => ({
+        resolvedOptions: () => ({ timeZone: 'Asia/Kolkata' }),
+      })) as unknown as typeof Intl.DateTimeFormat,
+    );
+
+    render(<SchedulePage />);
+
+    expect(screen.getByText('Runs daily in Asia/Kolkata')).toBeDefined();
+    timezoneSpy.mockRestore();
+  });
+
+  it('renders existing jobs with timezone and recent run state, and supports run, pause, and delete actions', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (typeof input === 'string' && input === '/api/schedule' && (!init || !init.method || init.method === 'GET')) {
         return {
@@ -58,6 +71,9 @@ describe('SchedulePage timezone handling', () => {
                 name: 'Morning Digest',
                 enabled: true,
                 schedule: { expr: '30 8 * * *', tz: 'Europe/London' },
+                recentRuns: [
+                  { jobId: 'job-1', status: 'ok', ts: 1710000000000, summary: 'Sent summary' },
+                ],
               },
             ],
           }),
@@ -75,6 +91,9 @@ describe('SchedulePage timezone handling', () => {
     await waitFor(() => {
       expect(screen.getByText('Morning Digest')).toBeDefined();
     });
+
+    expect(screen.getAllByText(/Europe\/London/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Last run: ok/i)).toBeDefined();
 
     fireEvent.click(screen.getByText('Run now'));
     fireEvent.click(screen.getByText('Pause'));
@@ -118,6 +137,42 @@ describe('SchedulePage timezone handling', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Run failed.')).toBeDefined();
+    });
+  });
+
+  it('shows specific feedback when pause or delete actions fail', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (typeof input === 'string' && input === '/api/schedule' && (!init || !init.method || init.method === 'GET')) {
+        return {
+          ok: true,
+          json: async () => ({ jobs: [{ id: 'job-3', name: 'Nightly Sweep', enabled: true }] }),
+        } as Response;
+      }
+
+      const body = JSON.parse(String(init?.body || '{}'));
+      if (body.action === 'update') {
+        return { ok: false, json: async () => ({ error: 'pause failed' }) } as Response;
+      }
+      if (body.action === 'remove') {
+        return { ok: false, json: async () => ({ error: 'delete failed' }) } as Response;
+      }
+      return { ok: true, json: async () => ({ ok: true }) } as Response;
+    }) as typeof fetch);
+
+    render(<SchedulePage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Nightly Sweep')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByText('Pause'));
+    await waitFor(() => {
+      expect(screen.getByText('pause failed')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByText('Delete'));
+    await waitFor(() => {
+      expect(screen.getByText('delete failed')).toBeDefined();
     });
   });
 });
