@@ -82,14 +82,13 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 | Admin tools / MCP preview | `Covered` | `e2e/admin-control-preview.spec.ts` |
 | Connector install and user auth | `Covered` | `e2e/connectors-preview.spec.ts` | Covers user-facing Connect and Reconnect handoff with mocked auth targets from the connectors surface. |
 | Marketplace install from user flow | `Covered` | `e2e/marketplace-preview.spec.ts` | Covers install, remove, and reinstall browser flow from the marketplace UI. |
-| Chat history persistence after refresh | `Gap` | Needs browser journey. |
+| Chat history persistence after refresh | `Covered` | `e2e/chat-history-preview.spec.ts` | Covers send, full page refresh, history reload under the scoped session key, and continued chat on the same thread. |
 
 ## Current Priority Gaps
 
-1. Chat history persistence after refresh browser journey.
-2. Multiple-admin workflow coverage.
-3. User connector auth lifecycle coverage beyond Procore.
-4. Full multi-user concurrent runtime isolation coverage under real execution.
-5. Agent tool loop behavior under real runtime execution.
+1. Multiple-admin workflow coverage.
+2. User connector auth lifecycle coverage beyond Procore.
+3. Full multi-user concurrent runtime isolation coverage under real execution.
+4. Agent tool loop behavior under real runtime execution.
 
 This matrix is the release bar. New features should add or update the relevant rows before they are considered production-ready.
