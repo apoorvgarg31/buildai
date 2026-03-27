@@ -570,6 +570,17 @@ This skill is in development. Contact your Mira admin for early access.`,
     tags: ['communication', 'announcements', 'newsletter', 'anthropic'],
     readme: readBundledSkillReadme('internal-comms'),
   },
+  {
+    id: 'brand-guidelines',
+    name: 'Brand Guidelines',
+    description: 'Apply brand voice and writing guidance with the upstream Anthropic brand-guidelines skill.',
+    category: 'Communication',
+    icon: '🎨',
+    vendor: 'Anthropic',
+    version: 'main',
+    tags: ['brand', 'writing', 'style', 'anthropic'],
+    readme: readBundledSkillReadme('brand-guidelines'),
+  },
 ];
 
 /**
