@@ -60,6 +60,19 @@ function resolveProvider(model: string): string {
   return model.split('/')[0] || 'google';
 }
 
+function removeIfExists(targetPath: string): void {
+  if (!fs.existsSync(targetPath)) return;
+  fs.rmSync(targetPath, { recursive: true, force: true });
+}
+
+export function removeAgentAuthProfile(agentId: string): void {
+  const envPath = path.resolve(path.dirname(CONFIG_PATH), `../../data/agent-env/${agentId}.env`);
+  removeIfExists(envPath);
+
+  const agentStateDir = path.resolve(path.dirname(CONFIG_PATH), `.clawdbot-state/agents/${agentId}`);
+  removeIfExists(agentStateDir);
+}
+
 export function writeAgentAuthProfile(agentId: string, model: string, apiKey: string): void {
   const provider = resolveProvider(model || 'google/gemini-2.0-flash');
 
@@ -163,6 +176,7 @@ export async function removeAgentFromConfig(agentId: string): Promise<void> {
     config.agents.list = config.agents.list.filter(a => a.id !== agentId);
   }
   writeConfig(config);
+  removeAgentAuthProfile(agentId);
   await reloadEngine();
 }
 

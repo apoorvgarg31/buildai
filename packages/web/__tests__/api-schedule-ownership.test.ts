@@ -89,4 +89,48 @@ describe('/api/schedule ownership and scoping', () => {
     const body = await res.json();
     expect(body.code).toBe('validation_error');
   });
+
+  it('hides partially scoped legacy jobs from non-admin users', async () => {
+    requestMock.mockResolvedValueOnce({
+      jobs: [
+        { id: 'legacy-user', name: '[owner:user-1] Legacy main-session job' },
+        { id: 'owned', name: '[owner:user-1] [agent:agent-own] Daily' },
+      ],
+    });
+
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.jobs.map((job: { id: string }) => job.id)).toEqual(['owned']);
+  });
+
+  it('denies manual run of partially scoped legacy jobs for non-admin users', async () => {
+    requestMock.mockResolvedValueOnce({
+      jobs: [{ id: 'legacy-user', name: '[owner:user-1] Legacy main-session job' }],
+    });
+
+    const res = await POST(req({ action: 'run', jobId: 'legacy-user' }));
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.code).toBe('forbidden_schedule_access');
+    expect(writeAuditEventMock).toHaveBeenCalled();
+  });
+
+  it('allows admins to run legacy unscoped jobs for cleanup and recovery', async () => {
+    requireSignedInMock.mockResolvedValueOnce({
+      userId: 'admin-1',
+      role: 'admin',
+      agentId: null,
+      email: 'admin@example.com',
+    });
+    requestMock.mockResolvedValueOnce({
+      jobs: [{ id: 'legacy-admin', name: '[owner:user-1] Legacy main-session job' }],
+    });
+    requestMock.mockResolvedValueOnce({ ok: true });
+
+    const res = await POST(req({ action: 'run', jobId: 'legacy-admin' }));
+    expect(res.status).toBe(200);
+    expect(requestMock).toHaveBeenCalledWith('cron.run', { jobId: 'legacy-admin' });
+  });
+
 });

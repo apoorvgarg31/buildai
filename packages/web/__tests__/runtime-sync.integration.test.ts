@@ -9,6 +9,13 @@ const mocks = vi.hoisted(() => ({
   listMcpServers: vi.fn(),
   getAdminSettings: vi.fn(),
   writeAgentAuthProfile: vi.fn(),
+  removeAgentAuthProfile: vi.fn((agentId: string) => {
+    const configPath = process.env.BUILDAI_ENGINE_CONFIG || '';
+    const engineDir = path.dirname(configPath);
+    if (!engineDir) return;
+    fs.rmSync(path.resolve(engineDir, `../../data/agent-env/${agentId}.env`), { force: true, recursive: true });
+    fs.rmSync(path.resolve(engineDir, `.clawdbot-state/agents/${agentId}`), { force: true, recursive: true });
+  }),
   reloadEngine: vi.fn(async () => undefined),
 }));
 
@@ -22,10 +29,15 @@ vi.mock('../src/lib/admin-settings', () => ({
   getAdminSettings: mocks.getAdminSettings,
 }));
 
-vi.mock('../src/lib/engine-config', () => ({
-  writeAgentAuthProfile: mocks.writeAgentAuthProfile,
-  reloadEngine: mocks.reloadEngine,
-}));
+vi.mock('../src/lib/engine-config', async importOriginal => {
+  const actual = await importOriginal<typeof import('../src/lib/engine-config')>();
+  return {
+    ...actual,
+    writeAgentAuthProfile: mocks.writeAgentAuthProfile,
+    removeAgentAuthProfile: mocks.removeAgentAuthProfile,
+    reloadEngine: mocks.reloadEngine,
+  };
+});
 
 const originalConfigPath = process.env.BUILDAI_ENGINE_CONFIG;
 const originalCwd = process.cwd();
@@ -144,5 +156,56 @@ describe('runtime-sync integration', () => {
       'shared-admin-key',
     );
     expect(mocks.reloadEngine).toHaveBeenCalledTimes(1);
+  });
+
+  it('removes stale runtime manifests for deleted agents', async () => {
+    const staleConfigDir = path.join(tmpRoot, 'workspaces', 'agent-stale', 'config');
+    fs.mkdirSync(staleConfigDir, { recursive: true });
+    fs.writeFileSync(path.join(staleConfigDir, 'buildai-mcp.json'), '{"stale":true}\n');
+    fs.writeFileSync(path.join(staleConfigDir, 'mcporter.json'), '{"stale":true}\n');
+
+    const staleEnvDir = path.join(tmpRoot, 'data', 'agent-env');
+    const staleAgentDir = path.join(tmpRoot, 'packages', 'engine', '.clawdbot-state', 'agents', 'agent-stale', 'agent');
+    fs.mkdirSync(staleEnvDir, { recursive: true });
+    fs.mkdirSync(staleAgentDir, { recursive: true });
+    fs.writeFileSync(path.join(staleEnvDir, 'agent-stale.env'), 'OPENAI_API_KEY=stale\n');
+    fs.writeFileSync(path.join(staleAgentDir, 'auth-profiles.json'), '{"version":1,"profiles":{"openai:default":{"type":"token","provider":"openai","token":"stale"}}}\n');
+
+    const { syncRuntimeFromAdminState } = await import('../src/lib/runtime-sync');
+
+    await syncRuntimeFromAdminState();
+
+    expect(fs.existsSync(path.join(staleConfigDir, 'buildai-mcp.json'))).toBe(false);
+    expect(fs.existsSync(path.join(staleConfigDir, 'mcporter.json'))).toBe(false);
+    expect(fs.existsSync(path.join(staleEnvDir, 'agent-stale.env'))).toBe(false);
+    expect(fs.existsSync(path.join(tmpRoot, 'packages', 'engine', '.clawdbot-state', 'agents', 'agent-stale'))).toBe(false);
+  });
+
+  it('removes shared auth material when the admin shared API key is cleared', async () => {
+    const envPath = path.join(tmpRoot, 'data', 'agent-env', 'agent-1.env');
+    const authPath = path.join(tmpRoot, 'packages', 'engine', '.clawdbot-state', 'agents', 'agent-1', 'agent', 'auth-profiles.json');
+    fs.mkdirSync(path.dirname(envPath), { recursive: true });
+    fs.mkdirSync(path.dirname(authPath), { recursive: true });
+    fs.writeFileSync(envPath, 'ANTHROPIC_API_KEY=stale\n');
+    fs.writeFileSync(authPath, '{"version":1,"profiles":{"anthropic:default":{"type":"token","provider":"anthropic","token":"stale"}}}\n');
+
+    mocks.getAdminSettings.mockReturnValue({
+      companyName: 'Mira',
+      defaultModel: 'anthropic/claude-sonnet-4-20250514',
+      responseStyle: 'professional',
+      maxQueriesPerDay: 500,
+      maxAgents: 10,
+      dataRetentionDays: 90,
+      hasSharedApiKey: false,
+      sharedApiKey: null,
+    });
+
+    const { syncRuntimeFromAdminState } = await import('../src/lib/runtime-sync');
+
+    await syncRuntimeFromAdminState();
+
+    expect(fs.existsSync(envPath)).toBe(false);
+    expect(fs.existsSync(authPath)).toBe(false);
+    expect(mocks.writeAgentAuthProfile).not.toHaveBeenCalled();
   });
 });

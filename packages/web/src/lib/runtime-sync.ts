@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import type { Agent, McpServerRecord, ToolPolicy } from './admin-db';
 import { listAgents, listMcpServers, listToolPolicies } from './admin-db';
-import { reloadEngine, writeAgentAuthProfile } from './engine-config';
+import { reloadEngine, removeAgentAuthProfile, writeAgentAuthProfile } from './engine-config';
 import { getAdminSettings } from './admin-settings';
 
 const CONFIG_PATH = path.resolve(
@@ -208,6 +208,38 @@ function syncWorkspaceRuntimeFiles(agentId: string, files: Record<string, string
   }
 }
 
+function cleanupStaleAgentRuntimeState(activeAgentIds: Set<string>): void {
+  const workspacesRoot = path.resolve(process.cwd(), '../../workspaces');
+  if (fs.existsSync(workspacesRoot)) {
+    for (const entry of fs.readdirSync(workspacesRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      if (activeAgentIds.has(entry.name)) continue;
+      syncWorkspaceRuntimeFiles(entry.name, {});
+    }
+  }
+
+  const envDir = path.resolve(path.dirname(CONFIG_PATH), '../../data/agent-env');
+  if (fs.existsSync(envDir)) {
+    for (const fileName of fs.readdirSync(envDir)) {
+      if (!fileName.endsWith('.env')) continue;
+      const agentId = fileName.slice(0, -4);
+      if (!activeAgentIds.has(agentId)) {
+        removeAgentAuthProfile(agentId);
+      }
+    }
+  }
+
+  const agentStateRoot = path.resolve(path.dirname(CONFIG_PATH), '.clawdbot-state/agents');
+  if (fs.existsSync(agentStateRoot)) {
+    for (const entry of fs.readdirSync(agentStateRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      if (!activeAgentIds.has(entry.name)) {
+        removeAgentAuthProfile(entry.name);
+      }
+    }
+  }
+}
+
 export async function syncRuntimeFromAdminState(): Promise<void> {
   const policies = listToolPolicies();
   const agents = listAgents();
@@ -264,10 +296,16 @@ export async function syncRuntimeFromAdminState(): Promise<void> {
 
   writeRuntimeConfig(config);
 
+  const activeAgentIds = new Set(agents.map((agent) => agent.id));
+  cleanupStaleAgentRuntimeState(activeAgentIds);
+
   for (const agent of agents) {
     syncWorkspaceRuntimeFiles(agent.id, buildWorkspaceMcpRuntimeFiles(agent, servers));
-    if (settings.sharedApiKey) {
-      writeAgentAuthProfile(agent.id, agent.model || settings.defaultModel, settings.sharedApiKey);
+    const resolvedApiKey = agent.api_key || settings.sharedApiKey || null;
+    if (resolvedApiKey) {
+      writeAgentAuthProfile(agent.id, agent.model || settings.defaultModel, resolvedApiKey);
+    } else {
+      removeAgentAuthProfile(agent.id);
     }
   }
 

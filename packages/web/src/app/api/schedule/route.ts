@@ -50,11 +50,12 @@ function canAccessJob(actor: Awaited<ReturnType<typeof requireSignedIn>>, job: C
   const name = String(job.name || '');
   const parsed = parseOwnerFromJobName(name);
 
-  if (!parsed.agentId && !parsed.ownerUserId) {
+  // Legacy or malformed jobs that are not fully owner+agent scoped are admin-only.
+  if (!parsed.agentId || !parsed.ownerUserId) {
     return actor.role === 'admin';
   }
 
-  if (parsed.ownerUserId && parsed.ownerUserId !== actor.userId && actor.role !== 'admin') {
+  if (parsed.ownerUserId !== actor.userId && actor.role !== 'admin') {
     return false;
   }
 

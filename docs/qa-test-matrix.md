@@ -68,8 +68,8 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 | --- | --- | --- | --- |
 | Runtime sync from admin state | `Covered` | `packages/web/__tests__/runtime-sync.test.ts`, `packages/web/__tests__/runtime-sync.integration.test.ts` | Includes tool allow/deny and agent manifests. |
 | Engine config mutation | `Covered` | `packages/web/__tests__/engine-config.test.ts` | Covers auth profiles and config add/remove behavior. |
-| Workspace isolation between users | `Partial` | `packages/web/__tests__/runtime-isolation-file-artifact-api.test.ts` | File-level isolation covered; full multi-user runtime isolation still needs stronger end-to-end testing. |
-| Cron / scheduled runtime loop | `Gap` | None | Needs direct runtime loop coverage beyond schedule creation APIs. |
+| Workspace isolation between users | `Partial` | `packages/web/__tests__/runtime-isolation-file-artifact-api.test.ts`, `packages/web/__tests__/runtime-sync.integration.test.ts`, `packages/web/__tests__/engine-config.test.ts` | File-level isolation plus stale runtime/auth cleanup after admin changes are covered; full multi-user concurrent execution still needs stronger end-to-end testing. |
+| Cron / scheduled runtime loop | `Partial` | `packages/web/__tests__/api-schedule-ownership.test.ts`, `packages/web/__tests__/runtime-sync.integration.test.ts` | Schedule ownership, legacy-job hardening, and runtime cleanup around admin changes are covered; actual gateway cron execution/history still needs end-to-end coverage. |
 | Agent tool loop behavior | `Gap` | None | Needs runtime/integration coverage against real agent execution. |
 | Message send loop / session persistence | `Partial` | `packages/web/__tests__/chat-area-send.test.tsx`, `packages/web/__tests__/api-chat-history.test.ts`, `packages/web/__tests__/chat-area-history.test.tsx` | In-session continuity and history reload are covered; longer-lived persistence/restart scenarios still need runtime-level tests. |
 
@@ -87,10 +87,10 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 ## Current Priority Gaps
 
 1. Admin user route coverage for create/update/delete/disable semantics.
-2. Runtime loop, cron, and multi-user isolation coverage.
-3. Browser E2E for marketplace install and connector auth handoff.
-4. Longer-lived runtime persistence tests across engine restarts.
-5. Multiple-admin workflow coverage.
-6. User connector auth lifecycle coverage beyond Procore.
+2. Browser E2E for marketplace install and connector auth handoff.
+3. Longer-lived runtime persistence tests across engine restarts and actual gateway cron execution.
+4. Multiple-admin workflow coverage.
+5. User connector auth lifecycle coverage beyond Procore.
+6. Full multi-user concurrent runtime isolation coverage under real execution.
 
 This matrix is the release bar. New features should add or update the relevant rows before they are considered production-ready.

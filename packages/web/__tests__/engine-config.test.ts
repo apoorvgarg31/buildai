@@ -80,4 +80,20 @@ describe('engine-config', () => {
     config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     expect(config.agents.list).toEqual([]);
   });
+
+  it('removes persisted auth material when an agent is deleted', async () => {
+    const { writeAgentAuthProfile, removeAgentFromConfig } = await import('../src/lib/engine-config');
+
+    writeAgentAuthProfile('agent-1', 'anthropic/claude-sonnet-4-20250514', 'shared-key');
+
+    const envPath = path.join(tmpRoot, 'data', 'agent-env', 'agent-1.env');
+    const authDir = path.join(tmpRoot, 'packages', 'engine', '.clawdbot-state', 'agents', 'agent-1');
+    expect(fs.existsSync(envPath)).toBe(true);
+    expect(fs.existsSync(authDir)).toBe(true);
+
+    await removeAgentFromConfig('agent-1');
+
+    expect(fs.existsSync(envPath)).toBe(false);
+    expect(fs.existsSync(authDir)).toBe(false);
+  });
 });
