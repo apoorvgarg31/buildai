@@ -2,9 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 
 const useCurrentUserMock = vi.fn();
+const replaceMock = vi.fn();
 
 vi.mock('@/lib/user', () => ({
   useCurrentUser: () => useCurrentUserMock(),
+}));
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: replaceMock }),
 }));
 
 vi.mock('@/components/Sidebar', () => ({

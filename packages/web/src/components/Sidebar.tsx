@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useClerk } from "@clerk/nextjs";
 import { BuildAIUser } from "@/lib/user";
@@ -7,53 +9,44 @@ import { BuildAIUser } from "@/lib/user";
 interface NavItem {
   name: string;
   icon: string;
-  page: Page;
+  href: string;
 }
 
 const adminNav: NavItem[] = [
-  { name: "Dashboard", icon: "◫", page: "dashboard" },
-  { name: "Chat", icon: "◎", page: "chat" },
-  { name: "Artifacts", icon: "◨", page: "artifacts" },
-  { name: "Users", icon: "◌", page: "users" },
-  { name: "Agents", icon: "✦", page: "agents" },
-  { name: "Connectors", icon: "⟷", page: "connections" },
-  { name: "Tools", icon: "⚙", page: "tools" },
-  { name: "MCP Servers", icon: "⌘", page: "mcp_servers" },
-  { name: "Marketplace", icon: "◇", page: "marketplace" },
-  { name: "Settings", icon: "⊙", page: "settings" },
+  { name: "Dashboard", icon: "◫", href: "/admin/dashboard" },
+  { name: "Chat", icon: "◎", href: "/chat" },
+  { name: "Artifacts", icon: "◨", href: "/artifacts" },
+  { name: "Users", icon: "◌", href: "/admin/users" },
+  { name: "Agents", icon: "✦", href: "/admin/agents" },
+  { name: "Connectors", icon: "⟷", href: "/admin/connectors" },
+  { name: "Tools", icon: "⚙", href: "/admin/tools" },
+  { name: "MCP Servers", icon: "⌘", href: "/admin/mcp-servers" },
+  { name: "Marketplace", icon: "◇", href: "/marketplace" },
+  { name: "Settings", icon: "⊙", href: "/admin/settings" },
 ];
 
 const userNav: NavItem[] = [
-  { name: "Chat", icon: "◎", page: "chat" },
-  { name: "Connectors", icon: "⟷", page: "connectors" },
-  { name: "Artifacts", icon: "◨", page: "artifacts" },
-  { name: "Automation", icon: "◷", page: "schedule" },
-  { name: "Watchlist", icon: "◔", page: "watchlist" },
-  { name: "Personality", icon: "✦", page: "personality" },
-  { name: "Marketplace", icon: "◇", page: "marketplace" },
-  { name: "Usage", icon: "◫", page: "usage" },
-  { name: "Settings", icon: "⊙", page: "settings" },
+  { name: "Chat", icon: "◎", href: "/chat" },
+  { name: "Connectors", icon: "⟷", href: "/connectors" },
+  { name: "Artifacts", icon: "◨", href: "/artifacts" },
+  { name: "Automation", icon: "◷", href: "/automation" },
+  { name: "Watchlist", icon: "◔", href: "/watchlist" },
+  { name: "Personality", icon: "✦", href: "/personality" },
+  { name: "Marketplace", icon: "◇", href: "/marketplace" },
+  { name: "Usage", icon: "◫", href: "/usage" },
+  { name: "Settings", icon: "⊙", href: "/settings" },
 ];
-
-export type UserPage = "chat" | "connectors" | "artifacts" | "schedule" | "watchlist" | "personality" | "marketplace" | "usage" | "settings";
-export type AdminPage = "dashboard" | "users" | "agents" | "connections" | "tools" | "mcp_servers";
-export type Page = UserPage | AdminPage;
 
 interface SidebarProps {
   user: BuildAIUser;
-  activePage?: Page;
-  onNavigate?: (page: Page) => void;
-  mode?: "user" | "admin";
-  onToggleMode?: () => void;
 }
 
-export default function Sidebar({ user, activePage, onNavigate, mode = "user", onToggleMode }: SidebarProps) {
+export default function Sidebar({ user }: SidebarProps) {
   const { signOut } = useClerk();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const isAdminView = user.role === "admin" && mode === "admin";
+  const pathname = usePathname();
+  const isAdminView = user.role === "admin" && pathname.startsWith("/admin");
   const navigation = isAdminView ? adminNav : userNav;
-  const defaultPage: Page = isAdminView ? "dashboard" : "chat";
-  const currentPage = activePage ?? defaultPage;
   const modeLabel = isAdminView ? "Admin operations" : "Project workspace";
 
   const sidebarContent = (
@@ -77,14 +70,12 @@ export default function Sidebar({ user, activePage, onNavigate, mode = "user", o
 
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navigation.map((item) => {
-          const active = currentPage === item.page;
+          const active = pathname === item.href;
           return (
-            <button
+            <Link
               key={item.name}
-              onClick={() => {
-                onNavigate?.(item.page);
-                setMobileOpen(false);
-              }}
+              href={item.href}
+              onClick={() => setMobileOpen(false)}
               className={`flex w-full items-center gap-3 rounded-[1.05rem] px-3 py-3 text-sm transition-all ${
                 active
                   ? "bg-[linear-gradient(135deg,rgba(18,49,88,0.96),rgba(53,111,196,0.96))] text-white shadow-[0_18px_32px_rgba(37,84,141,0.18)]"
@@ -93,20 +84,20 @@ export default function Sidebar({ user, activePage, onNavigate, mode = "user", o
             >
               <span className={`flex h-8 w-8 items-center justify-center rounded-xl text-sm ${active ? "bg-white/12 text-white" : "bg-slate-100 text-slate-600"}`}>{item.icon}</span>
               <span className="font-medium">{item.name}</span>
-            </button>
+            </Link>
           );
         })}
       </nav>
 
       {user.role === "admin" && (
         <div className="px-3 pb-3">
-          <button onClick={onToggleMode} className="mira-surface-muted flex w-full items-center justify-between rounded-[1.1rem] px-3 py-3 text-left">
+          <Link href={isAdminView ? "/chat" : "/admin/dashboard"} className="mira-surface-muted flex w-full items-center justify-between rounded-[1.1rem] px-3 py-3 text-left">
             <div>
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">View switcher</p>
               <p className="mt-1 text-sm font-medium text-slate-900">{isAdminView ? "Admin" : "User"}</p>
             </div>
             <span className="text-xs font-semibold text-slate-500">Switch</span>
-          </button>
+          </Link>
         </div>
       )}
 
