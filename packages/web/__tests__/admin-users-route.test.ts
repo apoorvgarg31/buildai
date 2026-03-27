@@ -7,6 +7,7 @@ const createUserMock = vi.hoisted(() => vi.fn());
 const getUserMock = vi.hoisted(() => vi.fn());
 const updateUserMock = vi.hoisted(() => vi.fn());
 const deleteUserMock = vi.hoisted(() => vi.fn());
+const countAdminsMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/api-guard', () => ({
   requireAdmin: requireAdminMock,
@@ -18,6 +19,7 @@ vi.mock('@/lib/admin-db', () => ({
   getUser: getUserMock,
   updateUser: updateUserMock,
   deleteUser: deleteUserMock,
+  countAdmins: countAdminsMock,
 }));
 
 import { GET as listUsersRoute, POST as createUserRoute } from '../src/app/api/admin/users/route';
@@ -53,6 +55,26 @@ describe('/api/admin/users', () => {
     expect(createUserMock).toHaveBeenCalledWith({
       email: 'new@example.com',
       name: 'New User',
+      role: 'admin',
+    });
+  });
+
+  it('allows a second admin to create another admin', async () => {
+    requireAdminMock.mockResolvedValueOnce({ userId: 'admin-2', role: 'admin', email: 'backup@example.com' });
+    createUserMock.mockReturnValue({ id: 'user-3', email: 'backup-admin@example.com', name: 'Backup Admin', role: 'admin' });
+
+    const req = new Request('http://localhost/api/admin/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'backup-admin@example.com', name: 'Backup Admin', role: 'admin' }),
+    }) as unknown as NextRequest;
+
+    const res = await createUserRoute(req);
+
+    expect(res.status).toBe(201);
+    expect(createUserMock).toHaveBeenCalledWith({
+      email: 'backup-admin@example.com',
+      name: 'Backup Admin',
       role: 'admin',
     });
   });
@@ -117,6 +139,7 @@ describe('/api/admin/users/[id]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     requireAdminMock.mockResolvedValue({ userId: 'admin-1', role: 'admin', email: 'admin@example.com' });
+    countAdminsMock.mockReturnValue(2);
   });
 
   it('fetches a single user by id', async () => {
@@ -138,6 +161,7 @@ describe('/api/admin/users/[id]', () => {
   });
 
   it('updates a user record', async () => {
+    getUserMock.mockReturnValue({ id: 'user-1', email: 'user@example.com', name: 'User One', role: 'user' });
     updateUserMock.mockReturnValue({ id: 'user-1', email: 'user@example.com', name: 'Updated User', role: 'admin' });
 
     const req = new Request('http://localhost/api/admin/users/user-1', {
@@ -152,8 +176,43 @@ describe('/api/admin/users/[id]', () => {
     expect(updateUserMock).toHaveBeenCalledWith('user-1', { name: 'Updated User', role: 'admin' });
   });
 
+  it('lets one admin demote another when more than one admin remains', async () => {
+    requireAdminMock.mockResolvedValueOnce({ userId: 'admin-2', role: 'admin', email: 'backup@example.com' });
+    getUserMock.mockReturnValue({ id: 'admin-1', email: 'admin@example.com', name: 'Admin One', role: 'admin' });
+    countAdminsMock.mockReturnValue(2);
+    updateUserMock.mockReturnValue({ id: 'admin-1', email: 'admin@example.com', name: 'Admin One', role: 'user' });
+
+    const req = new Request('http://localhost/api/admin/users/admin-1', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: 'user' }),
+    }) as unknown as NextRequest;
+
+    const res = await updateUserRoute(req, { params: Promise.resolve({ id: 'admin-1' }) });
+
+    expect(res.status).toBe(200);
+    expect(updateUserMock).toHaveBeenCalledWith('admin-1', { role: 'user' });
+  });
+
+  it('blocks demoting the last remaining admin', async () => {
+    getUserMock.mockReturnValue({ id: 'admin-1', email: 'admin@example.com', name: 'Admin One', role: 'admin' });
+    countAdminsMock.mockReturnValue(1);
+
+    const req = new Request('http://localhost/api/admin/users/admin-1', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: 'user' }),
+    }) as unknown as NextRequest;
+
+    const res = await updateUserRoute(req, { params: Promise.resolve({ id: 'admin-1' }) });
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({ error: 'At least one admin must remain' });
+    expect(updateUserMock).not.toHaveBeenCalled();
+  });
+
   it('returns 404 when updating a missing user', async () => {
-    updateUserMock.mockReturnValue(undefined);
+    getUserMock.mockReturnValue(undefined);
 
     const req = new Request('http://localhost/api/admin/users/missing', {
       method: 'PUT',
@@ -168,6 +227,7 @@ describe('/api/admin/users/[id]', () => {
   });
 
   it('deletes an existing user', async () => {
+    getUserMock.mockReturnValue({ id: 'user-1', email: 'user@example.com', name: 'User One', role: 'user' });
     deleteUserMock.mockReturnValue(true);
 
     const res = await deleteUserRoute({} as NextRequest, { params: Promise.resolve({ id: 'user-1' }) });
@@ -177,8 +237,32 @@ describe('/api/admin/users/[id]', () => {
     expect(deleteUserMock).toHaveBeenCalledWith('user-1');
   });
 
+  it('lets one admin delete another when more than one admin remains', async () => {
+    requireAdminMock.mockResolvedValueOnce({ userId: 'admin-2', role: 'admin', email: 'backup@example.com' });
+    getUserMock.mockReturnValue({ id: 'admin-1', email: 'admin@example.com', name: 'Admin One', role: 'admin' });
+    countAdminsMock.mockReturnValue(2);
+    deleteUserMock.mockReturnValue(true);
+
+    const res = await deleteUserRoute({} as NextRequest, { params: Promise.resolve({ id: 'admin-1' }) });
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ ok: true });
+    expect(deleteUserMock).toHaveBeenCalledWith('admin-1');
+  });
+
+  it('blocks deleting the last remaining admin', async () => {
+    getUserMock.mockReturnValue({ id: 'admin-1', email: 'admin@example.com', name: 'Admin One', role: 'admin' });
+    countAdminsMock.mockReturnValue(1);
+
+    const res = await deleteUserRoute({} as NextRequest, { params: Promise.resolve({ id: 'admin-1' }) });
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({ error: 'At least one admin must remain' });
+    expect(deleteUserMock).not.toHaveBeenCalled();
+  });
+
   it('returns 404 when deleting a missing user', async () => {
-    deleteUserMock.mockReturnValue(false);
+    getUserMock.mockReturnValue(undefined);
 
     const res = await deleteUserRoute({} as NextRequest, { params: Promise.resolve({ id: 'missing' }) });
 
@@ -187,6 +271,7 @@ describe('/api/admin/users/[id]', () => {
   });
 
   it('returns 500 when a user update fails unexpectedly', async () => {
+    getUserMock.mockReturnValue({ id: 'user-1', email: 'user@example.com', name: 'User One', role: 'user' });
     updateUserMock.mockImplementationOnce(() => {
       throw new Error('db offline');
     });

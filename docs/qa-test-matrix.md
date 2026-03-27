@@ -27,7 +27,7 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 | Workflow | Status | Primary automated coverage | Notes / next gaps |
 | --- | --- | --- | --- |
 | First user becomes admin | `Covered` | `packages/web/__tests__/admin-flow.test.ts` | Core provisioning and role behavior covered. |
-| Create/update/delete users | `Covered` | `packages/web/__tests__/admin-db.integration.test.ts`, `packages/web/__tests__/admin-users-route.test.ts` | DB lifecycle plus route auth/validation/not-found/failure branches are covered. |
+| Create/update/delete users | `Covered` | `packages/web/__tests__/admin-db.integration.test.ts`, `packages/web/__tests__/admin-users-route.test.ts` | DB lifecycle plus route auth/validation/not-found/failure branches are covered, including last-admin protection on update/delete. |
 | Disable users | `Gap` | None | Needs explicit product behavior and tests once disable semantics are finalized. |
 | Create/update/delete agents | `Covered` | `packages/web/__tests__/admin-agent-route-atomicity.test.ts`, `packages/web/__tests__/admin-db.integration.test.ts` | Covers rollback/failure paths and DB state. |
 | Shared LLM settings inherited to agents | `Covered` | `packages/web/__tests__/admin-settings-route.test.ts`, `packages/web/__tests__/admin-settings-page.test.tsx`, `packages/web/__tests__/runtime-sync.integration.test.ts` | Includes persistence and runtime propagation. |
@@ -35,7 +35,7 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 | Admin connector test action | `Partial` | `packages/web/__tests__/admin-connections-test-route.test.ts` | Route covered, but connector-provider permutations are still limited. |
 | Admin MCP server create/list/update/delete | `Covered` | `packages/web/__tests__/admin-mcp-servers-route.test.ts`, `packages/web/__tests__/admin-mcp-server-item-route.test.ts`, `packages/web/__tests__/admin-db.integration.test.ts` | Includes missing-resource, auth, and failure branches. |
 | Admin tool enable/disable | `Covered` | `packages/web/__tests__/admin-tools-route.test.ts`, `packages/web/__tests__/admin-db.integration.test.ts` | Includes unsupported tool, bad payload, auth, and failure branches. |
-| Multiple admins | `Gap` | None | Needs explicit admin/admin interaction coverage at route and UI level. |
+| Multiple admins | `Covered` | `packages/web/__tests__/admin-users-route.test.ts` | Covers second-admin management of other admins plus safeguards that block deleting or demoting the last remaining admin. |
 
 ## User Workflows
 
@@ -86,9 +86,8 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 
 ## Current Priority Gaps
 
-1. Multiple-admin workflow coverage.
-2. User connector auth lifecycle coverage beyond Procore.
-3. Full multi-user concurrent runtime isolation coverage under real execution.
-4. Agent tool loop behavior under real runtime execution.
+1. User connector auth lifecycle coverage beyond Procore.
+2. Full multi-user concurrent runtime isolation coverage under real execution.
+3. Agent tool loop behavior under real runtime execution.
 
 This matrix is the release bar. New features should add or update the relevant rows before they are considered production-ready.

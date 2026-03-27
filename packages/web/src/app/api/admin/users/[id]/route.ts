@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { deleteUser, getUser, updateUser } from '@/lib/admin-db';
+import { countAdmins, deleteUser, getUser, updateUser } from '@/lib/admin-db';
 import { requireAdmin } from '@/lib/api-guard';
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -26,6 +26,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const { id } = await params;
     const body = await request.json();
 
+    const current = getUser(id);
+    if (!current) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+    const nextRole = typeof body.role === 'string' ? body.role : current.role;
+    if (current.role === 'admin' && nextRole !== 'admin' && countAdmins() <= 1) {
+      return NextResponse.json({ error: 'At least one admin must remain' }, { status: 409 });
+    }
+
     const patch: Record<string, unknown> = { ...body };
     const updated = updateUser(id, patch as Parameters<typeof updateUser>[1]);
     if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -47,6 +55,11 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   try {
     await requireAdmin();
     const { id } = await params;
+    const current = getUser(id);
+    if (!current) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (current.role === 'admin' && countAdmins() <= 1) {
+      return NextResponse.json({ error: 'At least one admin must remain' }, { status: 409 });
+    }
     const deleted = deleteUser(id);
     if (!deleted) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json({ ok: true });

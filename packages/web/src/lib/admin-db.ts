@@ -220,6 +220,11 @@ export function getUser(id: string): User | undefined {
   return getDb().prepare('SELECT * FROM users WHERE id = ?').get(id) as User | undefined;
 }
 
+export function countAdmins(): number {
+  const row = getDb().prepare("SELECT COUNT(*) as count FROM users WHERE role = 'admin'").get() as { count: number };
+  return row.count;
+}
+
 export function createUser(data: { email: string; name: string; role?: string }): User {
   const id = genId('user');
   const role = data.role || 'user';
