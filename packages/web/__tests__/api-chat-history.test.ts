@@ -61,6 +61,36 @@ describe('/api/chat/history', () => {
     expect(data.sessionKey).toBe('webchat:user-1:default-chat');
   });
 
+  it('normalizes shared-agent history requests into a per-user namespace', async () => {
+    chatHistoryMock.mockResolvedValue({
+      messages: [
+        { role: 'assistant', content: 'Your private thread', timestamp: 1_700_000_100_000 },
+      ],
+    });
+
+    const req = { nextUrl: new URL('http://localhost/api/chat/history?sessionId=agent:agent-1:webchat:default') } as NextRequest;
+    const res = await GET(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(assertCanAccessAgentMock).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1' }), 'agent-1');
+    expect(chatHistoryMock).toHaveBeenCalledWith('agent:agent-1:webchat:user-1:default', 100);
+    expect(data.sessionKey).toBe('agent:agent-1:webchat:user-1:default');
+    expect(data.messages[0]).toMatchObject({ content: 'Your private thread' });
+  });
+
+  it("rewrites another user's shared-agent session key before loading history", async () => {
+    chatHistoryMock.mockResolvedValue({ messages: [] });
+
+    const req = { nextUrl: new URL('http://localhost/api/chat/history?sessionId=agent:agent-1:webchat:other-user:default') } as NextRequest;
+    const res = await GET(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(chatHistoryMock).toHaveBeenCalledWith('agent:agent-1:webchat:user-1:default', 100);
+    expect(data.sessionKey).toBe('agent:agent-1:webchat:user-1:default');
+  });
+
   it('rejects requests without a session id', async () => {
     const req = { nextUrl: new URL('http://localhost/api/chat/history') } as NextRequest;
     const res = await GET(req);
@@ -83,7 +113,7 @@ describe('/api/chat/history', () => {
     expect(data.code).toBe('forbidden_session');
     expect(writeAuditEventMock).toHaveBeenCalledWith(expect.objectContaining({
       action: 'chat.history.denied',
-      entityId: 'agent:agent-9:webchat:default',
+      entityId: 'agent:agent-9:webchat:user-1:default',
     }));
   });
 

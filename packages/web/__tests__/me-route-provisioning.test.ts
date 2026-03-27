@@ -258,4 +258,36 @@ describe('/api/me provisioning flow', () => {
       }),
     );
   });
+  it('keeps same-named users with colliding id suffixes on separate agent workspaces', async () => {
+    mockUserId = 'alpha-user-123456';
+    mockClerkUser = {
+      id: 'alpha-user-123456',
+      fullName: 'Taylor Crew',
+      firstName: 'Taylor',
+      emailAddresses: [{ emailAddress: 'taylor-a@example.com' }],
+    };
+
+    const first = await POST({} as never);
+    const firstData = await first.json();
+
+    mockUserId = 'beta-user-123456';
+    mockClerkUser = {
+      id: 'beta-user-123456',
+      fullName: 'Taylor Crew',
+      firstName: 'Taylor',
+      emailAddresses: [{ emailAddress: 'taylor-b@example.com' }],
+    };
+
+    const second = await POST({} as never);
+    const secondData = await second.json();
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(firstData.agentId).toBe('taylor-crew-assistant-alpha-user-123456');
+    expect(secondData.agentId).toBe('taylor-crew-assistant-beta-user-123456');
+    expect(firstData.agentId).not.toBe(secondData.agentId);
+    expect(provisionWorkspaceMock).toHaveBeenNthCalledWith(1, 'taylor-crew-assistant-alpha-user-123456');
+    expect(provisionWorkspaceMock).toHaveBeenNthCalledWith(2, 'taylor-crew-assistant-beta-user-123456');
+    expect((testDb.prepare('SELECT COUNT(*) AS count FROM agents').get() as { count: number }).count).toBe(2);
+  });
 });

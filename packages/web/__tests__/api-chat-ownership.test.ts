@@ -54,6 +54,24 @@ describe('/api/chat ownership guard', () => {
     expect(data.sessionId).toBe('webchat:user-1:abc');
   });
 
+  it('normalizes shared-agent webchat sessions into a per-user namespace', async () => {
+    const res = await POST(req({ message: 'hello', stream: false, sessionId: 'agent:agent-own:webchat:default' }));
+    expect(res.status).toBe(200);
+
+    const data = await res.json();
+    expect(data.sessionId).toBe('agent:agent-own:webchat:user-1:default');
+    expect(chatSendMock).toHaveBeenCalledWith('agent:agent-own:webchat:user-1:default', 'hello');
+  });
+
+  it("rewrites another user's shared-agent session key instead of reusing it", async () => {
+    const res = await POST(req({ message: 'hello', stream: false, sessionId: 'agent:agent-own:webchat:other-user:default' }));
+    expect(res.status).toBe(200);
+
+    const data = await res.json();
+    expect(data.sessionId).toBe('agent:agent-own:webchat:user-1:default');
+    expect(chatSendMock).toHaveBeenCalledWith('agent:agent-own:webchat:user-1:default', 'hello');
+  });
+
   it('denies inaccessible agent sessions and emits audit event', async () => {
     assertCanAccessAgentMock.mockImplementationOnce(() => {
       throw new Error('FORBIDDEN');

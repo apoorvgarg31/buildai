@@ -30,12 +30,28 @@ function parseAgentIdFromSessionKey(sessionKey: string): string | null {
   return m?.[1] || null;
 }
 
+function resolveAgentScopedWebchatSession(sessionKey: string, userId: string): string {
+  const parts = sessionKey.split(':');
+  if (parts.length < 3 || parts[0] !== 'agent') return sessionKey;
+  if (parts[2] !== 'webchat') return sessionKey;
+
+  const agentId = parts[1];
+  const tail = parts.slice(3);
+  if (tail.length >= 2) {
+    return tail[0] === userId
+      ? sessionKey
+      : `agent:${agentId}:webchat:${userId}:${tail.slice(1).join(':') || 'default'}`;
+  }
+
+  return `agent:${agentId}:webchat:${userId}:${tail.join(':') || 'default'}`;
+}
+
 function resolveSessionKey(rawSessionId: string | undefined, userId: string): string {
   const id = (rawSessionId || '').trim();
   if (!id) return `webchat:${userId}:${randomSuffix()}`;
 
   // Keep explicit engine session keys if provided, but normalize generic webchat ids
-  if (id.startsWith('agent:')) return id;
+  if (id.startsWith('agent:')) return resolveAgentScopedWebchatSession(id, userId);
   if (id.startsWith('webchat:')) {
     const parts = id.split(':');
     // Force webchat sessions into per-user namespace to block cross-user/session abuse
@@ -51,6 +67,13 @@ function resolveSessionKey(rawSessionId: string | undefined, userId: string): st
 function canUseSessionKey(sessionKey: string, actor: Awaited<ReturnType<typeof requireSignedIn>>): boolean {
   const agentId = parseAgentIdFromSessionKey(sessionKey);
   if (agentId) {
+    if (sessionKey.startsWith(`agent:${agentId}:webchat:`)) {
+      const parts = sessionKey.split(':');
+      if (parts.length >= 5 && parts[3] !== actor.userId) {
+        return false;
+      }
+    }
+
     try {
       assertCanAccessAgent(actor, agentId);
       return true;

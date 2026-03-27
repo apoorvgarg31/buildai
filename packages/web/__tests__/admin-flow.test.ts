@@ -192,7 +192,7 @@ describe('Admin Flow — Auto-provisioning', () => {
     expect(data.role).toBe('admin');
     expect(data.email).toBe('apoorv@buildai.com');
     expect(data.name).toBe('Apoorv Garg');
-    expect(data.agentId).toBe('apoorv-garg-assistant-in-001');
+    expect(data.agentId).toBe('apoorv-garg-assistant-user-admin-001');
   });
 
   it('second user is auto-created as regular user', async () => {
@@ -223,7 +223,7 @@ describe('Admin Flow — Auto-provisioning', () => {
     expect(res.status).toBe(200);
     expect(data.role).toBe('user');
     expect(data.email).toBe('sarah@company.com');
-    expect(data.agentId).toBe('sarah-chen-assistant-pm-002');
+    expect(data.agentId).toBe('sarah-chen-assistant-user-pm-002');
   });
 
   it('existing user is not re-created on subsequent calls', async () => {

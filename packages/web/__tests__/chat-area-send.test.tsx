@@ -167,7 +167,7 @@ describe('ChatArea send and session continuity', () => {
     });
   });
 
-  it('reuses the returned session key on subsequent sends', async () => {
+  it('adopts the scoped history session before sending on a shared agent', async () => {
     const requestBodies: Array<{ message: string; sessionId: string | null }> = [];
 
     vi.stubGlobal(
@@ -180,7 +180,13 @@ describe('ChatArea send and session continuity', () => {
           return { ok: true, json: async () => [] } as Response;
         }
         if (input === '/api/chat/history?sessionId=agent%3Aagent-1%3Awebchat%3Adefault') {
-          return { ok: true, json: async () => ({ messages: [] }) } as Response;
+          return {
+            ok: true,
+            json: async () => ({
+              sessionKey: 'agent:agent-1:webchat:user-1:default',
+              messages: [],
+            }),
+          } as Response;
         }
         if (input === '/api/chat' && init?.method === 'POST') {
           const body = JSON.parse(String(init.body)) as { message: string; sessionId: string | null };
@@ -188,7 +194,7 @@ describe('ChatArea send and session continuity', () => {
 
           return createSseResponse([
             { type: 'delta', text: `Reply for ${body.message}` },
-            { type: 'done', sessionId: 'agent:agent-1:webchat:continued' },
+            { type: 'done', sessionId: 'agent:agent-1:webchat:user-1:continued' },
           ]);
         }
 
@@ -199,7 +205,6 @@ describe('ChatArea send and session continuity', () => {
     render(<ChatArea agentId="agent-1" />);
 
     const input = screen.getByPlaceholderText('Ask Mira anything about your project');
-
     const sendButton = screen.getByTitle('Send message') as HTMLButtonElement;
 
     fireEvent.change(input, { target: { value: 'First message' } });
@@ -223,8 +228,8 @@ describe('ChatArea send and session continuity', () => {
     });
 
     expect(requestBodies).toEqual([
-      { message: 'First message', sessionId: 'agent:agent-1:webchat:default' },
-      { message: 'Second message', sessionId: 'agent:agent-1:webchat:continued' },
+      { message: 'First message', sessionId: 'agent:agent-1:webchat:user-1:default' },
+      { message: 'Second message', sessionId: 'agent:agent-1:webchat:user-1:continued' },
     ]);
   });
 });

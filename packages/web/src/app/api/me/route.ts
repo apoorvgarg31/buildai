@@ -98,7 +98,7 @@ async function provisionMe(userId: string) {
         process.env.BUILDAI_LLM_API_KEY ||
         '';
 
-      const agentIdBase = normalizeSlug(`${row.name || 'user'}-assistant-${userId.slice(-6)}`) || `agent-${userId.slice(-6)}`;
+      const agentIdBase = normalizeSlug(`${row.name || 'user'}-assistant-${userId}`) || `agent-${normalizeSlug(userId) || 'user'}`;
       const agentDisplayName = `${row.name || 'Personal'} Assistant`;
 
       const workspaceDir = workspaceExists(agentIdBase)

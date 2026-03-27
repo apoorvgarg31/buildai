@@ -74,17 +74,30 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
 
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
   useEffect(() => { fetch("/api/chat").then((res) => res.json()).then((data) => setEngineStatus(data.status === "ok" ? "connected" : "mock")).catch(() => setEngineStatus("mock")); }, []);
-  useEffect(() => { if (agentId) { const expected = `agent:${agentId}:webchat:default`; if (sessionId !== expected && messages.length === 0) { setSessionId(expected); setHasOnboarded(false); } } }, [agentId, sessionId, messages.length]);
+  useEffect(() => {
+    if (!agentId) return;
+    const expectedPrefix = `agent:${agentId}:webchat:`;
+    if (!sessionId || !sessionId.startsWith(expectedPrefix)) {
+      setSessionId(`agent:${agentId}:webchat:default`);
+      setHasOnboarded(false);
+      setMessages([]);
+      setCompactionHint('');
+    }
+  }, [agentId, sessionId]);
   useEffect(() => { if (agentId) fetch(`/api/artifacts?agentId=${encodeURIComponent(agentId)}`).then((res) => (res.ok ? res.json() : [])).then((data) => { if (Array.isArray(data)) setArtifacts(data); }).catch(() => undefined); }, [agentId]);
   useEffect(() => {
     if (hasOnboarded) return; setHasOnboarded(true);
     if (!sessionId) { setMessages([]); return; }
     fetch(`/api/chat/history?sessionId=${encodeURIComponent(sessionId)}`).then((res) => res.json()).then((data) => {
+      if (typeof data.sessionKey === "string" && data.sessionKey.length > 0) setSessionId(data.sessionKey);
       if (data.messages?.length > 0) {
         setMessages(data.messages.map((m: { id: string; role: "user" | "assistant"; content: string; timestamp: string }) => ({ id: m.id, role: m.role, content: m.role === "assistant" ? sanitizeContent(m.content) : m.content, timestamp: new Date(m.timestamp) })));
         if (data.messages.length >= 95) setCompactionHint("Older context may be compacted by the engine to keep chat fast.");
-      } else setMessages([]);
-    }).catch(() => setMessages([]));
+      } else {
+        setMessages([]);
+        setCompactionHint("");
+      }
+    }).catch(() => { setMessages([]); setCompactionHint(""); });
   }, [hasOnboarded, sessionId]);
 
   const uploadFile = useCallback(async (file: File) => {

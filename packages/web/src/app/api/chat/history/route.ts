@@ -15,10 +15,26 @@ function parseAgentIdFromSessionKey(sessionKey: string): string | null {
   return m?.[1] || null;
 }
 
+function resolveAgentScopedWebchatSession(sessionKey: string, userId: string): string {
+  const parts = sessionKey.split(':');
+  if (parts.length < 3 || parts[0] !== 'agent') return sessionKey;
+  if (parts[2] !== 'webchat') return sessionKey;
+
+  const agentId = parts[1];
+  const tail = parts.slice(3);
+  if (tail.length >= 2) {
+    return tail[0] === userId
+      ? sessionKey
+      : `agent:${agentId}:webchat:${userId}:${tail.slice(1).join(':') || 'default'}`;
+  }
+
+  return `agent:${agentId}:webchat:${userId}:${tail.join(':') || 'default'}`;
+}
+
 function resolveSessionKey(sessionId: string, userId: string): string {
   const raw = (sessionId || '').trim();
   if (!raw) return '';
-  if (raw.startsWith('agent:')) return raw;
+  if (raw.startsWith('agent:')) return resolveAgentScopedWebchatSession(raw, userId);
   if (raw.startsWith('webchat:')) {
     const parts = raw.split(':');
     if (parts.length >= 3) {
