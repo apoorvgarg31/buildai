@@ -308,7 +308,7 @@ describe('admin agent route atomicity and secret masking', () => {
     mocks.getAgent.mockReturnValue({
       id: 'agent-1',
       name: 'Agent One',
-      user_id: 'user-1',
+      user_id: null,
       model: 'google/gemini-2.0-flash',
       api_key: '••••1234',
       workspace_dir: '../../workspaces/agent-1',
@@ -342,6 +342,42 @@ describe('admin agent route atomicity and secret masking', () => {
     expect(prepareMock).toHaveBeenCalledWith("UPDATE agents SET user_id = NULL, updated_at = datetime('now') WHERE user_id = ? AND id != ?");
     expect(prepareMock).toHaveBeenCalledWith("UPDATE users SET agent_id = NULL, updated_at = datetime('now') WHERE agent_id = ? AND id != ?");
     expect(prepareMock).toHaveBeenCalledWith("UPDATE users SET agent_id = ?, updated_at = datetime('now') WHERE id = ?");
+  });
+
+  it('rejects transferring an owned agent to a different user', async () => {
+    mocks.getDb.mockReturnValue({
+      prepare: vi.fn((sql: string) => {
+        if (sql.includes('SELECT id FROM users')) {
+          return { get: vi.fn(() => ({ id: 'user-2' })) };
+        }
+        return { run: vi.fn(() => ({ changes: 1 })) };
+      }),
+    });
+    mocks.getAgent.mockReturnValue({
+      id: 'agent-1',
+      name: 'Agent One',
+      user_id: 'user-1',
+      model: 'google/gemini-2.0-flash',
+      api_key: '••••1234',
+      workspace_dir: '../../workspaces/agent-1',
+      status: 'active',
+      connection_ids: [],
+    });
+
+    const putReq = new Request('http://localhost/api/admin/agents/agent-1', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: 'user-2' }),
+    }) as unknown as NextRequest;
+
+    const res = await updateAgentRoute(putReq, { params: Promise.resolve({ id: 'agent-1' }) });
+    const body = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(body.code).toBe('conflict');
+    expect(body.details?.reason).toBe('AGENT_OWNERSHIP_CONFLICT');
+    expect(mocks.updateAgent).not.toHaveBeenCalled();
+    expect(mocks.syncRuntimeFromAdminState).not.toHaveBeenCalled();
   });
 
   it('rejects reassignment to a missing user', async () => {

@@ -56,6 +56,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (typeof nextUserId === 'string') {
       const assignedUser = db.prepare('SELECT id FROM users WHERE id = ? LIMIT 1').get(nextUserId) as UserLookup;
       if (!assignedUser?.id) return apiError('not_found', 'Assigned user not found', 404);
+      if (existing.user_id && existing.user_id !== nextUserId) {
+        return apiError('conflict', 'Agent already belongs to another user', 409, {
+          reason: 'AGENT_OWNERSHIP_CONFLICT',
+        });
+      }
     }
 
     const patch = body?.apiKey === undefined
