@@ -90,6 +90,20 @@ describe('/api/admin/tools', () => {
     expect(syncRuntimeFromAdminStateMock).toHaveBeenCalledTimes(1);
   });
 
+  it('rejects tool updates that do not provide an enabled boolean', async () => {
+    const req = new Request('http://localhost/api/admin/tools/browser', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: 'yes' }),
+    }) as unknown as NextRequest;
+
+    const res = await PUT(req, { params: Promise.resolve({ name: 'browser' }) });
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({ error: 'enabled boolean is required' });
+    expect(updateToolPolicyMock).not.toHaveBeenCalled();
+  });
+
   it('rejects unknown tool names', async () => {
     const req = new Request('http://localhost/api/admin/tools/not-a-tool', {
       method: 'PUT',
@@ -103,5 +117,37 @@ describe('/api/admin/tools', () => {
     expect(res.status).toBe(400);
     expect(body.error).toContain('Unsupported tool');
     expect(updateToolPolicyMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 when the caller is not authenticated for tool updates', async () => {
+    requireAdminMock.mockRejectedValueOnce(new Error('UNAUTHENTICATED'));
+
+    const req = new Request('http://localhost/api/admin/tools/browser', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: true }),
+    }) as unknown as NextRequest;
+
+    const res = await PUT(req, { params: Promise.resolve({ name: 'browser' }) });
+
+    expect(res.status).toBe(401);
+    await expect(res.json()).resolves.toEqual({ error: 'Not authenticated' });
+  });
+
+  it('returns 500 when tool policy persistence fails unexpectedly', async () => {
+    updateToolPolicyMock.mockImplementationOnce(() => {
+      throw new Error('db offline');
+    });
+
+    const req = new Request('http://localhost/api/admin/tools/browser', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: true }),
+    }) as unknown as NextRequest;
+
+    const res = await PUT(req, { params: Promise.resolve({ name: 'browser' }) });
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({ error: 'Failed to update tool policy' });
   });
 });

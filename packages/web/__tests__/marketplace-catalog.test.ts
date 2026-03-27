@@ -1,5 +1,43 @@
-import { describe, expect, it } from 'vitest';
-import { getMarketplaceSkill, listMarketplaceSkills, packageSkill } from '../src/lib/marketplace';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { generateInstallToken, getCategories, getMarketplaceSkill, listMarketplaceSkills, packageSkill, verifyInstallToken } from '../src/lib/marketplace';
+
+describe('marketplace helpers', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('marks installed skills and lists unique categories', () => {
+    const skills = listMarketplaceSkills(['pdf', 'brand-guidelines@1']);
+
+    expect(skills.find(skill => skill.id === 'pdf')?.installed).toBe(true);
+    expect(skills.find(skill => skill.id === 'brand-guidelines')?.installed).toBe(true);
+    expect(skills.find(skill => skill.id === 'docx')?.installed).toBe(false);
+
+    const categories = getCategories();
+    expect(categories.length).toBe(new Set(categories).size);
+    expect(categories).toEqual(expect.arrayContaining(['Documents', 'Communication', 'PMIS']));
+  });
+
+  it('generates install tokens that verify, and rejects tampered or expired tokens', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+
+    const token = generateInstallToken('pdf', 'agent-1');
+    expect(verifyInstallToken(token)).toEqual({ skillId: 'pdf', agentId: 'agent-1' });
+
+    const [payload, sig] = token.split('.');
+    const tamperedPayload = Buffer.from(JSON.stringify({ skillId: 'docx', agentId: 'agent-1', exp: 1_700_000_000_000 + 3_600_000, nonce: 'abcd' })).toString('base64url');
+    expect(verifyInstallToken(`${tamperedPayload}.${sig}`)).toBeNull();
+
+    vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000 + 3_600_001);
+    expect(verifyInstallToken(token)).toBeNull();
+    expect(verifyInstallToken('not-a-token')).toBeNull();
+  });
+
+  it('returns null when packaging an unknown skill', () => {
+    expect(packageSkill('missing-skill')).toBeNull();
+    expect(getMarketplaceSkill('missing-skill')).toBeUndefined();
+  });
+});
 
 describe('marketplace Anthropic skill imports', () => {
   it('lists the requested Anthropic skills in the catalog', () => {
