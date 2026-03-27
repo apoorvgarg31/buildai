@@ -16,7 +16,26 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 
-const SKILLS_SOURCE = path.resolve(process.cwd(), '../../packages/engine/skills');
+function resolveSkillsSource(): string {
+  const candidates = [
+    path.resolve(process.cwd(), '../../packages/engine/skills'),
+    path.resolve(process.cwd(), '../engine/skills'),
+    path.resolve(process.cwd(), 'packages/engine/skills'),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  return candidates[0]!;
+}
+
+const SKILLS_SOURCE = resolveSkillsSource();
+
+function readBundledSkillReadme(skillId: string): string {
+  const skillMdPath = path.join(SKILLS_SOURCE, skillId, 'SKILL.md');
+  return fs.readFileSync(skillMdPath, 'utf-8');
+}
 
 export interface MarketplaceSkill {
   id: string;
@@ -473,6 +492,61 @@ Organize and process construction site photography.
 
 ## Coming Soon
 This skill is in development. Contact your Mira admin for early access.`,
+  },
+  {
+    id: 'pdf',
+    name: 'PDF',
+    description: 'Read, inspect, and work with PDF documents using the upstream Anthropic PDF skill.',
+    category: 'Documents',
+    icon: '📄',
+    vendor: 'Anthropic',
+    version: 'main',
+    tags: ['pdf', 'documents', 'anthropic'],
+    readme: readBundledSkillReadme('pdf'),
+  },
+  {
+    id: 'docx',
+    name: 'DOCX',
+    description: 'Create and edit Word documents with the upstream Anthropic DOCX skill.',
+    category: 'Documents',
+    icon: '📝',
+    vendor: 'Anthropic',
+    version: 'main',
+    tags: ['docx', 'word', 'documents', 'anthropic'],
+    readme: readBundledSkillReadme('docx'),
+  },
+  {
+    id: 'xlsx',
+    name: 'XLSX',
+    description: 'Generate and manipulate spreadsheet workbooks with the upstream Anthropic XLSX skill.',
+    category: 'Analytics',
+    icon: '📊',
+    vendor: 'Anthropic',
+    version: 'main',
+    tags: ['xlsx', 'excel', 'spreadsheet', 'anthropic'],
+    readme: readBundledSkillReadme('xlsx'),
+  },
+  {
+    id: 'pptx',
+    name: 'PPTX',
+    description: 'Create and edit presentation decks with the upstream Anthropic PPTX skill.',
+    category: 'Communication',
+    icon: '📽️',
+    vendor: 'Anthropic',
+    version: 'main',
+    tags: ['pptx', 'presentation', 'slides', 'anthropic'],
+    readme: readBundledSkillReadme('pptx'),
+  },
+  {
+    id: 'skill-creator',
+    name: 'Skill Creator',
+    description: 'Create, improve, evaluate, and package skills with the upstream Anthropic skill-creator workflow.',
+    category: 'Developer Tools',
+    icon: '🛠️',
+    vendor: 'Anthropic',
+    version: 'main',
+    tags: ['skills', 'evaluation', 'benchmarking', 'anthropic'],
+    readme: readBundledSkillReadme('skill-creator'),
   },
 ];
 
