@@ -71,7 +71,7 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 | Workspace isolation between users | `Partial` | `packages/web/__tests__/runtime-isolation-file-artifact-api.test.ts`, `packages/web/__tests__/runtime-sync.integration.test.ts`, `packages/web/__tests__/engine-config.test.ts`, `packages/web/__tests__/api-chat-ownership.test.ts`, `packages/web/__tests__/api-chat-history.test.ts`, `packages/web/__tests__/me-route-provisioning.test.ts`, `packages/web/__tests__/admin-agent-route-atomicity.test.ts`, `packages/engine/__tests__/runtime-isolation.test.ts` | File-level isolation, shared-agent chat/session namespacing, unique per-user workspace provisioning, one-user↔one-agent ownership enforcement, and agent-scoped sandbox/session-store separation are covered; true simultaneous live agent execution under load still needs stronger end-to-end testing. |
 | Cron / scheduled runtime loop | `Covered` | `packages/web/__tests__/api-schedule-ownership.test.ts`, `packages/web/__tests__/schedule-page-timezone.test.tsx`, `packages/web/__tests__/runtime-sync.integration.test.ts`, `packages/engine/__tests__/cron-service.test.ts` | Covers ownership, timezone-aware scheduling, recent run history, runtime cleanup around admin changes, and real cron-service execution with persisted run logs. |
 | Agent tool loop behavior | `Gap` | None | Needs runtime/integration coverage against real agent execution. |
-| Message send loop / session persistence | `Partial` | `packages/web/__tests__/chat-area-send.test.tsx`, `packages/web/__tests__/api-chat-history.test.ts`, `packages/web/__tests__/chat-area-history.test.tsx` | In-session continuity and history reload are covered; longer-lived persistence/restart scenarios still need runtime-level tests. |
+| Message send loop / session persistence | `Covered` | `packages/web/__tests__/chat-area-send.test.tsx`, `packages/web/__tests__/api-chat-history.test.ts`, `packages/web/__tests__/chat-area-history.test.tsx`, `packages/engine/__tests__/runtime-isolation.test.ts` | Covers send continuity, history reload, persisted session-store reload, and transcript survival after restart-like cache resets. |
 
 ## Browser-Level Journeys
 
@@ -80,17 +80,16 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 | First-time onboarding preview | `Covered` | `e2e/onboarding-preview.spec.ts` |
 | Admin settings preview | `Covered` | `e2e/admin-settings-preview.spec.ts` |
 | Admin tools / MCP preview | `Covered` | `e2e/admin-control-preview.spec.ts` |
-| Connector install and user auth | `Gap` | Needs browser journey once provider auth mocks are formalized. |
-| Marketplace install from user flow | `Gap` | Needs browser journey from marketplace to installed skill state. |
+| Connector install and user auth | `Covered` | `e2e/connectors-preview.spec.ts` | Covers user-facing Connect and Reconnect handoff with mocked auth targets from the connectors surface. |
+| Marketplace install from user flow | `Covered` | `e2e/marketplace-preview.spec.ts` | Covers install, remove, and reinstall browser flow from the marketplace UI. |
 | Chat history persistence after refresh | `Gap` | Needs browser journey. |
 
 ## Current Priority Gaps
 
-1. Browser E2E for marketplace install and connector auth handoff.
-2. Longer-lived runtime persistence tests across engine restarts.
-3. Multiple-admin workflow coverage.
-4. User connector auth lifecycle coverage beyond Procore.
-5. Full multi-user concurrent runtime isolation coverage under real execution.
-6. Agent tool loop behavior under real runtime execution.
+1. Chat history persistence after refresh browser journey.
+2. Multiple-admin workflow coverage.
+3. User connector auth lifecycle coverage beyond Procore.
+4. Full multi-user concurrent runtime isolation coverage under real execution.
+5. Agent tool loop behavior under real runtime execution.
 
 This matrix is the release bar. New features should add or update the relevant rows before they are considered production-ready.

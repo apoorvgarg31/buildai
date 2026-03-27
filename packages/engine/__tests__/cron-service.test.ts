@@ -114,6 +114,67 @@ describe('CronService end-to-end execution', () => {
     expect(executedJob?.state?.lastStatus).toBe('ok');
   });
 
+  it('reloads persisted jobs from disk and keeps appending run history after service recreation', async () => {
+    const { cron, storePath, enqueueSystemEvent } = createHarness();
+    await cron.start();
+
+    const job = await cron.add({
+      name: 'Restart me',
+      schedule: { kind: 'at', atMs: Date.now() + 10_000 },
+      sessionTarget: 'main',
+      wakeMode: 'now',
+      payload: { kind: 'systemEvent', text: 'Still here after restart.' },
+    });
+
+    await cron.run(job.id, 'force');
+    cron.stop();
+
+    const persisted = JSON.parse(fs.readFileSync(storePath, 'utf-8'));
+    persisted.jobs[0].name = 'Restarted job';
+    persisted.jobs[0].description = 'Updated on disk while service was stopped';
+    fs.writeFileSync(storePath, JSON.stringify(persisted, null, 2), 'utf-8');
+
+    const logPath = resolveCronRunLogPath({ storePath, jobId: job.id });
+    const serviceAfterRestart = new CronService({
+      storePath,
+      cronEnabled: true,
+      enqueueSystemEvent,
+      requestHeartbeatNow: vi.fn(),
+      runHeartbeatOnce: vi.fn(async () => ({ status: 'ran' as const })),
+      runIsolatedAgentJob: vi.fn(async () => ({ status: 'ok' as const, summary: 'isolated ok', outputText: 'isolated ok' })),
+      log: noopLogger(),
+      onEvent: (evt) => {
+        if (evt.action !== 'finished') return;
+        void appendCronRunLog(logPath, {
+          ts: Date.now(),
+          jobId: evt.jobId,
+          action: 'finished',
+          status: evt.status,
+          error: evt.error,
+          summary: evt.summary,
+          runAtMs: evt.runAtMs,
+          durationMs: evt.durationMs,
+          nextRunAtMs: evt.nextRunAtMs,
+        });
+      },
+    });
+
+    cleanup.push(() => serviceAfterRestart.stop());
+    await serviceAfterRestart.start();
+
+    const visible = await serviceAfterRestart.list({ includeDisabled: true });
+    expect(visible.find((item) => item.id === job.id)).toMatchObject({
+      name: 'Restarted job',
+      description: 'Updated on disk while service was stopped',
+    });
+
+    await serviceAfterRestart.run(job.id, 'force');
+    const entries = await readCronRunLogEntries(logPath, { jobId: job.id, limit: 10 });
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toMatchObject({ summary: 'Still here after restart.' });
+    expect(entries[1]).toMatchObject({ summary: 'Still here after restart.' });
+  });
+
   it('supports timezone-preserving schedule lifecycle: list, disable, re-enable, force-run, and remove', async () => {
     const { cron, storePath, enqueueSystemEvent, requestHeartbeatNow } = createHarness();
     await cron.start();

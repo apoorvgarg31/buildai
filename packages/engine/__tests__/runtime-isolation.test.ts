@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { updateSessionStore, loadSessionStore, clearSessionStoreCacheForTest } from '../dist/config/sessions/store.js';
+import { readSessionMessages, readLastMessagePreviewFromTranscript } from '../dist/gateway/session-utils.fs.js';
 import { resolveStorePath } from '../dist/config/sessions/paths.js';
 import { toAgentStoreSessionKey } from '../dist/routing/session-key.js';
 import { resolveSandboxScopeKey, resolveSandboxWorkspaceDir } from '../dist/agents/sandbox/shared.js';
@@ -70,6 +71,47 @@ describe('runtime isolation primitives', () => {
       'agent:agent-a:thread:4',
       'agent:agent-a:thread:5',
     ]);
+  });
+
+  it('reloads persisted session state and transcript history after a restart-like cache reset', async () => {
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'buildai-runtime-restart-'));
+    cleanup.push(tmpRoot);
+
+    const storePath = path.join(tmpRoot, 'agent-a', 'sessions.json');
+    const transcriptPath = path.join(tmpRoot, 'agent-a', 'sess-a.jsonl');
+
+    await updateSessionStore(storePath, (store) => {
+      store['agent:agent-a:main'] = {
+        sessionId: 'sess-a',
+        sessionFile: transcriptPath,
+        updatedAt: 1,
+      };
+    });
+
+    fs.mkdirSync(path.dirname(transcriptPath), { recursive: true });
+    fs.writeFileSync(
+      transcriptPath,
+      [
+        JSON.stringify({ message: { role: 'user', content: 'Persistent question' } }),
+        JSON.stringify({ message: { role: 'assistant', content: 'Persistent answer' } }),
+      ].join('\n') + '\n',
+      'utf-8',
+    );
+
+    clearSessionStoreCacheForTest();
+
+    const reloaded = loadSessionStore(storePath);
+    expect(reloaded['agent:agent-a:main']).toMatchObject({
+      sessionId: 'sess-a',
+      sessionFile: transcriptPath,
+    });
+
+    const messages = readSessionMessages('sess-a', storePath, transcriptPath);
+    expect(messages).toEqual([
+      { role: 'user', content: 'Persistent question' },
+      { role: 'assistant', content: 'Persistent answer' },
+    ]);
+    expect(readLastMessagePreviewFromTranscript('sess-a', storePath, transcriptPath)).toBe('Persistent answer');
   });
 
   it('derives distinct sandbox scope keys and workspace roots per agent', () => {
