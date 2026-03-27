@@ -44,7 +44,7 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 | Sign-in and `/api/me` provisioning | `Covered` | `packages/web/__tests__/me-route-provisioning.test.ts`, `packages/web/__tests__/admin-flow.test.ts` | Includes idempotency and first-user admin behavior. |
 | Personal agent + workspace creation | `Covered` | `packages/web/__tests__/me-route-provisioning.test.ts`, `packages/web/__tests__/runtime-sync.integration.test.ts` | Runtime manifest and auth profile sync are also covered. |
 | First-time onboarding | `Covered` | `packages/web/__tests__/workspace-onboarding-page.test.tsx`, `packages/web/__tests__/home-onboarding-routing.test.tsx`, Playwright preview | Browser-level path is verified. |
-| User settings persist | `Partial` | `packages/web/__tests__/admin-settings-page.test.tsx` (admin settings only) | User-facing settings route/page still need direct workflow coverage. |
+| User settings persist | `Covered` | `packages/web/__tests__/settings-page.test.tsx`, `packages/web/__tests__/user-settings.test.ts`, `packages/web/__tests__/personality-api.test.ts` | Covers load, save, failure handling, and USER.md persistence for user-facing workspace settings. |
 | Files save/read in workspace | `Partial` | `packages/web/__tests__/files-api.test.ts`, `packages/web/__tests__/runtime-isolation-file-artifact-api.test.ts` | Needs broader end-to-end workspace artifact lifecycle coverage. |
 | Watchlist create/update/delete | `Covered` | `packages/web/__tests__/watchlist-api.test.ts` | Good route coverage exists. |
 | Schedule create/pause/run/delete | `Covered` | `packages/web/__tests__/schedule-page-timezone.test.tsx`, `packages/web/__tests__/api-schedule-ownership.test.ts` | UI and API coverage now both exist. |
@@ -87,10 +87,10 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 ## Current Priority Gaps
 
 1. Admin user route coverage for create/update/delete/disable semantics.
-2. User-facing settings persistence coverage.
-3. Skill disable/uninstall workflow coverage.
-4. Runtime loop, cron, and multi-user isolation coverage.
-5. Browser E2E for marketplace install and connector auth handoff.
-6. Longer-lived runtime persistence tests across engine restarts.
+2. Skill disable/uninstall workflow coverage.
+3. Runtime loop, cron, and multi-user isolation coverage.
+4. Browser E2E for marketplace install and connector auth handoff.
+5. Longer-lived runtime persistence tests across engine restarts.
+6. Multiple-admin workflow coverage.
 
 This matrix is the release bar. New features should add or update the relevant rows before they are considered production-ready.
