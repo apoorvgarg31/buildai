@@ -578,18 +578,60 @@ export interface UserSkillInstall {
 }
 
 export function listUserSkillInstalls(userId: string): UserSkillInstall[] {
-  return getDb().prepare('SELECT * FROM user_skill_installs WHERE user_id = ? ORDER BY created_at DESC').all(userId) as UserSkillInstall[];
+  return getDb().prepare('SELECT user_id, skill_id, source, created_at, updated_at FROM user_skill_installs WHERE user_id = ? ORDER BY created_at DESC').all(userId) as UserSkillInstall[];
+}
+
+function userSkillInstallsHasLegacyOrgId(db: Database.Database): boolean {
+  const cols = db.prepare('PRAGMA table_info(user_skill_installs)').all() as Array<{ name: string }>;
+  return cols.some((col) => col.name === 'org_id');
+}
+
+function getUserSkillInstallLegacyOrgId(db: Database.Database, userId: string): string {
+  const existing = db.prepare(`
+    SELECT org_id
+    FROM user_skill_installs
+    WHERE user_id = ? AND org_id IS NOT NULL AND org_id != ''
+    ORDER BY updated_at DESC
+    LIMIT 1
+  `).get(userId) as { org_id?: string | null } | undefined;
+  return existing?.org_id || 'legacy-single-tenant';
 }
 
 export function upsertUserSkillInstall(data: { userId: string; skillId: string; source?: string }): UserSkillInstall {
   const db = getDb();
-  db.prepare(`
-    INSERT INTO user_skill_installs (user_id, skill_id, source)
-    VALUES (?, ?, ?)
-    ON CONFLICT(user_id, skill_id)
-    DO UPDATE SET source = excluded.source, updated_at = datetime('now')
-  `).run(data.userId, data.skillId, data.source || 'public');
-  return db.prepare('SELECT * FROM user_skill_installs WHERE user_id = ? AND skill_id = ?').get(data.userId, data.skillId) as UserSkillInstall;
+  const source = data.source || 'public';
+
+  if (userSkillInstallsHasLegacyOrgId(db)) {
+    const existing = db.prepare(`
+      SELECT org_id
+      FROM user_skill_installs
+      WHERE user_id = ? AND skill_id = ?
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `).get(data.userId, data.skillId) as { org_id?: string | null } | undefined;
+
+    if (existing) {
+      db.prepare(`
+        UPDATE user_skill_installs
+        SET source = ?, updated_at = datetime('now')
+        WHERE user_id = ? AND skill_id = ?
+      `).run(source, data.userId, data.skillId);
+    } else {
+      db.prepare(`
+        INSERT INTO user_skill_installs (user_id, org_id, skill_id, source)
+        VALUES (?, ?, ?, ?)
+      `).run(data.userId, getUserSkillInstallLegacyOrgId(db, data.userId), data.skillId, source);
+    }
+  } else {
+    db.prepare(`
+      INSERT INTO user_skill_installs (user_id, skill_id, source)
+      VALUES (?, ?, ?)
+      ON CONFLICT(user_id, skill_id)
+      DO UPDATE SET source = excluded.source, updated_at = datetime('now')
+    `).run(data.userId, data.skillId, source);
+  }
+
+  return db.prepare('SELECT user_id, skill_id, source, created_at, updated_at FROM user_skill_installs WHERE user_id = ? AND skill_id = ? ORDER BY updated_at DESC LIMIT 1').get(data.userId, data.skillId) as UserSkillInstall;
 }
 
 export function deleteUserSkillInstall(userId: string, skillId: string): boolean {

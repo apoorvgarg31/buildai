@@ -47,19 +47,20 @@ export default function MarketplacePage() {
   const [agentId, setAgentId] = useState<string | null>(null);
   const [busySkillId, setBusySkillId] = useState<string | null>(null);
 
-  const refreshSkills = () => {
+  const refreshSkills = async () => {
     const qs = agentId ? `?agentId=${encodeURIComponent(agentId)}` : "";
-    fetch(`/api/marketplace/skills${qs}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setSkills(data.skills || []);
-        setCategories(data.categories || []);
-      })
-      .catch(console.error);
+    try {
+      const res = await fetch(`/api/marketplace/skills${qs}`, { cache: "no-store" });
+      const data = await res.json();
+      setSkills(data.skills || []);
+      setCategories(data.categories || []);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   useEffect(() => {
-    fetch("/api/me")
+    fetch("/api/me", { cache: "no-store" })
       .then((r) => r.json())
       .then((me) => {
         const aid = me?.agentId || null;
@@ -100,7 +101,20 @@ export default function MarketplacePage() {
         body: JSON.stringify({ agentId }),
       });
       if (!res.ok) throw new Error("Install failed");
-      refreshSkills();
+      setSkills((current) =>
+        current.map((entry) =>
+          entry.id === skill.id
+            ? {
+                ...entry,
+                installedByUser: true,
+                effectiveSource: "user_installed_public",
+                removableByUser: true,
+                installablePublic: false,
+              }
+            : entry,
+        ),
+      );
+      await refreshSkills();
     } catch (e) {
       console.error(e);
     } finally {
@@ -116,7 +130,20 @@ export default function MarketplacePage() {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Remove failed");
-      refreshSkills();
+      setSkills((current) =>
+        current.map((entry) =>
+          entry.id === skill.id
+            ? {
+                ...entry,
+                installedByUser: false,
+                effectiveSource: "public",
+                removableByUser: false,
+                installablePublic: true,
+              }
+            : entry,
+        ),
+      );
+      await refreshSkills();
     } catch (e) {
       console.error(e);
     } finally {

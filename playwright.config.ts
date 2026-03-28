@@ -34,6 +34,15 @@ export default defineConfig({
         storageState: adminAuthFile,
       },
     },
+    {
+      name: 'user-chromium',
+      testMatch: /user-.*\.spec\.ts/,
+      dependencies: ['admin-setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: adminAuthFile,
+      },
+    },
   ],
   webServer: useExistingServer ? undefined : {
     command: 'npm run dev:web',
