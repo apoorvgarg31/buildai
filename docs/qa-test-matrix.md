@@ -70,7 +70,7 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 | Engine config mutation | `Covered` | `packages/web/__tests__/engine-config.test.ts` | Covers auth profiles and config add/remove behavior. |
 | Workspace isolation between users | `Covered` | `packages/web/__tests__/runtime-isolation-file-artifact-api.test.ts`, `packages/web/__tests__/runtime-sync.integration.test.ts`, `packages/web/__tests__/engine-config.test.ts`, `packages/web/__tests__/api-chat-ownership.test.ts`, `packages/web/__tests__/api-chat-history.test.ts`, `packages/web/__tests__/me-route-provisioning.test.ts`, `packages/web/__tests__/admin-agent-route-atomicity.test.ts`, `packages/engine/__tests__/runtime-isolation.test.ts`, `packages/engine/__tests__/runtime-concurrency.test.ts` | Covers file-level isolation, shared-agent chat/session namespacing, unique per-user workspace provisioning, one-user↔one-agent ownership enforcement, agent-scoped sandbox/session-store separation, and concurrent transcript writes without cross-agent bleed. |
 | Cron / scheduled runtime loop | `Covered` | `packages/web/__tests__/api-schedule-ownership.test.ts`, `packages/web/__tests__/schedule-page-timezone.test.tsx`, `packages/web/__tests__/runtime-sync.integration.test.ts`, `packages/engine/__tests__/cron-service.test.ts` | Covers ownership, timezone-aware scheduling, recent run history, runtime cleanup around admin changes, and real cron-service execution with persisted run logs. |
-| Agent tool loop behavior | `Gap` | None | Needs runtime/integration coverage against real agent execution. |
+| Agent tool loop behavior | `Covered` | `packages/engine/__tests__/tool-loop-runtime.test.ts` | Covers allowed tool execution, denied-tool filtering, agent-specific overrides, and sandbox path enforcement at runtime tool execution. |
 | Message send loop / session persistence | `Covered` | `packages/web/__tests__/chat-area-send.test.tsx`, `packages/web/__tests__/api-chat-history.test.ts`, `packages/web/__tests__/chat-area-history.test.tsx`, `packages/engine/__tests__/runtime-isolation.test.ts` | Covers send continuity, history reload, persisted session-store reload, and transcript survival after restart-like cache resets. |
 
 ## Browser-Level Journeys
@@ -86,6 +86,6 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 
 ## Current Priority Gaps
 
-1. Agent tool loop behavior under real runtime execution.
+None in the current core release matrix. Remaining work is now provider breadth, live channel integrations, and higher-cost stress/live-environment validation rather than uncovered core product workflows.
 
 This matrix is the release bar. New features should add or update the relevant rows before they are considered production-ready.
