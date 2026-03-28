@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 const requireSignedInMock = vi.hoisted(() => vi.fn());
 const assertCanAccessAgentMock = vi.hoisted(() => vi.fn());
 const writeAuditEventMock = vi.hoisted(() => vi.fn());
-const requestMock = vi.hoisted(() => vi.fn());
+const requestRuntimeGatewayMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../src/lib/api-guard', () => ({
   requireSignedIn: requireSignedInMock,
@@ -15,10 +15,8 @@ vi.mock('../src/lib/admin-db', () => ({
   writeAuditEvent: writeAuditEventMock,
 }));
 
-vi.mock('../src/lib/gateway-client', () => ({
-  getGatewayClient: vi.fn(() => ({
-    request: requestMock,
-  })),
+vi.mock('../src/lib/runtime-gateway', () => ({
+  requestRuntimeGateway: requestRuntimeGatewayMock,
 }));
 
 import { GET, POST } from '../src/app/api/schedule/route';
@@ -44,13 +42,13 @@ describe('/api/schedule ownership and scoping', () => {
   });
 
   it('GET filters schedules to actor-owned jobs', async () => {
-    requestMock.mockResolvedValueOnce({
+    requestRuntimeGatewayMock.mockResolvedValueOnce({
       jobs: [
         { id: '1', name: '[owner:user-1] [agent:agent-own] Daily' },
         { id: '2', name: '[owner:user-2] [agent:agent-other] Daily' },
       ],
     });
-    requestMock.mockResolvedValueOnce({ entries: [] });
+    requestRuntimeGatewayMock.mockResolvedValueOnce({ entries: [] });
 
     const res = await GET();
     expect(res.status).toBe(200);
@@ -60,13 +58,13 @@ describe('/api/schedule ownership and scoping', () => {
   });
 
   it('includes recent run history for accessible jobs only', async () => {
-    requestMock.mockResolvedValueOnce({
+    requestRuntimeGatewayMock.mockResolvedValueOnce({
       jobs: [
         { id: 'job-1', name: '[owner:user-1] [agent:agent-own] Daily' },
         { id: 'job-2', name: '[owner:user-2] [agent:agent-other] Daily' },
       ],
     });
-    requestMock.mockResolvedValueOnce({
+    requestRuntimeGatewayMock.mockResolvedValueOnce({
       entries: [
         { jobId: 'job-1', action: 'finished', status: 'ok', ts: 1710000000000, summary: 'sent summary' },
       ],
@@ -80,12 +78,12 @@ describe('/api/schedule ownership and scoping', () => {
     expect(data.jobs[0].recentRuns).toEqual([
       expect.objectContaining({ jobId: 'job-1', status: 'ok', summary: 'sent summary' }),
     ]);
-    expect(requestMock).toHaveBeenCalledWith('cron.runs', { jobId: 'job-1', limit: 5 });
-    expect(requestMock).not.toHaveBeenCalledWith('cron.runs', { jobId: 'job-2', limit: 5 });
+    expect(requestRuntimeGatewayMock).toHaveBeenCalledWith('cron.runs', { jobId: 'job-1', limit: 5 });
+    expect(requestRuntimeGatewayMock).not.toHaveBeenCalledWith('cron.runs', { jobId: 'job-2', limit: 5 });
   });
 
   it('denies update for non-owned schedule and writes deny audit', async () => {
-    requestMock.mockResolvedValueOnce({
+    requestRuntimeGatewayMock.mockResolvedValueOnce({
       jobs: [{ id: 'j-2', name: '[owner:user-2] [agent:agent-other] Daily' }],
     });
 
@@ -97,12 +95,12 @@ describe('/api/schedule ownership and scoping', () => {
   });
 
   it('adds schedules with owner+agent prefix', async () => {
-    requestMock.mockResolvedValueOnce({ ok: true });
+    requestRuntimeGatewayMock.mockResolvedValueOnce({ ok: true });
 
     const res = await POST(req({ action: 'add', hour: 8, minute: 30, name: 'Morning' }));
     expect(res.status).toBe(200);
 
-    const addCall = requestMock.mock.calls.find((c) => c[0] === 'cron.add');
+    const addCall = requestRuntimeGatewayMock.mock.calls.find((c) => c[0] === 'cron.add');
     expect(addCall).toBeDefined();
     expect(String(addCall?.[1]?.job?.name || '')).toContain('[owner:user-1] [agent:agent-own]');
     expect(addCall?.[1]?.job?.schedule?.tz).toBe('UTC');
@@ -129,17 +127,17 @@ describe('/api/schedule ownership and scoping', () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.code).toBe('validation_error');
-    expect(requestMock).not.toHaveBeenCalled();
+    expect(requestRuntimeGatewayMock).not.toHaveBeenCalled();
   });
 
   it('hides partially scoped legacy jobs from non-admin users', async () => {
-    requestMock.mockResolvedValueOnce({
+    requestRuntimeGatewayMock.mockResolvedValueOnce({
       jobs: [
         { id: 'legacy-user', name: '[owner:user-1] Legacy main-session job' },
         { id: 'owned', name: '[owner:user-1] [agent:agent-own] Daily' },
       ],
     });
-    requestMock.mockResolvedValueOnce({ entries: [] });
+    requestRuntimeGatewayMock.mockResolvedValueOnce({ entries: [] });
 
     const res = await GET();
     expect(res.status).toBe(200);
@@ -148,7 +146,7 @@ describe('/api/schedule ownership and scoping', () => {
   });
 
   it('denies manual run of partially scoped legacy jobs for non-admin users', async () => {
-    requestMock.mockResolvedValueOnce({
+    requestRuntimeGatewayMock.mockResolvedValueOnce({
       jobs: [{ id: 'legacy-user', name: '[owner:user-1] Legacy main-session job' }],
     });
 
@@ -166,13 +164,13 @@ describe('/api/schedule ownership and scoping', () => {
       agentId: null,
       email: 'admin@example.com',
     });
-    requestMock.mockResolvedValueOnce({
+    requestRuntimeGatewayMock.mockResolvedValueOnce({
       jobs: [{ id: 'legacy-admin', name: '[owner:user-1] Legacy main-session job' }],
     });
-    requestMock.mockResolvedValueOnce({ ok: true });
+    requestRuntimeGatewayMock.mockResolvedValueOnce({ ok: true });
 
     const res = await POST(req({ action: 'run', jobId: 'legacy-admin' }));
     expect(res.status).toBe(200);
-    expect(requestMock).toHaveBeenCalledWith('cron.run', { jobId: 'legacy-admin' });
+    expect(requestRuntimeGatewayMock).toHaveBeenCalledWith('cron.run', { jobId: 'legacy-admin' });
   });
 });

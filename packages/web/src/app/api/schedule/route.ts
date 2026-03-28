@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getGatewayClient } from '@/lib/gateway-client';
+import { requestRuntimeGateway } from '@/lib/runtime-gateway';
 import { assertCanAccessAgent, requireSignedIn } from '@/lib/api-guard';
 import { apiError } from '@/lib/api-error';
 import { writeAuditEvent } from '@/lib/admin-db';
@@ -65,7 +65,6 @@ function canAccessJob(actor: Awaited<ReturnType<typeof requireSignedIn>>, job: C
   const name = String(job.name || '');
   const parsed = parseOwnerFromJobName(name);
 
-  // Legacy or malformed jobs that are not fully owner+agent scoped are admin-only.
   if (!parsed.agentId || !parsed.ownerUserId) {
     return actor.role === 'admin';
   }
@@ -97,16 +96,20 @@ function auditDenied(actor: Awaited<ReturnType<typeof requireSignedIn>>, action:
   });
 }
 
-async function loadJobById(client: ReturnType<typeof getGatewayClient>, jobId: string): Promise<CronJob | null> {
-  const listRes = await client.request('cron.list', { includeDisabled: true });
-  const jobs = getJobsPayload(listRes);
-  return jobs.find((j) => jobIdOf(j) === jobId) || null;
+async function loadAllJobs(): Promise<CronJob[]> {
+  const listRes = await requestRuntimeGateway('cron.list', { includeDisabled: true });
+  return getJobsPayload(listRes);
 }
 
-async function loadRecentRuns(client: ReturnType<typeof getGatewayClient>, jobId: string): Promise<CronRunEntry[]> {
+async function loadJobById(jobId: string): Promise<CronJob | null> {
+  const jobs = await loadAllJobs();
+  return jobs.find((job) => jobIdOf(job) === jobId) || null;
+}
+
+async function loadRecentRuns(jobId: string): Promise<CronRunEntry[]> {
   if (!jobId) return [];
   try {
-    const runsRes = await client.request('cron.runs', { jobId, limit: 5 });
+    const runsRes = await requestRuntimeGateway('cron.runs', { jobId, limit: 5 });
     return getRunsPayload(runsRes);
   } catch {
     return [];
@@ -135,14 +138,11 @@ function isValidMinute(value: unknown): value is number {
 export async function GET() {
   try {
     const actor = await requireSignedIn();
-    const client = getGatewayClient();
-    const res = await client.request('cron.list', { includeDisabled: true });
-
-    const jobs = getJobsPayload(res);
-    const filtered = jobs.filter((j) => canAccessJob(actor, j));
+    const jobs = await loadAllJobs();
+    const filtered = jobs.filter((job) => canAccessJob(actor, job));
     const hydrated = await Promise.all(filtered.map(async (job) => ({
       ...job,
-      recentRuns: await loadRecentRuns(client, jobIdOf(job)),
+      recentRuns: await loadRecentRuns(jobIdOf(job)),
     })));
 
     return NextResponse.json({ jobs: hydrated });
@@ -160,7 +160,6 @@ export async function POST(request: NextRequest) {
   try {
     const actor = await requireSignedIn();
     const body = (await request.json()) as ScheduleBody;
-    const client = getGatewayClient();
 
     const action = body.action || 'add';
 
@@ -207,7 +206,7 @@ export async function POST(request: NextRequest) {
         enabled: body.enabled ?? true,
       };
 
-      const out = await client.request('cron.add', { job });
+      const out = await requestRuntimeGateway('cron.add', { job });
       return NextResponse.json({ ok: true, result: out });
     }
 
@@ -218,7 +217,7 @@ export async function POST(request: NextRequest) {
         return apiError('validation_error', 'enabled must be a boolean', 400);
       }
 
-      const job = await loadJobById(client, jobId);
+      const job = await loadJobById(jobId);
       if (!job) {
         return apiError('not_found', 'Schedule not found', 404, { jobId });
       }
@@ -228,16 +227,16 @@ export async function POST(request: NextRequest) {
       }
 
       if (action === 'update') {
-        const out = await client.request('cron.update', { jobId, patch: { enabled: body.enabled } });
+        const out = await requestRuntimeGateway('cron.update', { jobId, patch: { enabled: body.enabled } });
         return NextResponse.json({ ok: true, result: out });
       }
 
       if (action === 'remove') {
-        const out = await client.request('cron.remove', { jobId });
+        const out = await requestRuntimeGateway('cron.remove', { jobId });
         return NextResponse.json({ ok: true, result: out });
       }
 
-      const out = await client.request('cron.run', { jobId });
+      const out = await requestRuntimeGateway('cron.run', { jobId });
       return NextResponse.json({ ok: true, result: out });
     }
 
