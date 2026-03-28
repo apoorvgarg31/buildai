@@ -30,6 +30,7 @@ export default function AdminUsersPage() {
   const [formName, setFormName] = useState("");
   const [formEmail, setFormEmail] = useState("");
   const [formRole, setFormRole] = useState("user");
+  const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -48,7 +49,7 @@ export default function AdminUsersPage() {
       if (usersRes.ok) setUsers(await usersRes.json());
       if (agentsRes.ok) setAgents(await agentsRes.json());
     } catch {
-      // ignore
+      setError("We could not load admin users right now.");
     } finally {
       setLoading(false);
     }
@@ -59,6 +60,8 @@ export default function AdminUsersPage() {
   }, [fetchData]);
 
   const handleAdd = async () => {
+    setError(null);
+
     const payload: Record<string, unknown> = {
       name: formName,
       email: formEmail,
@@ -71,28 +74,66 @@ export default function AdminUsersPage() {
       body: JSON.stringify(payload),
     });
 
-    if (res.ok) {
-      setShowAddModal(false);
-      setFormName("");
-      setFormEmail("");
-      setFormRole("user");
-      fetchData();
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      setError(data?.error || "We could not create that user.");
+      return;
     }
+
+    setShowAddModal(false);
+    setFormName("");
+    setFormEmail("");
+    setFormRole("user");
+    await fetchData();
   };
 
   const handleAssignAgent = async (userId: string, agentId: string | null) => {
-    await fetch(`/api/admin/users/${userId}`, {
+    setError(null);
+    const res = await fetch(`/api/admin/users/${userId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ agent_id: agentId || null }),
     });
-    fetchData();
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      setError(data?.error || "We could not update that user.");
+      return;
+    }
+
+    await fetchData();
+  };
+
+  const handleRoleChange = async (userId: string, role: string) => {
+    setError(null);
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      setError(data?.error || "We could not update that user role.");
+      await fetchData();
+      return;
+    }
+
+    await fetchData();
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this user?")) return;
-    await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
-    fetchData();
+    setError(null);
+    const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      setError(data?.error || "We could not delete that user.");
+      return;
+    }
+
+    await fetchData();
   };
 
   return (
@@ -106,10 +147,16 @@ export default function AdminUsersPage() {
         </button>
       }
     >
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-6xl space-y-4">
+        {error ? (
+          <SectionCard className="border-rose-200 bg-rose-50/70">
+            <p className="text-sm text-rose-700">{error}</p>
+          </SectionCard>
+        ) : null}
+
         {loading ? (
           <SectionCard>
-            <p className="text-sm text-slate-500">Loading users…</p>
+            <p className="text-sm text-slate-500">Loading users...</p>
           </SectionCard>
         ) : users.length === 0 ? (
           <EmptyState
@@ -145,12 +192,21 @@ export default function AdminUsersPage() {
                         </div>
                       </td>
                       <td className="px-5 py-4 align-middle">
-                        <span className={`mira-pill ${user.role === "admin" ? "bg-violet-100 text-violet-700" : "bg-sky-100 text-sky-700"}`}>
-                          {user.role}
-                        </span>
+                        <label className="sr-only" htmlFor={`role-${user.id}`}>Role for {user.name}</label>
+                        <select
+                          id={`role-${user.id}`}
+                          aria-label={`Role for ${user.name}`}
+                          value={user.role}
+                          onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                          className="mira-select px-3 py-2 text-sm"
+                        >
+                          <option value="user">User</option>
+                          <option value="admin">Admin</option>
+                        </select>
                       </td>
                       <td className="px-5 py-4 align-middle">
                         <select
+                          aria-label={`Agent for ${user.name}`}
                           value={user.agent_id || ""}
                           onChange={(e) => handleAssignAgent(user.id, e.target.value || null)}
                           className="mira-select px-3 py-2 text-sm"

@@ -141,6 +141,26 @@ describe('admin agent route atomicity and secret masking', () => {
     expect(mocks.syncRuntimeFromAdminState).toHaveBeenCalledTimes(1);
   });
 
+  it('does not implicitly assign a newly created admin agent to the current admin user', async () => {
+    mocks.createAgent.mockImplementation(({ userId }: { userId?: string }) => ({
+      id: 'agent-1',
+      name: 'Agent One',
+      user_id: userId ?? null,
+      model: 'google/gemini-2.0-flash',
+      api_key: '••••1234',
+      workspace_dir: '../../workspaces/agent-1',
+      status: 'active',
+      connection_ids: [],
+    }));
+
+    const res = await createAgentRoute(jsonRequest({ name: 'Agent One', apiKey: 'secret-1234' }));
+    const body = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(body.user_id).toBeNull();
+    expect(mocks.createAgent).toHaveBeenCalledWith(expect.objectContaining({ userId: undefined }));
+  });
+
   it('allows agent creation without a per-agent api key when the admin shared key exists', async () => {
     mocks.getAdminSettings.mockReturnValue({
       companyName: 'Mira',

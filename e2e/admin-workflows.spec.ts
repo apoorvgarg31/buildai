@@ -19,15 +19,15 @@ async function deleteRowByText(page: Page, text: string) {
 }
 
 async function deleteCardByText(page: Page, text: string) {
-  const card = page.locator('div').filter({ hasText: text }).filter({ has: page.getByRole('button', { name: 'Delete', exact: true }) }).first();
+  const card = page.locator('section').filter({ has: page.getByRole('heading', { name: text, exact: true }) }).first();
   await expect(card).toBeVisible({ timeout: 30000 });
   await confirmNextDialog(page);
   await card.getByRole('button', { name: 'Delete', exact: true }).click();
-  await expect(page.getByText(text, { exact: true })).toHaveCount(0, { timeout: 30000 });
+  await expect(page.getByRole('heading', { name: text, exact: true })).toHaveCount(0, { timeout: 30000 });
 }
 
 test.describe.serial('admin workflow coverage', () => {
-  test('creates and deletes a user from the admin users screen', async ({ page }) => {
+  test('creates, promotes, and deletes a user from the admin users screen', async ({ page }) => {
     const suffix = uniqueSuffix();
     const name = `Playwright Admin User ${suffix}`;
     const email = `playwright-admin-${suffix}@example.com`;
@@ -45,8 +45,50 @@ test.describe.serial('admin workflow coverage', () => {
     await modal.getByRole('button', { name: 'Add user', exact: true }).click();
     await expect((await createResponse).ok()).toBeTruthy();
 
-    await expect(page.getByText(name, { exact: true })).toBeVisible({ timeout: 30000 });
+    const row = page.locator('tr').filter({ hasText: name }).first();
+    await expect(row).toBeVisible({ timeout: 30000 });
+
+    const promoteResponse = page.waitForResponse((response) => response.url().includes('/api/admin/users/') && response.request().method() === 'PUT');
+    await row.getByLabel(`Role for ${name}`).selectOption('admin');
+    await expect((await promoteResponse).ok()).toBeTruthy();
+    await expect(row.getByLabel(`Role for ${name}`)).toHaveValue('admin');
+
     await deleteRowByText(page, name);
+  });
+
+  test('blocks demoting the last remaining admin from the users screen', async ({ page }) => {
+    await page.goto('/admin/users', { waitUntil: 'domcontentloaded' });
+
+    const row = page.locator('tr').filter({ hasText: 'mira.demo.admin@example.com' }).first();
+    await expect(row).toBeVisible({ timeout: 30000 });
+
+    const updateResponse = page.waitForResponse((response) => response.url().includes('/api/admin/users/') && response.request().method() === 'PUT');
+    await row.getByLabel('Role for Mira Admin').selectOption('user');
+    const response = await updateResponse;
+
+    expect(response.status()).toBe(409);
+    await expect(page.getByText('At least one admin must remain', { exact: true })).toBeVisible({ timeout: 30000 });
+    await expect(row.getByLabel('Role for Mira Admin')).toHaveValue('admin');
+  });
+
+  test('creates and deletes an agent from the admin agents screen', async ({ page }) => {
+    const suffix = uniqueSuffix();
+    const name = `Playwright Agent ${suffix}`;
+
+    await page.goto('/admin/agents', { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: 'Create agent', exact: true }).click();
+    await expect(page.getByText('Create a Mira worker', { exact: true })).toBeVisible({ timeout: 30000 });
+
+    const modal = page.locator('div').filter({ has: page.getByText('Create a Mira worker', { exact: true }) }).last();
+    await modal.locator('input[placeholder="Sarah\'s PM Agent"]').fill(name);
+    await modal.locator('input[type="password"]').fill(`sk-demo-${suffix}`);
+
+    const createResponse = page.waitForResponse((response) => response.url().includes('/api/admin/agents') && response.request().method() === 'POST');
+    await modal.getByRole('button', { name: 'Create agent', exact: true }).click();
+    await expect((await createResponse).ok()).toBeTruthy();
+
+    await expect(page.getByText(name, { exact: true })).toBeVisible({ timeout: 30000 });
+    await deleteCardByText(page, name);
   });
 
   test('creates and deletes a connector from the admin connectors screen', async ({ page }) => {
@@ -82,13 +124,12 @@ test.describe.serial('admin workflow coverage', () => {
     await expect(checkbox).toBeVisible({ timeout: 30000 });
 
     const original = await checkbox.isChecked();
-    const target = !original;
     const updateResponse = page.waitForResponse((response) => response.url().includes('/api/admin/tools/read') && response.request().method() === 'PUT');
     await checkbox.click();
     await expect((await updateResponse).ok()).toBeTruthy();
 
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await expect(page.getByLabel('Enable Read')).toHaveJSProperty('checked', target);
+    await expect(page.getByLabel('Enable Read')).toHaveJSProperty('checked', !original);
 
     const restoreResponse = page.waitForResponse((response) => response.url().includes('/api/admin/tools/read') && response.request().method() === 'PUT');
     await page.getByLabel('Enable Read').click();
@@ -117,5 +158,38 @@ test.describe.serial('admin workflow coverage', () => {
 
     await expect(page.getByText(name, { exact: true })).toBeVisible({ timeout: 30000 });
     await deleteCardByText(page, name);
+  });
+
+  test('saves admin settings and reloads persisted values', async ({ page }) => {
+    const suffix = uniqueSuffix();
+    const companyName = `Mira QA ${suffix}`;
+
+    await page.goto('/admin/settings', { waitUntil: 'domcontentloaded' });
+
+    const originalCompany = await page.getByLabel('Company name').inputValue();
+    const originalModel = await page.getByLabel('Default LLM model').inputValue();
+    const originalQueries = await page.locator('#max-queries').inputValue();
+
+    const saveResponse = page.waitForResponse((response) => response.url().includes('/api/admin/settings') && response.request().method() === 'PUT');
+    await page.getByLabel('Company name').fill(companyName);
+    await page.getByLabel('Default LLM model').selectOption('openai/gpt-4o');
+    await page.locator('#max-queries').fill('321');
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+    await expect((await saveResponse).ok()).toBeTruthy();
+    await expect(page.getByRole('button', { name: 'Saved', exact: true })).toBeVisible({ timeout: 30000 });
+
+    const reloadResponse = page.waitForResponse((response) => response.url().includes('/api/admin/settings') && response.request().method() === 'GET');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await reloadResponse;
+    await expect(page.getByLabel('Company name')).toHaveValue(companyName);
+    await expect(page.getByLabel('Default LLM model')).toHaveValue('openai/gpt-4o');
+    await expect(page.locator('#max-queries')).toHaveValue('321');
+
+    const restoreResponse = page.waitForResponse((response) => response.url().includes('/api/admin/settings') && response.request().method() === 'PUT');
+    await page.getByLabel('Company name').fill(originalCompany);
+    await page.getByLabel('Default LLM model').selectOption(originalModel);
+    await page.locator('#max-queries').fill(originalQueries);
+    await page.getByRole('button', { name: /Save changes|Saved/ }).click();
+    await expect((await restoreResponse).ok()).toBeTruthy();
   });
 });

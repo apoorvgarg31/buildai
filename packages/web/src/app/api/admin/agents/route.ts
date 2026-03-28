@@ -34,8 +34,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, userId, model, apiKey, connectionIds } = body;
     const settings = getAdminSettings();
-    const { userId: currentUserId } = await auth();
-    const assignedUserId = userId || currentUserId || undefined;
+    await auth();
+    const assignedUserId = typeof userId === 'string' && userId.trim().length > 0 ? userId : undefined;
     const effectiveModel = typeof model === 'string' && model.trim().length > 0 ? model : settings.defaultModel;
     const effectiveApiKey = typeof apiKey === 'string' && apiKey.trim().length > 0 ? apiKey : (settings.sharedApiKey || undefined);
     const maskedApiKey = maskSecret(effectiveApiKey);
