@@ -39,20 +39,24 @@ afterEach(() => {
 });
 
 describe('engine-config', () => {
-  it('writes provider-specific auth profiles for agent runtime use', async () => {
+  it.each([
+    { provider: 'google', model: 'google/gemini-2.0-flash', envVar: 'GEMINI_API_KEY', profile: 'google:default' },
+    { provider: 'anthropic', model: 'anthropic/claude-sonnet-4-20250514', envVar: 'ANTHROPIC_API_KEY', profile: 'anthropic:default' },
+    { provider: 'openai', model: 'openai/gpt-4o', envVar: 'OPENAI_API_KEY', profile: 'openai:default' },
+  ])('writes provider-specific auth profiles for $provider runtime use', async ({ model, envVar, profile, provider }) => {
     const { writeAgentAuthProfile } = await import('../src/lib/engine-config');
 
-    writeAgentAuthProfile('agent-1', 'openai/gpt-4o', 'shared-key');
+    writeAgentAuthProfile(`agent-${provider}`, model, 'shared-key');
 
-    const envPath = path.join(tmpRoot, 'data', 'agent-env', 'agent-1.env');
-    const authPath = path.join(tmpRoot, 'packages', 'engine', '.clawdbot-state', 'agents', 'agent-1', 'agent', 'auth-profiles.json');
+    const envPath = path.join(tmpRoot, 'data', 'agent-env', `agent-${provider}.env`);
+    const authPath = path.join(tmpRoot, 'packages', 'engine', '.clawdbot-state', 'agents', `agent-${provider}`, 'agent', 'auth-profiles.json');
 
-    expect(fs.readFileSync(envPath, 'utf-8')).toContain('OPENAI_API_KEY=shared-key');
+    expect(fs.readFileSync(envPath, 'utf-8')).toContain(`${envVar}=shared-key`);
 
     const auth = JSON.parse(fs.readFileSync(authPath, 'utf-8'));
-    expect(auth.profiles['openai:default']).toMatchObject({
+    expect(auth.profiles[profile]).toMatchObject({
       type: 'token',
-      provider: 'openai',
+      provider,
       token: 'shared-key',
     });
   });
