@@ -61,3 +61,5 @@ workspaces/*/
 !workspaces/templates/
 !workspaces/buildai-agent/
 .secrets/
+.clawdbot-state/
+test-results/

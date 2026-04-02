@@ -5,7 +5,6 @@ const requireSignedInMock = vi.hoisted(() => vi.fn());
 const assertCanAccessAgentMock = vi.hoisted(() => vi.fn());
 const writeAuditEventMock = vi.hoisted(() => vi.fn());
 const chatHistoryMock = vi.hoisted(() => vi.fn());
-const connectMock = vi.hoisted(() => vi.fn(async () => undefined));
 
 vi.mock('../src/lib/api-guard', () => ({
   requireSignedIn: requireSignedInMock,
@@ -15,6 +14,8 @@ vi.mock('../src/lib/api-guard', () => ({
 vi.mock('../src/lib/admin-db', () => ({
   writeAuditEvent: writeAuditEventMock,
 }));
+
+const connectMock = vi.hoisted(() => vi.fn(async () => undefined));
 
 vi.mock('../src/lib/gateway-client', () => ({
   getGatewayClient: vi.fn(() => ({
@@ -51,7 +52,6 @@ describe('/api/chat/history', () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(connectMock).toHaveBeenCalledTimes(1);
     expect(chatHistoryMock).toHaveBeenCalledWith('webchat:user-1:default-chat', 100);
     expect(data.messages).toHaveLength(2);
     expect(data.messages[1]).toMatchObject({

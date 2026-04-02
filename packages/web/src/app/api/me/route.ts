@@ -130,10 +130,9 @@ async function provisionMe(userId: string) {
     if (selectedAgentId) {
       db.prepare("UPDATE users SET agent_id = ?, updated_at = datetime('now') WHERE id = ?").run(selectedAgentId, userId);
     }
-
-    await syncRuntimeFromAdminState();
   }
 
+  await syncRuntimeFromAdminState();
   return readMeState(userId);
 }
 

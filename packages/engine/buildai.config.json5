@@ -81,52 +81,14 @@
       "enabled": true
     }
   },
-  "channels": {
-    "telegram": {
-      "enabled": false
-    },
-    "discord": {
-      "enabled": false
-    },
-    "whatsapp": {
-      "enabled": false
-    },
-    "slack": {
-      "enabled": false
-    },
-    "signal": {
-      "enabled": false
-    },
-    "imessage": {
-      "enabled": false
-    },
-    "line": {
-      "enabled": false
-    },
-    "googlechat": {
-      "enabled": false
-    },
-    "msteams": {
-      "enabled": false
-    }
-  },
+  "channels": {},
   "canvasHost": {
     "enabled": false
   },
   "gateway": {
-    "port": 18789,
+    "port": 18790,
     "mode": "local",
-    "bind": "loopback",
-    "auth": {
-      "mode": "none"
-    },
-    "controlUi": {
-      "allowedOrigins": [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000"
-      ],
-      "dangerouslyDisableDeviceAuth": true
-    }
+    "bind": "loopback"
   },
   "skills": {
     "allowBundled": [

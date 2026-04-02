@@ -1,12 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NextRequest } from 'next/server';
 
-const mockChatSendStream = vi.fn();
-const mockClient = {
-  isConnected: true,
-  connect: vi.fn(async () => undefined),
-  chatSendStream: mockChatSendStream,
-};
+const mockChatSendStream = vi.hoisted(() => vi.fn());
 
 vi.mock('../src/lib/api-guard', () => ({
   requireSignedIn: vi.fn(async () => ({
@@ -21,6 +16,13 @@ vi.mock('../src/lib/api-guard', () => ({
 vi.mock('../src/lib/admin-db', () => ({
   writeAuditEvent: vi.fn(),
 }));
+
+const mockClient = {
+  isConnected: true,
+  connect: vi.fn(async () => undefined),
+  chatSendStream: mockChatSendStream,
+  chatSend: vi.fn(async () => ({ response: 'ok', sessionKey: 'webchat:test' })),
+};
 
 vi.mock('../src/lib/gateway-client', () => ({
   getGatewayClient: vi.fn(() => mockClient),

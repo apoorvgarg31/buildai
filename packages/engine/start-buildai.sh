@@ -79,12 +79,10 @@ echo "   Memory:  ENABLED"
 echo "   Cron:    ENABLED"
 echo ""
 
-# Start the gateway (foreground)
-if command -v openclaw &>/dev/null; then
-  openclaw gateway run --port "$PORT"
-elif command -v npx &>/dev/null; then
-  npx openclaw gateway run --port "$PORT"
+# Start the gateway (foreground) using the repo-local CLI so BuildAI env/config isolation applies.
+if [[ -f "$SCRIPT_DIR/dist/entry.js" ]]; then
+  node "$SCRIPT_DIR/dist/entry.js" gateway run --port "$PORT" --token "$CLAWDBOT_GATEWAY_TOKEN"
 else
-  echo "❌ openclaw not found. Install with: npm install -g openclaw"
+  echo "❌ BuildAI engine entrypoint not found at $SCRIPT_DIR/dist/entry.js"
   exit 1
 fi

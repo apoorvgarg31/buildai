@@ -65,12 +65,22 @@ function removeIfExists(targetPath: string): void {
   fs.rmSync(targetPath, { recursive: true, force: true });
 }
 
+function getManagedAgentRoots(): string[] {
+  const roots = [
+    path.resolve(path.dirname(CONFIG_PATH), '.clawdbot-state'),
+    path.resolve(process.env.HOME || '', '.openclaw-buildai'),
+  ].filter(Boolean);
+  return Array.from(new Set(roots));
+}
+
 export function removeAgentAuthProfile(agentId: string): void {
   const envPath = path.resolve(path.dirname(CONFIG_PATH), `../../data/agent-env/${agentId}.env`);
   removeIfExists(envPath);
 
-  const agentStateDir = path.resolve(path.dirname(CONFIG_PATH), `.clawdbot-state/agents/${agentId}`);
-  removeIfExists(agentStateDir);
+  for (const root of getManagedAgentRoots()) {
+    const agentStateDir = path.join(root, 'agents', agentId);
+    removeIfExists(agentStateDir);
+  }
 }
 
 export function writeAgentAuthProfile(agentId: string, model: string, apiKey: string): void {
@@ -91,35 +101,36 @@ export function writeAgentAuthProfile(agentId: string, model: string, apiKey: st
   }
   fs.writeFileSync(envPath, envLines.join('\n') + '\n', 'utf-8');
 
-  const stateDir = path.resolve(path.dirname(CONFIG_PATH), '.clawdbot-state');
-  const authDir = path.join(stateDir, 'agents', agentId, 'agent');
-  const authPath = path.join(authDir, 'auth-profiles.json');
-  if (!fs.existsSync(authDir)) fs.mkdirSync(authDir, { recursive: true });
-
   type AuthFile = {
     version: number;
     profiles: Record<string, { type: string; provider: string; token?: string; access?: string; refresh?: string }>;
   };
 
-  let authFile: AuthFile = { version: 1, profiles: {} };
-  try {
-    if (fs.existsSync(authPath)) {
-      authFile = JSON.parse(fs.readFileSync(authPath, 'utf-8')) as AuthFile;
-      if (!authFile.version) authFile.version = 1;
-      if (!authFile.profiles) authFile.profiles = {};
+  for (const stateDir of getManagedAgentRoots()) {
+    const authDir = path.join(stateDir, 'agents', agentId, 'agent');
+    const authPath = path.join(authDir, 'auth-profiles.json');
+    if (!fs.existsSync(authDir)) fs.mkdirSync(authDir, { recursive: true });
+
+    let authFile: AuthFile = { version: 1, profiles: {} };
+    try {
+      if (fs.existsSync(authPath)) {
+        authFile = JSON.parse(fs.readFileSync(authPath, 'utf-8')) as AuthFile;
+        if (!authFile.version) authFile.version = 1;
+        if (!authFile.profiles) authFile.profiles = {};
+      }
+    } catch {
+      authFile = { version: 1, profiles: {} };
     }
-  } catch {
-    authFile = { version: 1, profiles: {} };
+
+    authFile.profiles[`${provider}:default`] = {
+      type: 'token',
+      provider,
+      token: apiKey,
+    };
+
+    fs.writeFileSync(authPath, JSON.stringify(authFile, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 });
+    console.log(`[engine-config] Wrote auth profile for agent ${agentId} (${provider}) → ${authPath}`);
   }
-
-  authFile.profiles[`${provider}:default`] = {
-    type: 'token',
-    provider,
-    token: apiKey,
-  };
-
-  fs.writeFileSync(authPath, JSON.stringify(authFile, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 });
-  console.log(`[engine-config] Wrote auth profile for agent ${agentId} (${provider}) → ${authPath}`);
 }
 
 /**

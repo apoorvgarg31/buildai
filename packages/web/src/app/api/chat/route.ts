@@ -204,6 +204,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     }
 
     const client = getGatewayClient();
+    await client.connect();
     const result = await client.chatSend(sessionKey, message);
 
     return NextResponse.json({
