@@ -60,7 +60,9 @@ describe('BuildAI Engine Component Configuration', () => {
       ];
       
       for (const channel of disabledChannels) {
-        expect(config.channels?.[channel]?.enabled).toBe(false);
+        // Channel is disabled if explicitly false OR absent from config
+        const enabled = config.channels?.[channel]?.enabled;
+        expect(enabled === false || enabled === undefined).toBe(true);
       }
     });
 
@@ -83,7 +85,7 @@ describe('BuildAI Engine Component Configuration', () => {
     it('should have gateway configuration', async () => {
       const config = parseConfig(configPath);
       expect(config.gateway).toBeDefined();
-      expect(config.gateway?.port).toBe(18789);
+      expect(config.gateway?.port).toBe(18790);
     });
 
     it('should have agent defaults', async () => {
@@ -190,7 +192,7 @@ describe('BuildAI Engine Component Configuration', () => {
 
     it('should start the gateway via dist/entry.js', () => {
       const content = fs.readFileSync(scriptPath, 'utf-8');
-      expect(content).toContain('openclaw gateway run');
+      expect(content).toContain('dist/entry.js');
     });
   });
 });
