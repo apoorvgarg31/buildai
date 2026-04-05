@@ -84,8 +84,20 @@ This document defines the release-grade test matrix for BuildAI. The goal is not
 | Marketplace install from user flow | `Covered` | `e2e/marketplace-preview.spec.ts` | Covers install, remove, and reinstall browser flow from the marketplace UI. |
 | Chat history persistence after refresh | `Covered` | `e2e/chat-history-preview.spec.ts` | Covers send, full page refresh, history reload under the scoped session key, and continued chat on the same thread. |
 
+## Live Engine Tests (No Mocks)
+
+| Test | Status | Coverage |
+| ------ | ------ | ------ |
+| Engine health check | `Covered` | `e2e/chat-engine-live.spec.ts` |
+| User provisioning + agent assignment | `Covered` | `e2e/chat-engine-live.spec.ts` |
+| Live chat send returns real engine response | `Covered` | `e2e/chat-engine-live.spec.ts` |
+| Chat history persists after send | `Covered` | `e2e/chat-engine-live.spec.ts` |
+| Cross-user session isolation | `Covered` | `e2e/chat-engine-live.spec.ts` |
+| Artifact generation per workspace | `Covered` | `e2e/chat-engine-live.spec.ts` |
+| Session context continuity (multi-turn) | `Covered` | `e2e/chat-engine-live.spec.ts` |
+
 ## Current Priority Gaps
 
-None in the current core release matrix. Remaining work is now provider breadth, live channel integrations, and higher-cost stress/live-environment validation rather than uncovered core product workflows.
+Remaining work: provider breadth, live channel integrations, and higher-cost stress/live-environment validation. Core workspace isolation, chat, history, and artifact tests are now covered by both mocked browser tests and live engine tests.
 
 This matrix is the release bar. New features should add or update the relevant rows before they are considered production-ready.
