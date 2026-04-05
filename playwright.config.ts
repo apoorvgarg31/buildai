@@ -43,6 +43,14 @@ export default defineConfig({
         storageState: adminAuthFile,
       },
     },
+    {
+      name: 'engine-live',
+      testMatch: /chat-engine-live\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: adminAuthFile,
+      },
+    },
   ],
   webServer: useExistingServer ? undefined : {
     command: 'npm run dev:web',
