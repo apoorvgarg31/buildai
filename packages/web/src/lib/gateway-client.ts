@@ -393,6 +393,8 @@ export class GatewayClient {
 
     const idempotencyKey = generateId();
     let fullMessage = '';
+    let resolvedSessionKey: string | null = null;
+    const startedAt = Date.now();
 
     return new Promise<{ response: string; sessionKey: string; usage?: Record<string, unknown> }>((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -400,26 +402,32 @@ export class GatewayClient {
         reject(new Error('Chat response timeout (120s)'));
       }, 120_000);
 
+      const matchesSession = (incomingSessionKey: string): boolean => {
+        if (incomingSessionKey === sessionKey) return true;
+        if (resolvedSessionKey && incomingSessionKey === resolvedSessionKey) return true;
+        if (!resolvedSessionKey && sessionKey.startsWith('agent:') && Date.now() - startedAt < 10_000) {
+          resolvedSessionKey = incomingSessionKey;
+          return true;
+        }
+        return false;
+      };
+
       // Listen for chat events for this session
       const unsubscribe = this.on('chat', (data: ChatEvent) => {
-        if (data.sessionKey !== sessionKey) return;
+        if (!matchesSession(data.sessionKey)) return;
 
         if (data.state === 'delta') {
-          // Gateway sends cumulative text in message.content[0].text
           const text = extractTextFromMessage(data.message);
           if (text) {
-            fullMessage = text; // Cumulative — replace, don't append
+            fullMessage = text;
           }
         } else if (data.state === 'final') {
           clearTimeout(timeout);
           unsubscribe();
-
-          // Extract final message text (prefer final message, fall back to accumulated)
           const finalText = extractTextFromMessage(data.message) || fullMessage;
-
           resolve({
             response: finalText || '(No response)',
-            sessionKey,
+            sessionKey: resolvedSessionKey || sessionKey,
             usage: data.usage || undefined,
           });
         } else if (data.state === 'error') {
@@ -433,11 +441,17 @@ export class GatewayClient {
         }
       });
 
-      // Send the chat.send request
       this.request('chat.send', {
         sessionKey,
         message,
         idempotencyKey,
+      }).then((payload) => {
+        if (payload && typeof payload === 'object') {
+          const maybeSessionKey = (payload as { sessionKey?: unknown }).sessionKey;
+          if (typeof maybeSessionKey === 'string' && maybeSessionKey.length > 0) {
+            resolvedSessionKey = maybeSessionKey;
+          }
+        }
       }).catch((err) => {
         clearTimeout(timeout);
         unsubscribe();
@@ -461,6 +475,8 @@ export class GatewayClient {
 
     const idempotencyKey = generateId();
     let fullMessage = '';
+    let resolvedSessionKey: string | null = null;
+    const startedAt = Date.now();
 
     return new Promise<{ response: string; sessionKey: string }>((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -491,14 +507,23 @@ export class GatewayClient {
         }
       };
 
+      const matchesSession = (incomingSessionKey: string): boolean => {
+        if (incomingSessionKey === sessionKey) return true;
+        if (resolvedSessionKey && incomingSessionKey === resolvedSessionKey) return true;
+        if (!resolvedSessionKey && sessionKey.startsWith('agent:') && Date.now() - startedAt < 10_000) {
+          resolvedSessionKey = incomingSessionKey;
+          return true;
+        }
+        return false;
+      };
+
       const unsubscribe = this.on('chat', (data: ChatEvent) => {
-        if (data.sessionKey !== sessionKey) return;
+        if (!matchesSession(data.sessionKey)) return;
 
         if (data.state === 'delta' && data.message) {
           emitSideEvents(data.message);
           const text = extractTextFromMessage(data.message);
           if (text) {
-            // Gateway sends cumulative text — track latest
             fullMessage = text;
             onDelta(text);
           }
@@ -507,7 +532,7 @@ export class GatewayClient {
           clearTimeout(timeout);
           unsubscribe();
           const finalText = extractTextFromMessage(data.message) || fullMessage || '(No response)';
-          resolve({ response: finalText, sessionKey });
+          resolve({ response: finalText, sessionKey: resolvedSessionKey || sessionKey });
         } else if (data.state === 'error') {
           clearTimeout(timeout);
           unsubscribe();
@@ -519,7 +544,14 @@ export class GatewayClient {
         }
       });
 
-      this.request('chat.send', { sessionKey, message, idempotencyKey }).catch((err) => {
+      this.request('chat.send', { sessionKey, message, idempotencyKey }).then((payload) => {
+        if (payload && typeof payload === 'object') {
+          const maybeSessionKey = (payload as { sessionKey?: unknown }).sessionKey;
+          if (typeof maybeSessionKey === 'string' && maybeSessionKey.length > 0) {
+            resolvedSessionKey = maybeSessionKey;
+          }
+        }
+      }).catch((err) => {
         clearTimeout(timeout);
         unsubscribe();
         reject(err);

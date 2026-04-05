@@ -64,7 +64,7 @@ export function loadOrCreateDeviceIdentity(): DeviceIdentity {
   return identity;
 }
 
-export function buildDeviceAuthPayloadV3(params: {
+export function buildDeviceAuthPayload(params: {
   deviceId: string;
   clientId: string;
   clientMode: string;
@@ -72,16 +72,13 @@ export function buildDeviceAuthPayloadV3(params: {
   scopes: string[];
   signedAtMs: number;
   token: string | null;
-  nonce: string;
-  platform: string;
-  deviceFamily?: string;
+  nonce?: string;
 }): string {
   const scopes = params.scopes.join(',');
   const token = params.token ?? '';
-  const platform = params.platform || '';
-  const deviceFamily = params.deviceFamily || '';
-  return [
-    'v3',
+  const version = params.nonce ? 'v2' : 'v1';
+  const base = [
+    version,
     params.deviceId,
     params.clientId,
     params.clientMode,
@@ -89,10 +86,11 @@ export function buildDeviceAuthPayloadV3(params: {
     scopes,
     String(params.signedAtMs),
     token,
-    params.nonce,
-    platform,
-    deviceFamily,
-  ].join('|');
+  ];
+  if (version === 'v2') {
+    base.push(params.nonce ?? '');
+  }
+  return base.join('|');
 }
 
 export function signPayload(privateKeyPem: string, payload: string): string {
@@ -116,7 +114,7 @@ export function buildDeviceConnectParams(nonce: string, token: string | null) {
   const clientMode = 'webchat';
   const platform = 'web';
 
-  const payload = buildDeviceAuthPayloadV3({
+  const payload = buildDeviceAuthPayload({
     deviceId: identity.deviceId,
     clientId,
     clientMode,
@@ -125,7 +123,6 @@ export function buildDeviceConnectParams(nonce: string, token: string | null) {
     signedAtMs,
     token,
     nonce,
-    platform,
   });
 
   const signature = signPayload(identity.privateKeyPem, payload);

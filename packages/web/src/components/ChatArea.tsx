@@ -30,26 +30,40 @@ function mergeAssistantContent(current: string, incoming: string): string {
   return sanitizeContent(`${current}${stripControlTokens(incoming)}`);
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function sendChatMessageStream(message: string, sessionId: string | null, onDelta: (text: string) => void, onThinking?: (text: string) => void, onTool?: (name: string) => void, onArtifacts?: (artifacts: Array<{ name: string; size: number; createdAt: string }>) => void): Promise<{ sessionId: string }> {
-  const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message, sessionId, stream: true }) });
-  if (!res.ok) { const error = await res.json().catch(() => ({ error: "Request failed" })); throw new Error(error.error || `HTTP ${res.status}`); }
-  const reader = res.body?.getReader(); if (!reader) throw new Error("No response body");
-  const decoder = new TextDecoder(); let buffer = ""; let returnedSessionId = sessionId || "";
-  while (true) {
-    const { done, value } = await reader.read(); if (done) break;
-    buffer += decoder.decode(value, { stream: true }); const lines = buffer.split("\n"); buffer = lines.pop() || "";
-    for (const line of lines) {
-      if (!line.startsWith("data: ")) continue;
-      const data = JSON.parse(line.slice(6));
-      if (data.type === "delta" && data.text) onDelta(data.text);
-      else if (data.type === "thinking" && data.text && onThinking) onThinking(data.text);
-      else if (data.type === "tool" && data.name && onTool) onTool(data.name);
-      else if (data.type === "artifacts" && Array.isArray(data.artifacts) && onArtifacts) onArtifacts(data.artifacts);
-      else if (data.type === "done") returnedSessionId = data.sessionId || returnedSessionId;
-      else if (data.type === "error") throw new Error(data.message || "Stream error");
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, sessionId, stream: false }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: "Request failed" }));
+    throw new Error(error.error || `HTTP ${res.status}`);
+  }
+
+  const data = await res.json().catch(() => ({}));
+  const finalText = typeof data.response === "string" ? data.response : "";
+  if (finalText) onDelta(finalText);
+
+  if (onArtifacts && sessionId?.startsWith("agent:")) {
+    const agentId = sessionId.split(":")[1];
+    if (agentId) {
+      try {
+        const artifactsRes = await fetch(`/api/artifacts?agentId=${encodeURIComponent(agentId)}`);
+        if (artifactsRes.ok) {
+          const artifacts = await artifactsRes.json();
+          if (Array.isArray(artifacts)) onArtifacts(artifacts);
+        }
+      } catch {}
     }
   }
-  return { sessionId: returnedSessionId };
+
+  return { sessionId: typeof data.sessionId === "string" ? data.sessionId : (sessionId || "") };
 }
 
 interface ChatAreaProps { agentId?: string; }
@@ -77,7 +91,17 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
   useEffect(() => {
     if (!agentId) return;
     const expectedPrefix = `agent:${agentId}:webchat:`;
-    if (!sessionId || !sessionId.startsWith(expectedPrefix)) {
+    if (!sessionId) {
+      setSessionId(`agent:${agentId}:webchat:default`);
+      setHasOnboarded(false);
+      setMessages([]);
+      setCompactionHint('');
+      return;
+    }
+
+    // Allow canonical persisted session keys (UUIDs) returned by chat history.
+    // Only reset when we still have an agent-prefixed session for the wrong agent.
+    if (sessionId.startsWith('agent:') && !sessionId.startsWith(expectedPrefix)) {
       setSessionId(`agent:${agentId}:webchat:default`);
       setHasOnboarded(false);
       setMessages([]);
@@ -85,20 +109,53 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
     }
   }, [agentId, sessionId]);
   useEffect(() => { if (agentId) fetch(`/api/artifacts?agentId=${encodeURIComponent(agentId)}`).then((res) => (res.ok ? res.json() : [])).then((data) => { if (Array.isArray(data)) setArtifacts(data); }).catch(() => undefined); }, [agentId]);
+  const fetchHistory = useCallback(async (targetSessionId: string | null) => {
+    if (!targetSessionId) {
+      return { sessionKey: null, messages: [] as Array<{ id: string; role: "user" | "assistant"; content: string; timestamp: string }> };
+    }
+    const res = await fetch(`/api/chat/history?sessionId=${encodeURIComponent(targetSessionId)}`);
+    const data = await res.json();
+    const normalizedMessages = Array.isArray(data.messages)
+      ? data.messages.map((m: { id: string; role: "user" | "assistant"; content: string; timestamp: string }) => ({
+          id: m.id,
+          role: m.role,
+          content: m.role === "assistant" ? sanitizeContent(m.content) : m.content,
+          timestamp: m.timestamp,
+        }))
+      : [];
+    return {
+      sessionKey: typeof data.sessionKey === "string" && data.sessionKey.length > 0 ? data.sessionKey : targetSessionId,
+      messages: normalizedMessages,
+    };
+  }, []);
+
+  const applyHistory = useCallback((history: { sessionKey: string | null; messages: Array<{ id: string; role: "user" | "assistant"; content: string; timestamp: string }> }) => {
+    if (history.sessionKey && history.sessionKey.length > 0) setSessionId(history.sessionKey);
+    if (history.messages.length > 0) {
+      setMessages(history.messages.map((m) => ({ ...m, timestamp: new Date(m.timestamp) })));
+      if (history.messages.length >= 95) setCompactionHint("Older context may be compacted by the engine to keep chat fast.");
+      else setCompactionHint("");
+    } else {
+      setMessages([]);
+      setCompactionHint("");
+    }
+  }, []);
+
+  const loadHistory = useCallback(async (targetSessionId: string | null) => {
+    if (!targetSessionId) {
+      setMessages([]);
+      setCompactionHint('');
+      return;
+    }
+    const history = await fetchHistory(targetSessionId);
+    applyHistory(history);
+  }, [fetchHistory, applyHistory]);
+
   useEffect(() => {
     if (hasOnboarded) return; setHasOnboarded(true);
     if (!sessionId) { setMessages([]); return; }
-    fetch(`/api/chat/history?sessionId=${encodeURIComponent(sessionId)}`).then((res) => res.json()).then((data) => {
-      if (typeof data.sessionKey === "string" && data.sessionKey.length > 0) setSessionId(data.sessionKey);
-      if (data.messages?.length > 0) {
-        setMessages(data.messages.map((m: { id: string; role: "user" | "assistant"; content: string; timestamp: string }) => ({ id: m.id, role: m.role, content: m.role === "assistant" ? sanitizeContent(m.content) : m.content, timestamp: new Date(m.timestamp) })));
-        if (data.messages.length >= 95) setCompactionHint("Older context may be compacted by the engine to keep chat fast.");
-      } else {
-        setMessages([]);
-        setCompactionHint("");
-      }
-    }).catch(() => { setMessages([]); setCompactionHint(""); });
-  }, [hasOnboarded, sessionId]);
+    loadHistory(sessionId).catch(() => { setMessages([]); setCompactionHint(""); });
+  }, [hasOnboarded, sessionId, loadHistory]);
 
   const uploadFile = useCallback(async (file: File) => {
     if (!agentId) return;
@@ -136,6 +193,9 @@ export default function ChatArea({ agentId }: ChatAreaProps) {
       if (result.sessionId) setSessionId(result.sessionId);
     } catch (err) {
       setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: `Warning: ${err instanceof Error ? err.message : "Failed to get response"}. Please try again.`, isThinking: false } : m));
+      try {
+        await sleep(1200);
+      } catch {}
     } finally { setIsLoading(false); setIsStreaming(false); setThinkingPreview(""); setActiveTools([]); }
   }, [sessionId, documents, knownFileNames]);
 

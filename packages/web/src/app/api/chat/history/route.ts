@@ -31,9 +31,14 @@ function resolveAgentScopedWebchatSession(sessionKey: string, userId: string): s
   return `agent:${agentId}:webchat:${userId}:${tail.join(':') || 'default'}`;
 }
 
+function isCanonicalSessionKey(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+}
+
 function resolveSessionKey(sessionId: string, userId: string): string {
   const raw = (sessionId || '').trim();
   if (!raw) return '';
+  if (isCanonicalSessionKey(raw)) return raw;
   if (raw.startsWith('agent:')) return resolveAgentScopedWebchatSession(raw, userId);
   if (raw.startsWith('webchat:')) {
     const parts = raw.split(':');
@@ -70,7 +75,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         });
         return apiError('forbidden_session', 'Forbidden', 403, { reason: 'SESSION_OWNERSHIP_VIOLATION' });
       }
-    } else if (!sessionKey.startsWith(`webchat:${actor.userId}:`)) {
+    } else if (!isCanonicalSessionKey(sessionKey) && !sessionKey.startsWith(`webchat:${actor.userId}:`)) {
       writeAuditEvent({
         actorUserId: actor.userId,
         action: 'chat.history.denied',

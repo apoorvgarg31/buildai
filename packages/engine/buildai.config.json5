@@ -7,30 +7,40 @@
       "model": {
         "primary": "google/gemini-2.0-flash"
       },
-      "workspace": "../../workspaces/buildai-agent",
+      "workspace": "/home/apoorvgarg/buildai/workspaces/buildai-agent",
       "thinkingDefault": "off",
       "maxConcurrent": 4,
       "subagents": {
         "maxConcurrent": 8
+      },
+      "sandbox": {
+        "mode": "all",
+        "scope": "agent",
+        "workspaceAccess": "rw"
       }
     },
     "list": [
       {
         "id": "sarah-pm-agent",
         "name": "Sarah PM Agent",
-        "workspace": "../../workspaces/sarah-pm-agent",
+        "workspace": "/home/apoorvgarg/buildai/workspaces/sarah-pm-agent",
         "model": {
           "primary": "google/gemini-2.0-flash"
         },
         "identity": {
           "name": "BuildAI",
           "emoji": "🏗️"
+        },
+        "sandbox": {
+          "mode": "all",
+          "scope": "agent",
+          "workspaceAccess": "rw"
         }
       },
       {
         "id": "jarvis2",
         "name": "Jarvis2",
-        "workspace": "../../workspaces/jarvis2",
+        "workspace": "/home/apoorvgarg/buildai/workspaces/jarvis2",
         "model": {
           "primary": "google/gemini-2.0-flash"
         },
@@ -45,12 +55,17 @@
             "end": "19:00"
           },
           "prompt": "Read HEARTBEAT.md. Run the monitoring checks using available skills. If any issues found, write alerts to ACTIVE.md. If nothing needs attention, reply HEARTBEAT_OK."
+        },
+        "sandbox": {
+          "mode": "all",
+          "scope": "agent",
+          "workspaceAccess": "rw"
         }
       },
       {
-        "id": "mira-admin-assistant-6dhltl",
+        "id": "mira-admin-assistant-user-3bpf8q77vo8bmnvlhvsj46dhltl",
         "name": "Mira Admin Assistant",
-        "workspace": "../../workspaces/mira-admin-assistant-6dhltl",
+        "workspace": "/home/apoorvgarg/buildai/workspaces/mira-admin-assistant-user-3bpf8q77vo8bmnvlhvsj46dhltl",
         "model": {
           "primary": "google/gemini-2.0-flash"
         },
@@ -65,6 +80,36 @@
             "end": "19:00"
           },
           "prompt": "Read HEARTBEAT.md. Run the monitoring checks using available skills. If any issues found, write alerts to ACTIVE.md. If nothing needs attention, reply HEARTBEAT_OK."
+        },
+        "sandbox": {
+          "mode": "all",
+          "scope": "agent",
+          "workspaceAccess": "rw"
+        }
+      },
+      {
+        "id": "apoorv-garg-assistant-user-39ojpnxebngefkewted749qmtlb",
+        "name": "Apoorv Garg Assistant",
+        "workspace": "/home/apoorvgarg/buildai/workspaces/apoorv-garg-assistant-user-39ojpnxebngefkewted749qmtlb",
+        "model": {
+          "primary": "google/gemini-2.0-flash"
+        },
+        "identity": {
+          "name": "BuildAI",
+          "emoji": "🏗️"
+        },
+        "heartbeat": {
+          "every": "30m",
+          "activeHours": {
+            "start": "07:00",
+            "end": "19:00"
+          },
+          "prompt": "Read HEARTBEAT.md. Run the monitoring checks using available skills. If any issues found, write alerts to ACTIVE.md. If nothing needs attention, reply HEARTBEAT_OK."
+        },
+        "sandbox": {
+          "mode": "all",
+          "scope": "agent",
+          "workspaceAccess": "rw"
         }
       }
     ]
@@ -121,5 +166,36 @@
   "meta": {
     "lastTouchedVersion": "2026.1.24-3",
     "lastTouchedAt": "2026-02-17T10:32:00.198Z"
+  },
+  "tools": {
+    "allow": [
+      "write",
+      "edit",
+      "apply_patch",
+      "exec",
+      "process",
+      "web_fetch",
+      "web_search",
+      "sessions_list",
+      "sessions_history",
+      "sessions_send",
+      "sessions_spawn",
+      "session_status"
+    ],
+    "deny": [
+      "read",
+      "browser",
+      "canvas",
+      "nodes",
+      "cron",
+      "message",
+      "tts",
+      "gateway",
+      "agents_list",
+      "image"
+    ],
+    "elevated": {
+      "enabled": false
+    }
   }
 }

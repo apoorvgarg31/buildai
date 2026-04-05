@@ -46,15 +46,20 @@ function resolveAgentScopedWebchatSession(sessionKey: string, userId: string): s
   return `agent:${agentId}:webchat:${userId}:${tail.join(':') || 'default'}`;
 }
 
+function isCanonicalSessionKey(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+}
+
 function resolveSessionKey(rawSessionId: string | undefined, userId: string): string {
   const id = (rawSessionId || '').trim();
   if (!id) return `webchat:${userId}:${randomSuffix()}`;
+
+  if (isCanonicalSessionKey(id)) return id;
 
   // Keep explicit engine session keys if provided, but normalize generic webchat ids
   if (id.startsWith('agent:')) return resolveAgentScopedWebchatSession(id, userId);
   if (id.startsWith('webchat:')) {
     const parts = id.split(':');
-    // Force webchat sessions into per-user namespace to block cross-user/session abuse
     if (parts.length >= 3) {
       return parts[1] === userId ? id : `webchat:${userId}:${parts.slice(2).join(':')}`;
     }
@@ -82,7 +87,10 @@ function canUseSessionKey(sessionKey: string, actor: Awaited<ReturnType<typeof r
     }
   }
 
-  // webchat sessions are strictly namespaced per user
+  if (isCanonicalSessionKey(sessionKey)) {
+    return true;
+  }
+
   return sessionKey.startsWith(`webchat:${actor.userId}:`);
 }
 

@@ -10,6 +10,16 @@ import { execSync } from 'child_process';
 const CONFIG_PATH = path.resolve(
   process.env.BUILDAI_ENGINE_CONFIG || path.join(process.cwd(), '../../packages/engine/buildai.config.json5')
 );
+const WORKSPACES_BASE = path.resolve(process.cwd(), '../../workspaces');
+
+function normalizeWorkspacePath(workspace: string): string {
+  if (!workspace) return workspace;
+  if (path.isAbsolute(workspace)) return workspace;
+  if (workspace.startsWith('../../workspaces/')) {
+    return path.join(WORKSPACES_BASE, workspace.slice('../../workspaces/'.length));
+  }
+  return path.resolve(workspace);
+}
 
 interface AgentEntry {
   id: string;
@@ -149,14 +159,14 @@ export async function addAgentToConfig(
   const existing = config.agents.list.find(a => a.id === agentId);
   if (existing) {
     // Update existing
-    existing.workspace = opts.workspace;
+    existing.workspace = normalizeWorkspacePath(opts.workspace);
     if (opts.model) existing.model = { primary: opts.model };
     if (opts.name) existing.name = opts.name;
   } else {
     const entry: AgentEntry = {
       id: agentId,
       name: opts.name,
-      workspace: opts.workspace,
+      workspace: normalizeWorkspacePath(opts.workspace),
       model: { primary: opts.model || 'google/gemini-2.0-flash' },
       identity: { name: 'BuildAI', emoji: '🏗️' },
       heartbeat: {

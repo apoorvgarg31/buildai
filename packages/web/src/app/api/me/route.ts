@@ -17,6 +17,16 @@ type MeRow = {
   agent_id: string | null;
 };
 
+type WorkspaceProvisionProfile = {
+  userId: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'user';
+  title?: string;
+  timezone?: string;
+  preferredSalutation?: string;
+};
+
 async function getUserProfile(userId: string): Promise<MeRow | null> {
   const { getDb } = await import('@/lib/admin-db-server');
   const db = getDb();
@@ -60,11 +70,25 @@ async function readMeState(userId: string) {
   };
 }
 
+async function buildWorkspaceProvisionProfile(userId: string, row: MeRow): Promise<WorkspaceProvisionProfile> {
+  const clerkUser = await currentUser();
+  const metadata = clerkUser?.publicMetadata as Record<string, unknown> | undefined;
+  return {
+    userId,
+    name: row.name,
+    email: row.email,
+    role: row.role === 'admin' ? 'admin' : 'user',
+    title: typeof metadata?.title === 'string' ? metadata.title : (row.role === 'admin' ? 'Administrator' : 'Project Manager'),
+    timezone: typeof metadata?.timezone === 'string' ? metadata.timezone : undefined,
+    preferredSalutation: typeof metadata?.preferredSalutation === 'string' ? metadata.preferredSalutation : row.name,
+  };
+}
+
 async function provisionMe(userId: string) {
   const { getDb } = await import('@/lib/admin-db-server');
   const { createAgent } = await import('@/lib/admin-db');
   const { getAdminSettings } = await import('@/lib/admin-settings');
-  const { provisionWorkspace, workspaceExists } = await import('@/lib/workspace-provisioner');
+  const { getWorkspaceDir, provisionWorkspace, syncWorkspaceProfile, workspaceExists } = await import('@/lib/workspace-provisioner');
   const { addAgentToConfig } = await import('@/lib/engine-config');
   const { syncRuntimeFromAdminState } = await import('@/lib/runtime-sync');
 
@@ -101,9 +125,11 @@ async function provisionMe(userId: string) {
       const agentIdBase = normalizeSlug(`${row.name || 'user'}-assistant-${userId}`) || `agent-${normalizeSlug(userId) || 'user'}`;
       const agentDisplayName = `${row.name || 'Personal'} Assistant`;
 
+      const workspaceProfile = await buildWorkspaceProvisionProfile(userId, row);
       const workspaceDir = workspaceExists(agentIdBase)
-        ? `../../workspaces/${agentIdBase}`
-        : await provisionWorkspace(agentIdBase);
+        ? getWorkspaceDir(agentIdBase)
+        : await provisionWorkspace(agentIdBase, workspaceProfile);
+      syncWorkspaceProfile(agentIdBase, workspaceProfile);
 
       await addAgentToConfig(agentIdBase, {
         name: agentDisplayName,

@@ -43,3 +43,4 @@ bash skills/buildai-database/query.sh "SELECT * FROM projects LIMIT 5"
 - Never fabricate data; confirm first if data is missing.
 - Never expose credentials or internal paths.
 - Be proactive: flag issues, suggest actions, demonstrate value.
+- In direct webchat conversations, always answer the user normally. Do **not** reply with `NO_REPLY` or `HEARTBEAT_OK`.

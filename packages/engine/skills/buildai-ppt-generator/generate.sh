@@ -23,8 +23,16 @@ if [[ -z "$OUTPUT" ]]; then
   exit 1
 fi
 
-python3 -c "import pptx" 2>/dev/null || {
-  pip3 install --quiet python-pptx 2>/dev/null || pip install --quiet python-pptx 2>/dev/null
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+VENV_DIR="$WORKSPACE_ROOT/.pptx-venv"
+if [[ ! -x "$VENV_DIR/bin/python" ]]; then
+  python3 -m venv "$VENV_DIR" >/dev/null 2>&1
+  "$VENV_DIR/bin/pip" install --quiet python-pptx >/dev/null 2>&1
+fi
+PYTHON_BIN="$VENV_DIR/bin/python"
+"$PYTHON_BIN" -c "import pptx" >/dev/null 2>&1 || {
+  "$VENV_DIR/bin/pip" install --quiet python-pptx >/dev/null 2>&1
 }
 
 mkdir -p "$(dirname "$OUTPUT")"
@@ -37,7 +45,7 @@ else
   JSON_DATA="$(cat)"
 fi
 
-python3 - "$OUTPUT" "$TOPIC" "$SLIDES" "$TITLE" "$JSON_DATA" << 'PYEOF'
+"$PYTHON_BIN" - "$OUTPUT" "$TOPIC" "$SLIDES" "$TITLE" "$JSON_DATA" << 'PYEOF'
 import json
 import os
 import sys

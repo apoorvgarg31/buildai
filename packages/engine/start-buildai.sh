@@ -10,15 +10,48 @@ PORT="${1:-18789}"
 # Source BuildAI environment overrides
 source "$SCRIPT_DIR/.env.buildai"
 
+# Prefer local user binaries (BuildAI docker shim lives here for sandbox-on local runs)
+export PATH="$HOME/bin:$PATH"
+
+# Keep gateway auth token aligned with the frontend's BUILDAI_GATEWAY_TOKEN when present.
+WEB_ENV_PATH="$SCRIPT_DIR/../web/.env.local"
+if [[ -f "$WEB_ENV_PATH" ]]; then
+  web_token=$(grep -E '^BUILDAI_GATEWAY_TOKEN=' "$WEB_ENV_PATH" | head -n1 | cut -d'=' -f2- || true)
+  web_token="${web_token%$'\r'}"
+  web_token="${web_token%\"}"
+  web_token="${web_token#\"}"
+  web_token="${web_token%\'}"
+  web_token="${web_token#\'}"
+  if [[ -n "$web_token" ]]; then
+    export CLAWDBOT_GATEWAY_TOKEN="$web_token"
+  fi
+fi
+
 # Point to BuildAI config (prefer local override file when present)
 DEFAULT_CONFIG_PATH="$SCRIPT_DIR/buildai.config.json5"
 LOCAL_CONFIG_PATH="$SCRIPT_DIR/buildai.config.local.json5"
+RUNTIME_CONFIG_PATH="$SCRIPT_DIR/buildai.config.runtime.json5"
 
 if [[ -f "$LOCAL_CONFIG_PATH" ]]; then
-  export CLAWDBOT_CONFIG_PATH="$LOCAL_CONFIG_PATH"
+  BASE_CONFIG_PATH="$LOCAL_CONFIG_PATH"
 else
-  export CLAWDBOT_CONFIG_PATH="$DEFAULT_CONFIG_PATH"
+  BASE_CONFIG_PATH="$DEFAULT_CONFIG_PATH"
 fi
+
+# Keep gateway.remote.token aligned too, so local loopback CLI/subagent paths authenticate.
+python3 - <<PY
+import json
+from pathlib import Path
+base = Path(${BASE_CONFIG_PATH@Q})
+out = Path(${RUNTIME_CONFIG_PATH@Q})
+cfg = json.loads(base.read_text())
+gw = cfg.setdefault('gateway', {})
+remote = gw.setdefault('remote', {})
+remote['token'] = ${CLAWDBOT_GATEWAY_TOKEN@Q}
+out.write_text(json.dumps(cfg, indent=2))
+print(out)
+PY
+export CLAWDBOT_CONFIG_PATH="$RUNTIME_CONFIG_PATH"
 
 # Seed auth profiles for local BuildAI agents so UI works out-of-the-box.
 # This copies an existing auth-profiles.json from a known main-agent location
