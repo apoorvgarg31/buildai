@@ -30,15 +30,15 @@ function parseAgentIdFromSessionKey(sessionKey: string): string | null {
   return m?.[1] || null;
 }
 
-function resolveAgentScopedWebchatSession(sessionKey: string, userId: string): string {
+function resolveAgentScopedWebchatSession(sessionKey: string, userId: string, actorAgentId?: string | null): string {
   const parts = sessionKey.split(':');
   if (parts.length < 3 || parts[0] !== 'agent') return sessionKey;
   if (parts[2] !== 'webchat') return sessionKey;
 
-  const agentId = parts[1];
+  const agentId = actorAgentId?.trim() || parts[1];
   const tail = parts.slice(3);
   if (tail.length >= 2) {
-    return tail[0] === userId
+    return tail[0] === userId && agentId === parts[1]
       ? sessionKey
       : `agent:${agentId}:webchat:${userId}:${tail.slice(1).join(':') || 'default'}`;
   }
@@ -50,14 +50,14 @@ function isCanonicalSessionKey(id: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 }
 
-function resolveSessionKey(rawSessionId: string | undefined, userId: string): string {
+function resolveSessionKey(rawSessionId: string | undefined, userId: string, actorAgentId?: string | null): string {
   const id = (rawSessionId || '').trim();
   if (!id) return `webchat:${userId}:${randomSuffix()}`;
 
   if (isCanonicalSessionKey(id)) return id;
 
   // Keep explicit engine session keys if provided, but normalize generic webchat ids
-  if (id.startsWith('agent:')) return resolveAgentScopedWebchatSession(id, userId);
+  if (id.startsWith('agent:')) return resolveAgentScopedWebchatSession(id, userId, actorAgentId);
   if (id.startsWith('webchat:')) {
     const parts = id.split(':');
     if (parts.length >= 3) {
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       return apiError('validation_error', 'Message too long (max 10000 characters)', 400);
     }
 
-    const sessionKey = resolveSessionKey(body.sessionId, actor.userId);
+    const sessionKey = resolveSessionKey(body.sessionId, actor.userId, actor.agentId);
     if (!canUseSessionKey(sessionKey, actor)) {
       writeAuditEvent({
         actorUserId: actor.userId,

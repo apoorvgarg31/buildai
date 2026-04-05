@@ -32,13 +32,20 @@ setup('authenticate admin user', async ({ page }) => {
   fs.mkdirSync(path.dirname(authFile), { recursive: true });
 
   await page.goto('/sign-in', { waitUntil: 'domcontentloaded' });
-  await expect(page.getByText('Email address')).toBeVisible({ timeout: 30000 });
+
+  // Step 1: Enter email
+  await expect(page.getByText('Email address').or(page.getByText('email', { exact: false }).first())).toBeVisible({ timeout: 30000 });
 
   await fillFirstVisible(page, [
     'input[name="identifier"]',
     'input[type="email"]',
     'input[autocomplete="username"]',
   ], email);
+
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+
+  // Step 2: Enter password (Clerk redirects to factor-one)
+  const passwordInput = await expect(page.locator('input[type="password"]').first()).toBeVisible({ timeout: 15000 });
 
   await fillFirstVisible(page, [
     'input[name="password"]',
@@ -47,9 +54,13 @@ setup('authenticate admin user', async ({ page }) => {
   ], password);
 
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
-  await page.waitForURL((url) => !url.pathname.startsWith('/sign-in'), { timeout: 30000 });
+
+  // Step 3: Wait for successful redirect to app
+  await page.waitForURL((url) => url.pathname !== '/sign-in' && !url.pathname.startsWith('/sign-in/factor'), { timeout: 30000 });
+
+  // Navigate to admin dashboard and verify
   await page.goto('/admin/dashboard', { waitUntil: 'domcontentloaded' });
-  await expect(page.getByRole('heading', { name: 'Admin command', exact: true })).toBeVisible({ timeout: 30000 });
+  await expect(page.getByRole('heading', { name: 'Admin command' })).toBeVisible({ timeout: 15000 });
 
   await page.context().storageState({ path: authFile });
 });

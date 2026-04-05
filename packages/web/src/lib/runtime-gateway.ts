@@ -8,6 +8,8 @@ export type ChatStreamSideEvent =
 
 function ensureBuildaiGatewayEnv(): void {
   process.env.CLAWDBOT_PROFILE ??= 'buildai';
+  process.env.BUILDAI_GATEWAY_URL ??= 'ws://localhost:18790';
+  process.env.BUILDAI_GATEWAY_TOKEN ??= 'buildai-dev-token-2026';
 }
 
 export async function requestRuntimeGateway(method: string, params?: GatewayParams): Promise<unknown> {

@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const systems = (body.systems || []).map((s) => String(s).trim()).filter(Boolean);
     const pains = (body.painPoints || []).map((p) => String(p).trim()).filter(Boolean);
 
-    const script = path.resolve(process.cwd(), '../../engine/skills/buildai-skill-discovery/recommend.py');
+    const script = path.resolve(process.cwd(), '../engine/skills/buildai-skill-discovery/recommend.py');
 
     const args = [
       script,
